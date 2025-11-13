@@ -35,8 +35,8 @@ class OscilloscopeGUI:
         
         # Live preview state
         self.preview_position = 0
-        self.preview_window_size = 500  # Number of samples to show at once
-        self.preview_active = False
+        self.preview_window_size = 1000  # Number of samples to show at once
+        self.preview_active = True  # Enable by default
         
         # Create GUI
         self.create_widgets()
@@ -284,10 +284,31 @@ class OscilloscopeGUI:
         
         # Live Preview Toggle
         ttk.Separator(status_frame, orient='horizontal').pack(fill=tk.X, pady=5)
-        self.live_preview_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(status_frame, text="Live Preview (matches audio output)", 
+
+        ttk.Label(status_frame, text="Display Mode:",
+                 font=('Arial', 9, 'bold')).pack(anchor=tk.W, pady=(5,2))
+
+        self.live_preview_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(status_frame, text="Live Preview",
                        variable=self.live_preview_var,
                        command=self.toggle_live_preview).pack(anchor=tk.W)
+
+        ttk.Label(status_frame, text="Shows real-time output during playback",
+                 font=('Arial', 7, 'italic'),
+                 foreground='gray').pack(anchor=tk.W, padx=(20,0))
+
+        # Preview window size control
+        preview_control_frame = ttk.Frame(status_frame)
+        preview_control_frame.pack(fill=tk.X, pady=(5,0))
+        ttk.Label(preview_control_frame, text="Window Size:",
+                 font=('Arial', 8)).pack(side=tk.LEFT, padx=(15,5))
+        self.preview_size_var = tk.IntVar(value=1000)
+        preview_size_spin = ttk.Spinbox(preview_control_frame, from_=100, to=10000,
+                                       width=8, textvariable=self.preview_size_var,
+                                       command=self.update_preview_size)
+        preview_size_spin.pack(side=tk.LEFT)
+        ttk.Label(preview_control_frame, text="samples",
+                 font=('Arial', 8)).pack(side=tk.LEFT, padx=(5,0))
     
     def create_display(self, parent):
         """Create matplotlib display"""
@@ -422,56 +443,57 @@ class OscilloscopeGUI:
         self.preview_active = self.live_preview_var.get()
         if self.preview_active:
             self.preview_position = 0
+        else:
+            # Return to static preview when disabled
+            self.update_display()
+
+    def update_preview_size(self):
+        """Update preview window size"""
+        self.preview_window_size = self.preview_size_var.get()
     
     def update_live_preview(self):
         """Update display to show current audio output position"""
         if self.preview_active and self.is_playing and self.current_audio is not None:
             try:
-                # Calculate approximate playback position
                 import time
                 if hasattr(self, 'playback_start_time'):
+                    # Calculate current playback position
                     elapsed = time.time() - self.playback_start_time
                     sample_position = int(elapsed * self.current_fs)
-                    
-                    # Wrap around if we exceed audio length
-                    if sample_position >= len(self.current_audio):
-                        sample_position = sample_position % len(self.current_audio)
-                    
-                    # Extract window of samples to display (moving window)
-                    window_half = self.preview_window_size // 2
-                    window_start = max(0, sample_position - window_half)
-                    window_end = min(len(self.current_audio), sample_position + window_half)
-                    
-                    # Make sure we have enough samples
-                    if window_end - window_start < 50:
-                        window_end = min(len(self.current_audio), window_start + self.preview_window_size)
-                    
-                    if window_end > window_start:
+
+                    # Wrap around if we exceed audio length (looping)
+                    total_samples = len(self.current_audio)
+                    if sample_position >= total_samples:
+                        sample_position = sample_position % total_samples
+                        # Update start time for smoother looping
+                        self.playback_start_time = time.time() - (sample_position / self.current_fs)
+
+                    # Calculate window bounds - centered on current position
+                    window_size = self.preview_window_size
+                    window_start = sample_position
+                    window_end = min(total_samples, window_start + window_size)
+
+                    # Ensure we have enough samples
+                    if window_end - window_start < window_size and window_end < total_samples:
+                        window_end = min(total_samples, window_start + window_size)
+
+                    if window_end > window_start and window_end - window_start >= 10:
                         # Get the windowed data
                         x_preview = self.current_audio[window_start:window_end, 0]
                         y_preview = self.current_audio[window_start:window_end, 1]
-                        
+
                         # Update plot
                         self.line.set_data(x_preview, y_preview)
-                        
-                        # Auto-scale to current window
-                        if len(x_preview) > 0:
-                            margin = 0.1
-                            x_range = [x_preview.min() - margin, x_preview.max() + margin]
-                            y_range = [y_preview.min() - margin, y_preview.max() + margin]
-                            
-                            max_range = max(x_range[1] - x_range[0], y_range[1] - y_range[0])
-                            center_x = (x_range[0] + x_range[1]) / 2
-                            center_y = (y_range[0] + y_range[1]) / 2
-                            
-                            self.ax.set_xlim(center_x - max_range/2, center_x + max_range/2)
-                            self.ax.set_ylim(center_y - max_range/2, center_y + max_range/2)
-                        
+
+                        # Keep consistent axis limits for smooth viewing
+                        self.ax.set_xlim(-1.2, 1.2)
+                        self.ax.set_ylim(-1.2, 1.2)
+
                         self.canvas.draw_idle()
             except Exception as e:
                 pass  # Silently ignore preview errors
-        
-        # Schedule next update
+
+        # Schedule next update (50 FPS)
         self.root.after(20, self.update_live_preview)
     
     def update_display(self):
@@ -736,16 +758,21 @@ class OscilloscopeGUI:
         if self.current_audio is None:
             messagebox.showwarning("No Audio", "Please click 'Apply & Generate' first to create audio.")
             return
-        
+
         self.is_playing = True
         self.play_btn.config(text="⏸ Pause")
-        self.status_label.config(text="Playing...")
-        
+
+        # Update status based on live preview mode
+        if self.preview_active:
+            self.status_label.config(text="Playing (Live Preview)")
+        else:
+            self.status_label.config(text="Playing...")
+
         # Track playback start time for live preview
         import time
         self.playback_start_time = time.time()
         self.preview_position = 0
-        
+
         self.stop_flag.clear()
         self.audio_thread = threading.Thread(target=self.play_audio_thread)
         self.audio_thread.daemon = True
