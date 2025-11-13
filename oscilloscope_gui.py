@@ -668,12 +668,12 @@ class OscilloscopeGUI:
         if self.shrink_var.get():
             n_shrink = self.shrink_steps.get()
             shrink_speed = self.shrink_speed.get()
-            # Create one complete shrink cycle: 1 → 0 → -1 → 0 → 1
+            # Create one complete shrink cycle: 1 → 0 → 1 (shrink and expand, no inversion)
+            # Shrink from 1 to near 0
             shrink_down = np.linspace(1, 0, n_shrink, dtype=np.float32)
-            shrink_negative_down = np.linspace(0, -1, n_shrink, dtype=np.float32)[1:]
-            shrink_negative_up = np.linspace(-1, 0, n_shrink, dtype=np.float32)[1:]
+            # Expand from near 0 back to 1 (skip first value to avoid duplicate 0)
             shrink_up = np.linspace(0, 1, n_shrink, dtype=np.float32)[1:]
-            one_cycle = np.concatenate([shrink_down, shrink_negative_down, shrink_negative_up, shrink_up])
+            one_cycle = np.concatenate([shrink_down, shrink_up])
 
             # Adapt number of cycles based on shrink steps
             if n_shrink <= 10:
@@ -1046,12 +1046,12 @@ class OscilloscopeGUI:
             if self.shrink_var.get():
                 n_shrink = self.shrink_steps.get()
                 shrink_speed = self.shrink_speed.get()
-                # Create one complete shrink cycle: 1 → 0 → -1 → 0 → 1
+                # Create one complete shrink cycle: 1 → 0 → 1 (shrink and expand, no inversion)
+                # Shrink from 1 to near 0
                 shrink_down = np.linspace(1, 0, n_shrink, dtype=np.float32)
-                shrink_negative_down = np.linspace(0, -1, n_shrink, dtype=np.float32)[1:]
-                shrink_negative_up = np.linspace(-1, 0, n_shrink, dtype=np.float32)[1:]
+                # Expand from near 0 back to 1 (skip first value to avoid duplicate 0)
                 shrink_up = np.linspace(0, 1, n_shrink, dtype=np.float32)[1:]
-                one_cycle = np.concatenate([shrink_down, shrink_negative_down, shrink_negative_up, shrink_up])
+                one_cycle = np.concatenate([shrink_down, shrink_up])
 
                 # Build the complete shrink sequence
                 x_shrunk = []
