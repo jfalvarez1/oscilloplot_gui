@@ -35,7 +35,7 @@ class OscilloscopeGUI:
         
         # Live preview state
         self.preview_position = 0
-        self.preview_window_size = 1000  # Number of samples to show at once
+        self.preview_window_size = 5000  # Number of samples to show at once (increased for large fades)
         self.preview_active = True  # Enable by default
         self.preview_buffer = []  # Rolling buffer for streaming display
         self.last_preview_update = 0  # Track last update position
@@ -309,8 +309,8 @@ class OscilloscopeGUI:
         preview_control_frame.pack(fill=tk.X, pady=(5,0))
         ttk.Label(preview_control_frame, text="Window Size:",
                  font=('Arial', 8)).pack(side=tk.LEFT, padx=(15,5))
-        self.preview_size_var = tk.IntVar(value=1000)
-        preview_size_spin = ttk.Spinbox(preview_control_frame, from_=100, to=10000,
+        self.preview_size_var = tk.IntVar(value=5000)
+        preview_size_spin = ttk.Spinbox(preview_control_frame, from_=100, to=50000,
                                        width=8, textvariable=self.preview_size_var,
                                        command=self.update_preview_size)
         preview_size_spin.pack(side=tk.LEFT)
@@ -319,7 +319,11 @@ class OscilloscopeGUI:
     
     def create_display(self, parent):
         """Create matplotlib display"""
-        
+
+        # Configure matplotlib to handle large paths
+        import matplotlib as mpl
+        mpl.rcParams['agg.path.chunksize'] = 10000
+
         # Create figure
         self.fig = Figure(figsize=(8, 8), dpi=100)
         self.fig.patch.set_facecolor('#1e1e1e')
@@ -445,8 +449,15 @@ class OscilloscopeGUI:
             fade_up = np.linspace(0, 1, n_fade, dtype=np.float32)[1:]
             one_cycle = np.concatenate([fade_down, fade_negative_down, fade_negative_up, fade_up])
 
-            # For static preview, show multiple cycles (3 cycles for preview)
-            num_preview_cycles = 3
+            # For static preview, adapt number of cycles based on fade steps
+            # Fewer preview cycles for larger fade steps to avoid rendering issues
+            if n_fade <= 10:
+                num_preview_cycles = 3
+            elif n_fade <= 30:
+                num_preview_cycles = 2
+            else:
+                num_preview_cycles = 1
+
             x_faded = []
             y_faded = []
 
@@ -487,8 +498,16 @@ class OscilloscopeGUI:
                 fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
                 one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
 
-                # Show 3 cycles for preview
-                num_preview_cycles = 3
+                # Adapt number of cycles for combined fades based on total complexity
+                # Use fewer cycles when both fades have large step counts
+                total_complexity = len(fade_factors_x) * len(one_cycle_y)
+                if total_complexity > 5000:
+                    num_preview_cycles = 1
+                elif total_complexity > 1000:
+                    num_preview_cycles = 2
+                else:
+                    num_preview_cycles = 3
+
                 for cycle_idx in range(num_preview_cycles):
                     for x_fade_factor in fade_factors_x:
                         for y_fade_factor in one_cycle_y:
@@ -599,15 +618,23 @@ class OscilloscopeGUI:
         # Normalize data
         x_norm = self.normalize_data(self.x_data)
         y_norm = self.normalize_data(self.y_data)
-        
+
         # Apply effects
         x_display, y_display = self.apply_effects(x_norm, y_norm)
-        
+
         # Repeat pattern for visibility
         display_repeats = min(20, max(1, 100 // len(x_norm)))
         x_display = np.tile(x_display, display_repeats)
         y_display = np.tile(y_display, display_repeats)
-        
+
+        # Downsample if too many points for rendering (prevents matplotlib overflow)
+        max_display_points = 50000
+        if len(x_display) > max_display_points:
+            # Downsample by taking every nth point
+            step = len(x_display) // max_display_points
+            x_display = x_display[::step]
+            y_display = y_display[::step]
+
         # Update plot
         self.line.set_data(x_display, y_display)
         
