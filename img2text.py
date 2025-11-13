@@ -47,7 +47,7 @@ def image_to_xy_coordinates_outlines(image_path, num_points=1500, threshold_valu
         raise ValueError("No outlines detected. Try adjusting threshold value.")
 
     # Sort contours by perimeter (largest first)
-    contours = sorted(contours, key=cv2.contourPerimeter, reverse=True)
+    contours = sorted(contours, key=lambda c: cv2.arcLength(c, True), reverse=True)
 
     # Combine contours, prioritizing larger ones
     all_points = []
@@ -169,7 +169,7 @@ def trace_single_contour(image_path, contour_index=0, num_points=1500,
         raise ValueError("No contours found")
     
     # Sort by contour size (perimeter)
-    contours = sorted(contours, key=cv2.contourPerimeter, reverse=True)
+    contours = sorted(contours, key=lambda c: cv2.arcLength(c, True), reverse=True)
     
     # Use specified contour (default: largest)
     if contour_index >= len(contours):
