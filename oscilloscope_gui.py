@@ -209,17 +209,19 @@ class OscilloscopeGUI:
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.y_fade_steps = tk.IntVar(value=10)
         self.y_fade_steps.trace('w', lambda *args: self.effect_changed())
-        ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
+        self.y_fade_steps_spin = ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
                    textvariable=self.y_fade_steps,
-                   command=self.effect_changed).pack(anchor=tk.W, padx=20)
+                   command=self.effect_changed)
+        self.y_fade_steps_spin.pack(anchor=tk.W, padx=20)
 
         ttk.Label(effects_frame, text="Y Fade Speed (repeats/step):",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.y_fade_speed = tk.IntVar(value=1)
         self.y_fade_speed.trace('w', lambda *args: self.effect_changed())
-        ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
+        self.y_fade_speed_spin = ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
                    textvariable=self.y_fade_speed,
-                   command=self.effect_changed).pack(anchor=tk.W, padx=20)
+                   command=self.effect_changed)
+        self.y_fade_speed_spin.pack(anchor=tk.W, padx=20)
         
         ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
         
@@ -233,17 +235,19 @@ class OscilloscopeGUI:
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.x_fade_steps = tk.IntVar(value=10)
         self.x_fade_steps.trace('w', lambda *args: self.effect_changed())
-        ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
+        self.x_fade_steps_spin = ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
                    textvariable=self.x_fade_steps,
-                   command=self.effect_changed).pack(anchor=tk.W, padx=20)
+                   command=self.effect_changed)
+        self.x_fade_steps_spin.pack(anchor=tk.W, padx=20)
 
         ttk.Label(effects_frame, text="X Fade Speed (repeats/step):",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.x_fade_speed = tk.IntVar(value=1)
         self.x_fade_speed.trace('w', lambda *args: self.effect_changed())
-        ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
+        self.x_fade_speed_spin = ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
                    textvariable=self.x_fade_speed,
-                   command=self.effect_changed).pack(anchor=tk.W, padx=20)
+                   command=self.effect_changed)
+        self.x_fade_speed_spin.pack(anchor=tk.W, padx=20)
         
         ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
         
@@ -330,13 +334,36 @@ class OscilloscopeGUI:
         ttk.Label(preview_control_frame, text="Window Size:",
                  font=('Arial', 8)).pack(side=tk.LEFT, padx=(15,5))
         self.preview_size_var = tk.IntVar(value=5000)
-        preview_size_spin = ttk.Spinbox(preview_control_frame, from_=100, to=50000,
+        self.preview_size_spin = ttk.Spinbox(preview_control_frame, from_=100, to=50000,
                                        width=8, textvariable=self.preview_size_var,
                                        command=self.update_preview_size)
-        preview_size_spin.pack(side=tk.LEFT)
+        self.preview_size_spin.pack(side=tk.LEFT)
         ttk.Label(preview_control_frame, text="samples",
                  font=('Arial', 8)).pack(side=tk.LEFT, padx=(5,0))
+
+        # Bind Enter key to all spinbox fields to trigger Apply & Generate
+        self.bind_enter_to_apply()
     
+    def bind_enter_to_apply(self):
+        """Bind Enter key to all input fields to trigger Apply & Generate"""
+        # List of all spinbox widgets
+        spinboxes = [
+            self.sample_rate_spin,
+            self.freq_mult_spin,
+            self.duration_spin,
+            self.n_repeat_spin,
+            self.y_fade_steps_spin,
+            self.y_fade_speed_spin,
+            self.x_fade_steps_spin,
+            self.x_fade_speed_spin,
+            self.preview_size_spin,
+        ]
+
+        # Bind Return/Enter key to trigger apply_parameters
+        for spinbox in spinboxes:
+            spinbox.bind('<Return>', lambda e: self.apply_parameters())
+            spinbox.bind('<KP_Enter>', lambda e: self.apply_parameters())  # Keypad Enter
+
     def create_display(self, parent):
         """Create matplotlib display"""
 
@@ -347,7 +374,7 @@ class OscilloscopeGUI:
         # Create figure
         self.fig = Figure(figsize=(8, 8), dpi=100)
         self.fig.patch.set_facecolor('#1e1e1e')
-        
+
         self.ax = self.fig.add_subplot(111, facecolor='#000000')
         self.ax.set_xlim(-1.2, 1.2)
         self.ax.set_ylim(-1.2, 1.2)
@@ -356,10 +383,10 @@ class OscilloscopeGUI:
         self.ax.set_xlabel('X (Left Channel)', color='#00ff00')
         self.ax.set_ylabel('Y (Right Channel)', color='#00ff00')
         self.ax.tick_params(colors='#00ff00')
-        
+
         # Initial plot
         self.line, = self.ax.plot([], [], color='#00ff00', linewidth=1.5, alpha=0.8)
-        
+
         # Embed in tkinter
         self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
         self.canvas.draw()
