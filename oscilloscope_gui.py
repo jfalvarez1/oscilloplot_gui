@@ -201,9 +201,10 @@ class OscilloscopeGUI:
                        variable=self.y_fade_var,
                        command=self.effect_changed).pack(anchor=tk.W)
         
-        ttk.Label(effects_frame, text="Y Fade Steps:", 
+        ttk.Label(effects_frame, text="Y Fade Steps:",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.y_fade_steps = tk.IntVar(value=10)
+        self.y_fade_steps.trace('w', lambda *args: self.effect_changed())
         ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
                    textvariable=self.y_fade_steps,
                    command=self.effect_changed).pack(anchor=tk.W, padx=20)
@@ -216,9 +217,10 @@ class OscilloscopeGUI:
                        variable=self.x_fade_var,
                        command=self.effect_changed).pack(anchor=tk.W)
         
-        ttk.Label(effects_frame, text="X Fade Steps:", 
+        ttk.Label(effects_frame, text="X Fade Steps:",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.x_fade_steps = tk.IntVar(value=10)
+        self.x_fade_steps.trace('w', lambda *args: self.effect_changed())
         ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
                    textvariable=self.x_fade_steps,
                    command=self.effect_changed).pack(anchor=tk.W, padx=20)
@@ -243,7 +245,7 @@ class OscilloscopeGUI:
         self.rotation_angle = tk.DoubleVar(value=0.0)
         ttk.Scale(rotation_frame, from_=-180, to=180, orient=tk.HORIZONTAL,
                  variable=self.rotation_angle,
-                 command=lambda v: self.update_display()).pack(fill=tk.X)
+                 command=lambda v: self.rotation_mode_changed()).pack(fill=tk.X)
         
         ttk.Label(rotation_frame, text="Rotation Speed (degrees/cycle):").pack(anchor=tk.W, pady=(5,0))
         self.rotation_speed = tk.DoubleVar(value=5.0)
@@ -359,16 +361,15 @@ class OscilloscopeGUI:
         return 2.0 * (data - data_min) / (data_max - data_min) - 1.0
     
     def effect_changed(self):
-        """Handle effect changes - update display and regenerate if playing"""
+        """Handle effect changes - automatically apply and generate"""
         self.update_display()
-        if self.is_playing:
-            # Regenerate and restart playback
-            try:
-                self.stop_playback()
-                self.generate_audio()
-                self.start_playback()
-            except Exception as e:
-                self.status_label.config(text=f"Error: {str(e)}")
+        # Always regenerate and play when effects change
+        if hasattr(self, 'current_audio') and self.current_audio is not None:
+            # Already have audio generated, regenerate with new effects
+            self.apply_parameters()
+        else:
+            # No audio yet, just update display
+            pass
     
     def update_rotation_info(self, *args):
         """Update rotation info label showing number of full rotations"""
@@ -390,11 +391,16 @@ class OscilloscopeGUI:
             pass
     
     def rotation_mode_changed(self):
-        """Handle rotation mode changes - regenerate and play if needed"""
+        """Handle rotation mode changes - automatically apply and generate"""
         self.update_rotation_info()
         self.update_display()
-        if hasattr(self, 'auto_regenerate') and self.is_playing:
+        # Always regenerate and play when rotation changes
+        if hasattr(self, 'current_audio') and self.current_audio is not None:
+            # Already have audio generated, regenerate with new rotation
             self.apply_parameters()
+        else:
+            # No audio yet, just update display
+            pass
     
     def apply_effects(self, x, y):
         """Apply selected effects to the data - FOR DISPLAY PREVIEW ONLY"""
