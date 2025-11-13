@@ -434,10 +434,16 @@ class OscilloscopeGUI:
         # Y-Axis Fade Sequence
         if self.y_fade_var.get():
             n_fade = self.y_fade_steps.get()
-            # Create one complete fade cycle: decrease to 0, then increase back to original
+            # Create one complete fade cycle: 1 → 0 → -1 → 0 → 1
+            # Decrease from 1 to 0
             fade_down = np.linspace(1, 0, n_fade, dtype=np.float32)
-            fade_up = np.linspace(0, 1, n_fade, dtype=np.float32)[1:]  # Skip 0 to avoid duplicate
-            one_cycle = np.concatenate([fade_down, fade_up])
+            # Go negative from 0 to -1
+            fade_negative_down = np.linspace(0, -1, n_fade, dtype=np.float32)[1:]
+            # Increase from -1 to 0
+            fade_negative_up = np.linspace(-1, 0, n_fade, dtype=np.float32)[1:]
+            # Return to positive from 0 to 1
+            fade_up = np.linspace(0, 1, n_fade, dtype=np.float32)[1:]
+            one_cycle = np.concatenate([fade_down, fade_negative_down, fade_negative_up, fade_up])
 
             # For static preview, show multiple cycles (3 cycles for preview)
             num_preview_cycles = 3
@@ -455,7 +461,12 @@ class OscilloscopeGUI:
         # X-Axis Fade Sequence
         if self.x_fade_var.get():
             n_fade_x = self.x_fade_steps.get()
-            fade_factors_x = np.linspace(1, 0, n_fade_x, dtype=np.float32)
+            # Create one complete X fade cycle: 1 → 0 → -1 → 0 → 1
+            fade_down_x = np.linspace(1, 0, n_fade_x, dtype=np.float32)
+            fade_negative_down_x = np.linspace(0, -1, n_fade_x, dtype=np.float32)[1:]
+            fade_negative_up_x = np.linspace(-1, 0, n_fade_x, dtype=np.float32)[1:]
+            fade_up_x = np.linspace(0, 1, n_fade_x, dtype=np.float32)[1:]
+            fade_factors_x = np.concatenate([fade_down_x, fade_negative_down_x, fade_negative_up_x, fade_up_x])
 
             # Check if Y-fade was already applied
             if self.y_fade_var.get():
@@ -471,8 +482,10 @@ class OscilloscopeGUI:
                 # Get Y-fade parameters
                 n_fade_y = self.y_fade_steps.get()
                 fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
+                fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
+                fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
                 fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
-                one_cycle_y = np.concatenate([fade_down_y, fade_up_y])
+                one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
 
                 # Show 3 cycles for preview
                 num_preview_cycles = 3
@@ -486,8 +499,9 @@ class OscilloscopeGUI:
                 y = np.concatenate(y_combined)
             else:
                 # Only X-fade enabled
-                y = np.tile(y, n_fade_x)
-                x = np.concatenate([x * fade_factors_x[i] for i in range(n_fade_x)])
+                len_cycle = len(fade_factors_x)
+                y = np.tile(y, len_cycle)
+                x = np.concatenate([x * fade_factors_x[i] for i in range(len_cycle)])
         
         # Mirror Reflections
         if self.reflections_var.get():
@@ -634,10 +648,12 @@ class OscilloscopeGUI:
         # Apply Y-Axis Fade Sequence if enabled
         if self.y_fade_var.get():
             n_fade = self.y_fade_steps.get()
-            # Create one complete fade cycle: decrease to 0, then increase back to original
+            # Create one complete fade cycle: 1 → 0 → -1 → 0 → 1
             fade_down = np.linspace(1, 0, n_fade, dtype=np.float32)
-            fade_up = np.linspace(0, 1, n_fade, dtype=np.float32)[1:]  # Skip 0 to avoid duplicate
-            one_cycle = np.concatenate([fade_down, fade_up])
+            fade_negative_down = np.linspace(0, -1, n_fade, dtype=np.float32)[1:]
+            fade_negative_up = np.linspace(-1, 0, n_fade, dtype=np.float32)[1:]
+            fade_up = np.linspace(0, 1, n_fade, dtype=np.float32)[1:]
+            one_cycle = np.concatenate([fade_down, fade_negative_down, fade_negative_up, fade_up])
 
             # Build the complete fade sequence with continuous cycling
             x_faded = []
@@ -657,13 +673,19 @@ class OscilloscopeGUI:
         # Apply X-Axis Fade Sequence if enabled
         if self.x_fade_var.get():
             n_fade = self.x_fade_steps.get()
-            fade_factors = np.linspace(1, 0, n_fade, dtype=np.float32)
+            # Create one complete X fade cycle: 1 → 0 → -1 → 0 → 1
+            fade_down = np.linspace(1, 0, n_fade, dtype=np.float32)
+            fade_negative_down = np.linspace(0, -1, n_fade, dtype=np.float32)[1:]
+            fade_negative_up = np.linspace(-1, 0, n_fade, dtype=np.float32)[1:]
+            fade_up = np.linspace(0, 1, n_fade, dtype=np.float32)[1:]
+            fade_factors = np.concatenate([fade_down, fade_negative_down, fade_negative_up, fade_up])
 
             # If repeats were already applied in Y-fade, don't multiply again
             # Just apply X-fade to the existing pattern
             if not repeats_applied_in_effects:
-                y_base = np.tile(y_base, n_fade)
-                x_base = np.concatenate([x_base * fade_factors[i] for i in range(n_fade)])
+                len_cycle = len(fade_factors)
+                y_base = np.tile(y_base, len_cycle)
+                x_base = np.concatenate([x_base * fade_factors[i] for i in range(len_cycle)])
             else:
                 # Y-fade already created many copies, just fade X across the whole thing
                 # This is more complex - we need to fade across the entire sequence
@@ -678,8 +700,10 @@ class OscilloscopeGUI:
                 # Get Y-fade parameters
                 n_fade_y = self.y_fade_steps.get()
                 fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
+                fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
+                fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
                 fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
-                one_cycle_y = np.concatenate([fade_down_y, fade_up_y])
+                one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
 
                 # For each repeat cycle
                 for repeat_idx in range(n_repeat):
