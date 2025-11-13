@@ -264,17 +264,20 @@ class OscilloscopeGUI:
         button_frame = ttk.Frame(parent)
         button_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=10)
         row += 1
-        
-        self.apply_btn = ttk.Button(button_frame, text="Apply & Generate", 
+
+        self.apply_btn = ttk.Button(button_frame, text="Apply & Generate",
                                     command=self.apply_parameters,
                                     style='Accent.TButton')
         self.apply_btn.pack(fill=tk.X, pady=2)
-        
-        self.play_btn = ttk.Button(button_frame, text="▶ Play Audio", 
+
+        self.play_btn = ttk.Button(button_frame, text="▶ Play Audio",
                                    command=self.toggle_playback)
         self.play_btn.pack(fill=tk.X, pady=2)
-        
-        ttk.Button(button_frame, text="Save to WAV", 
+
+        ttk.Button(button_frame, text="Reset Effects",
+                  command=self.reset_effects).pack(fill=tk.X, pady=2)
+
+        ttk.Button(button_frame, text="Save to WAV",
                   command=self.save_to_wav).pack(fill=tk.X, pady=2)
         
         # === STATUS ===
@@ -401,6 +404,27 @@ class OscilloscopeGUI:
         else:
             # No audio yet, just update display
             pass
+
+    def reset_effects(self):
+        """Reset all effects to their default values"""
+        # Turn off all effects
+        self.reflections_var.set(False)
+        self.y_fade_var.set(False)
+        self.x_fade_var.set(False)
+        self.rotation_mode_var.set("Off")
+
+        # Reset values to defaults
+        self.y_fade_steps.set(10)
+        self.x_fade_steps.set(10)
+        self.rotation_angle.set(0.0)
+        self.rotation_speed.set(5.0)
+
+        # Update display
+        self.update_display()
+
+        # If audio exists, regenerate with reset effects
+        if hasattr(self, 'current_audio') and self.current_audio is not None:
+            self.apply_parameters()
     
     def apply_effects(self, x, y):
         """Apply selected effects to the data - FOR DISPLAY PREVIEW ONLY"""
@@ -848,16 +872,22 @@ class OscilloscopeGUI:
     def apply_parameters(self):
         """Apply parameters, generate audio, and auto-play"""
         try:
-            # Stop current playback if playing
+            # Stop current playback if playing and clear the buffer
+            was_playing = self.is_playing
             if self.is_playing:
                 self.stop_playback()
-            
+                # Small delay to ensure audio buffer is cleared
+                import time
+                time.sleep(0.1)
+
             # Generate new audio
             self.generate_audio()
-            
-            # Auto-play the generated audio
-            self.start_playback()
-            
+
+            # Auto-play the generated audio if it was playing before
+            if was_playing or not hasattr(self, '_first_generate'):
+                self.start_playback()
+                self._first_generate = True
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to generate audio:\n{str(e)}")
     
@@ -910,11 +940,16 @@ class OscilloscopeGUI:
             self.update_display()
     
     def play_audio_thread(self):
-        """Thread function for playing audio"""
+        """Thread function for playing audio in continuous loop"""
         try:
-            sd.play(self.current_audio, self.current_fs, blocking=True)
-            if not self.stop_flag.is_set():
-                self.update_queue.put(("playback_complete", None))
+            while not self.stop_flag.is_set():
+                # Play audio with looping
+                sd.play(self.current_audio, self.current_fs, loop=True)
+                # Wait for playback to be stopped
+                sd.wait()
+                # Check if we should continue looping
+                if self.stop_flag.is_set():
+                    break
         except Exception as e:
             self.update_queue.put(("error", str(e)))
     
