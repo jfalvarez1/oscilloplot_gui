@@ -37,6 +37,8 @@ class OscilloscopeGUI:
         self.preview_position = 0
         self.preview_window_size = 1000  # Number of samples to show at once
         self.preview_active = True  # Enable by default
+        self.preview_buffer = []  # Rolling buffer for streaming display
+        self.last_preview_update = 0  # Track last update position
         
         # Create GUI
         self.create_widgets()
@@ -402,15 +404,23 @@ class OscilloscopeGUI:
         # Y-Axis Fade Sequence
         if self.y_fade_var.get():
             n_fade = self.y_fade_steps.get()
-            # Fade from 1 to 0, then back from 0 to 1
+            # Create one complete fade cycle: decrease to 0, then increase back to original
             fade_down = np.linspace(1, 0, n_fade, dtype=np.float32)
             fade_up = np.linspace(0, 1, n_fade, dtype=np.float32)[1:]  # Skip 0 to avoid duplicate
-            fade_factors = np.concatenate([fade_down, fade_up])
-            
-            # Tile x for both fade down and fade up
-            total_fades = len(fade_factors)
-            x = np.tile(x, total_fades)
-            y = np.concatenate([y * fade_factors[i] for i in range(total_fades)])
+            one_cycle = np.concatenate([fade_down, fade_up])
+
+            # For static preview, show multiple cycles (3 cycles for preview)
+            num_preview_cycles = 3
+            x_faded = []
+            y_faded = []
+
+            for cycle_idx in range(num_preview_cycles):
+                for fade_factor in one_cycle:
+                    x_faded.append(x)
+                    y_faded.append(y * fade_factor)
+
+            x = np.concatenate(x_faded)
+            y = np.concatenate(y_faded)
         
         # X-Axis Fade Sequence
         if self.x_fade_var.get():
@@ -443,6 +453,8 @@ class OscilloscopeGUI:
         self.preview_active = self.live_preview_var.get()
         if self.preview_active:
             self.preview_position = 0
+            self.preview_buffer = []
+            self.last_preview_update = 0
         else:
             # Return to static preview when disabled
             self.update_display()
@@ -452,7 +464,7 @@ class OscilloscopeGUI:
         self.preview_window_size = self.preview_size_var.get()
     
     def update_live_preview(self):
-        """Update display to show current audio output position"""
+        """Update display to show current audio output position as a continuous stream"""
         if self.preview_active and self.is_playing and self.current_audio is not None:
             try:
                 import time
@@ -465,22 +477,30 @@ class OscilloscopeGUI:
                     total_samples = len(self.current_audio)
                     if sample_position >= total_samples:
                         sample_position = sample_position % total_samples
+                        # Reset buffer on loop
+                        self.preview_buffer = []
+                        self.last_preview_update = sample_position
                         # Update start time for smoother looping
                         self.playback_start_time = time.time() - (sample_position / self.current_fs)
 
-                    # Calculate window bounds - centered on current position
-                    window_size = self.preview_window_size
-                    window_start = sample_position
-                    window_end = min(total_samples, window_start + window_size)
+                    # Add new samples to rolling buffer since last update
+                    if sample_position > self.last_preview_update:
+                        new_samples = self.current_audio[self.last_preview_update:sample_position]
+                        if len(self.preview_buffer) == 0:
+                            self.preview_buffer = new_samples.tolist()
+                        else:
+                            self.preview_buffer.extend(new_samples.tolist())
+                        self.last_preview_update = sample_position
 
-                    # Ensure we have enough samples
-                    if window_end - window_start < window_size and window_end < total_samples:
-                        window_end = min(total_samples, window_start + window_size)
+                        # Keep buffer at desired window size (remove old samples)
+                        if len(self.preview_buffer) > self.preview_window_size:
+                            self.preview_buffer = self.preview_buffer[-self.preview_window_size:]
 
-                    if window_end > window_start and window_end - window_start >= 10:
-                        # Get the windowed data
-                        x_preview = self.current_audio[window_start:window_end, 0]
-                        y_preview = self.current_audio[window_start:window_end, 1]
+                    # Display the rolling buffer
+                    if len(self.preview_buffer) >= 10:
+                        buffer_array = np.array(self.preview_buffer)
+                        x_preview = buffer_array[:, 0]
+                        y_preview = buffer_array[:, 1]
 
                         # Update plot
                         self.line.set_data(x_preview, y_preview)
@@ -537,22 +557,38 @@ class OscilloscopeGUI:
         x_norm = self.normalize_data(self.x_data)
         y_norm = self.normalize_data(self.y_data)
         
+        # Get parameters early
+        n_repeat = self.n_repeat_var.get()
+
         # Start with base pattern
         x_base = x_norm.copy()
         y_base = y_norm.copy()
-        
+
+        # Track if we've applied repeats in effects
+        repeats_applied_in_effects = False
+
         # Apply Y-Axis Fade Sequence if enabled
         if self.y_fade_var.get():
             n_fade = self.y_fade_steps.get()
-            # Fade from 1 to 0, then back from 0 to 1
+            # Create one complete fade cycle: decrease to 0, then increase back to original
             fade_down = np.linspace(1, 0, n_fade, dtype=np.float32)
             fade_up = np.linspace(0, 1, n_fade, dtype=np.float32)[1:]  # Skip 0 to avoid duplicate
-            fade_factors = np.concatenate([fade_down, fade_up])
-            
-            # Tile x for both fade down and fade up
-            total_fades = len(fade_factors)
-            x_base = np.tile(x_base, total_fades)
-            y_base = np.concatenate([y_base * fade_factors[i] for i in range(total_fades)])
+            one_cycle = np.concatenate([fade_down, fade_up])
+
+            # Build the complete fade sequence with continuous cycling
+            x_faded = []
+            y_faded = []
+
+            for repeat_idx in range(n_repeat):
+                for fade_factor in one_cycle:
+                    x_faded.append(x_base)
+                    y_faded.append(y_base * fade_factor)
+
+            x_base = np.concatenate(x_faded)
+            y_base = np.concatenate(y_faded)
+
+            # Mark that repeats have been applied
+            repeats_applied_in_effects = True
         
         # Apply X-Axis Fade Sequence if enabled
         if self.x_fade_var.get():
@@ -564,76 +600,84 @@ class OscilloscopeGUI:
         # Apply Mirror Reflections if enabled
         if self.reflections_var.get():
             x_base, y_base = self.apply_reflections(x_base, y_base)
-        
-        # Get parameters
+
+        # Get other parameters
         fs = self.sample_rate_var.get()
-        n_repeat = self.n_repeat_var.get()
         mult = self.freq_mult_var.get()
         duration = self.duration_var.get()
-        
+
         # Handle rotation modes
         rotation_mode = self.rotation_mode_var.get()
-        
+
         if rotation_mode == "Static":
             # Static rotation - apply once
             angle_rad = np.radians(self.rotation_angle.get())
             cos_a = np.cos(angle_rad)
             sin_a = np.sin(angle_rad)
-            
+
             x_rot = x_base * cos_a - y_base * sin_a
             y_rot = x_base * sin_a + y_base * cos_a
-            
+
             # Renormalize to prevent clipping
             x_base = self.normalize_data(x_rot)
             y_base = self.normalize_data(y_rot)
-            
-            # Repeat the rotated pattern
-            x_repeated = np.tile(x_base, n_repeat)
-            y_repeated = np.tile(y_base, n_repeat)
+
+            # Repeat the rotated pattern (only if not already repeated in effects)
+            if not repeats_applied_in_effects:
+                x_repeated = np.tile(x_base, n_repeat)
+                y_repeated = np.tile(y_base, n_repeat)
+            else:
+                x_repeated = x_base
+                y_repeated = y_base
             
         elif rotation_mode in ["CW", "CCW"]:
             # Dynamic rotation - create rotating sequence
             speed = self.rotation_speed.get()
             direction = -1 if rotation_mode == "CW" else 1  # CW is negative angle
-            
-            # Calculate how many repetitions needed for a full 360° rotation
-            steps_per_rotation = int(360 / speed)
-            
-            # Use n_repeat to determine how many full rotations to do
-            # Each full rotation takes steps_per_rotation repetitions
-            total_steps = n_repeat
-            
-            # Create rotating sequence
-            x_repeated = []
-            y_repeated = []
-            
-            for i in range(total_steps):
-                angle = direction * speed * i
-                angle_rad = np.radians(angle)
-                cos_a = np.cos(angle_rad)
-                sin_a = np.sin(angle_rad)
-                
-                x_rot = x_base * cos_a - y_base * sin_a
-                y_rot = x_base * sin_a + y_base * cos_a
-                
-                x_repeated.append(x_rot)
-                y_repeated.append(y_rot)
-            
-            x_repeated = np.concatenate(x_repeated)
-            y_repeated = np.concatenate(y_repeated)
-            
-            # Renormalize entire sequence to prevent clipping
-            x_repeated = self.normalize_data(x_repeated)
-            y_repeated = self.normalize_data(y_repeated)
-            
-            # Calculate info for user
-            num_full_rotations = (total_steps * speed) / 360
-            self.status_label.config(text=f"Generating {num_full_rotations:.1f} rotations...")
-            
+
+            if not repeats_applied_in_effects:
+                # Normal rotation with repeats
+                total_steps = n_repeat
+
+                # Create rotating sequence
+                x_repeated = []
+                y_repeated = []
+
+                for i in range(total_steps):
+                    angle = direction * speed * i
+                    angle_rad = np.radians(angle)
+                    cos_a = np.cos(angle_rad)
+                    sin_a = np.sin(angle_rad)
+
+                    x_rot = x_base * cos_a - y_base * sin_a
+                    y_rot = x_base * sin_a + y_base * cos_a
+
+                    x_repeated.append(x_rot)
+                    y_repeated.append(y_rot)
+
+                x_repeated = np.concatenate(x_repeated)
+                y_repeated = np.concatenate(y_repeated)
+
+                # Renormalize entire sequence to prevent clipping
+                x_repeated = self.normalize_data(x_repeated)
+                y_repeated = self.normalize_data(y_repeated)
+
+                # Calculate info for user
+                num_full_rotations = (total_steps * speed) / 360
+                self.status_label.config(text=f"Generating {num_full_rotations:.1f} rotations...")
+            else:
+                # Repeats already applied in effects, just use the faded pattern
+                x_repeated = x_base
+                y_repeated = y_base
+
         else:
             # No rotation
-            x_repeated = np.tile(x_base, n_repeat)
-            y_repeated = np.tile(y_base, n_repeat)
+            if not repeats_applied_in_effects:
+                x_repeated = np.tile(x_base, n_repeat)
+                y_repeated = np.tile(y_base, n_repeat)
+            else:
+                x_repeated = x_base
+                y_repeated = y_base
         
         # Calculate playback rate and target length
         actual_fs = fs * mult
@@ -772,6 +816,8 @@ class OscilloscopeGUI:
         import time
         self.playback_start_time = time.time()
         self.preview_position = 0
+        self.preview_buffer = []
+        self.last_preview_update = 0
 
         self.stop_flag.clear()
         self.audio_thread = threading.Thread(target=self.play_audio_thread)
