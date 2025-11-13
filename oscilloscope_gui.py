@@ -248,7 +248,13 @@ class OscilloscopeGUI:
                    textvariable=self.x_fade_speed,
                    command=self.effect_changed)
         self.x_fade_speed_spin.pack(anchor=tk.W, padx=20)
-        
+
+        # Alternate X/Y Fade option
+        self.alternate_xy_fade_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(effects_frame, text="Alternate X/Y Fade (X first, then Y, repeat)",
+                       variable=self.alternate_xy_fade_var,
+                       command=self.effect_changed).pack(anchor=tk.W, pady=(5,0))
+
         ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
         
         # Rotation
@@ -476,6 +482,7 @@ class OscilloscopeGUI:
         self.reflections_var.set(False)
         self.y_fade_var.set(False)
         self.x_fade_var.set(False)
+        self.alternate_xy_fade_var.set(False)
         self.rotation_mode_var.set("Off")
 
         # Reset values to defaults
@@ -548,14 +555,9 @@ class OscilloscopeGUI:
 
             # Check if Y-fade was already applied
             if self.y_fade_var.get():
-                # Both fades enabled - need to rebuild from scratch to avoid huge arrays
-                # Store the original before Y-fade was applied
+                # Both fades enabled - check if alternating mode is enabled
                 original_x = self.normalize_data(self.x_data)
                 original_y = self.normalize_data(self.y_data)
-
-                # Rebuild with both fades
-                x_combined = []
-                y_combined = []
 
                 # Get Y-fade parameters
                 n_fade_y = self.y_fade_steps.get()
@@ -566,26 +568,60 @@ class OscilloscopeGUI:
                 fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
                 one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
 
-                # Adapt number of cycles for combined fades based on total complexity
-                # Use fewer cycles when both fades have large step counts
-                total_complexity = len(fade_factors_x) * len(one_cycle_y) * x_fade_speed * y_fade_speed
-                if total_complexity > 5000:
-                    num_preview_cycles = 1
-                elif total_complexity > 1000:
-                    num_preview_cycles = 2
-                else:
-                    num_preview_cycles = 3
+                if self.alternate_xy_fade_var.get():
+                    # ALTERNATE MODE: X fade first, then Y fade, repeat
+                    x_combined = []
+                    y_combined = []
 
-                for cycle_idx in range(num_preview_cycles):
-                    for x_fade_factor in fade_factors_x:
-                        for y_fade_factor in one_cycle_y:
-                            # Apply speed multipliers for both fades
-                            for _ in range(x_fade_speed * y_fade_speed):
+                    # Simpler complexity calculation for alternating mode
+                    total_fade_length = (len(fade_factors_x) * x_fade_speed) + (len(one_cycle_y) * y_fade_speed)
+                    if total_fade_length > 500:
+                        num_preview_cycles = 1
+                    elif total_fade_length > 200:
+                        num_preview_cycles = 2
+                    else:
+                        num_preview_cycles = 3
+
+                    for cycle_idx in range(num_preview_cycles):
+                        # First: Do X fade sequence
+                        for x_fade_factor in fade_factors_x:
+                            for _ in range(x_fade_speed):
                                 x_combined.append(original_x * x_fade_factor)
+                                y_combined.append(original_y)
+
+                        # Then: Do Y fade sequence
+                        for y_fade_factor in one_cycle_y:
+                            for _ in range(y_fade_speed):
+                                x_combined.append(original_x)
                                 y_combined.append(original_y * y_fade_factor)
 
-                x = np.concatenate(x_combined)
-                y = np.concatenate(y_combined)
+                    x = np.concatenate(x_combined)
+                    y = np.concatenate(y_combined)
+                else:
+                    # COMBINED MODE: Apply both X and Y fades simultaneously
+                    x_combined = []
+                    y_combined = []
+
+                    # Adapt number of cycles for combined fades based on total complexity
+                    # Use fewer cycles when both fades have large step counts
+                    total_complexity = len(fade_factors_x) * len(one_cycle_y) * x_fade_speed * y_fade_speed
+                    if total_complexity > 5000:
+                        num_preview_cycles = 1
+                    elif total_complexity > 1000:
+                        num_preview_cycles = 2
+                    else:
+                        num_preview_cycles = 3
+
+                    for cycle_idx in range(num_preview_cycles):
+                        for x_fade_factor in fade_factors_x:
+                            for y_fade_factor in one_cycle_y:
+                                # Apply speed multipliers for both fades
+                                for _ in range(x_fade_speed * y_fade_speed):
+                                    x_combined.append(original_x * x_fade_factor)
+                                    y_combined.append(original_y * y_fade_factor)
+
+                    x = np.concatenate(x_combined)
+                    y = np.concatenate(y_combined)
             else:
                 # Only X-fade enabled
                 x_faded_list = []
@@ -875,36 +911,72 @@ class OscilloscopeGUI:
                     x_base = np.concatenate(x_faded_list)
                     y_base = np.concatenate(y_faded_list)
                 else:
-                    # Y-fade already created many copies, apply both X and Y fade with speed control
-                    original_x = x_norm.copy()
-                    original_y = y_norm.copy()
+                    # Y-fade already created many copies
+                    # Check if alternating mode is enabled
+                    if self.alternate_xy_fade_var.get():
+                        # ALTERNATE MODE: Do X fade sequence, then Y fade sequence, repeat
+                        original_x = x_norm.copy()
+                        original_y = y_norm.copy()
 
-                    # Create X-faded then Y-faded sequence
-                    x_faded_combined = []
-                    y_faded_combined = []
+                        x_faded_combined = []
+                        y_faded_combined = []
 
-                    # Get Y-fade parameters
-                    n_fade_y = self.y_fade_steps.get()
-                    y_fade_speed = self.y_fade_speed.get()
-                    fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
-                    fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
-                    fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
-                    fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
-                    one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
+                        # Get Y-fade parameters
+                        n_fade_y = self.y_fade_steps.get()
+                        y_fade_speed = self.y_fade_speed.get()
+                        fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
+                        fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
+                        fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
+                        fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
+                        one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
 
-                    # For each repeat cycle
-                    for repeat_idx in range(n_repeat):
-                        # For each X-fade step
-                        for x_fade_factor in fade_factors:
-                            # For each Y-fade step in the cycle
-                            for y_fade_factor in one_cycle_y:
-                                # Apply speed multipliers for both fades
-                                for _ in range(x_fade_speed * y_fade_speed):
+                        # For each repeat cycle
+                        for repeat_idx in range(n_repeat):
+                            # First: Do X fade sequence
+                            for x_fade_factor in fade_factors:
+                                for _ in range(x_fade_speed):
                                     x_faded_combined.append(original_x * x_fade_factor)
+                                    y_faded_combined.append(original_y)
+
+                            # Then: Do Y fade sequence
+                            for y_fade_factor in one_cycle_y:
+                                for _ in range(y_fade_speed):
+                                    x_faded_combined.append(original_x)
                                     y_faded_combined.append(original_y * y_fade_factor)
 
-                    x_base = np.concatenate(x_faded_combined)
-                    y_base = np.concatenate(y_faded_combined)
+                        x_base = np.concatenate(x_faded_combined)
+                        y_base = np.concatenate(y_faded_combined)
+                    else:
+                        # COMBINED MODE: Apply both X and Y fade with speed control simultaneously
+                        original_x = x_norm.copy()
+                        original_y = y_norm.copy()
+
+                        # Create X-faded then Y-faded sequence
+                        x_faded_combined = []
+                        y_faded_combined = []
+
+                        # Get Y-fade parameters
+                        n_fade_y = self.y_fade_steps.get()
+                        y_fade_speed = self.y_fade_speed.get()
+                        fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
+                        fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
+                        fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
+                        fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
+                        one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
+
+                        # For each repeat cycle
+                        for repeat_idx in range(n_repeat):
+                            # For each X-fade step
+                            for x_fade_factor in fade_factors:
+                                # For each Y-fade step in the cycle
+                                for y_fade_factor in one_cycle_y:
+                                    # Apply speed multipliers for both fades
+                                    for _ in range(x_fade_speed * y_fade_speed):
+                                        x_faded_combined.append(original_x * x_fade_factor)
+                                        y_faded_combined.append(original_y * y_fade_factor)
+
+                        x_base = np.concatenate(x_faded_combined)
+                        y_base = np.concatenate(y_faded_combined)
                     # Still marked as repeats applied
         
         # Apply Mirror Reflections if enabled
