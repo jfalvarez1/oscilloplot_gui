@@ -27,15 +27,27 @@ def skeletonize_edges(edges):
     return (skeleton * 255).astype(np.uint8)
 
 
-def vectorize_contours(contours, num_points):
+def vectorize_contours(contours, num_points, min_contour_length=50):
     """
     Vectorize contours by following paths naturally instead of random sampling.
+    Filters out single dots and small artifacts.
+
+    Parameters:
+    - contours: List of contours from cv2.findContours
+    - num_points: Target number of points to resample
+    - min_contour_length: Minimum perimeter length to keep (filters out dots/noise)
+
     Returns coordinates that follow the natural path of contours.
     """
     all_points = []
 
     for contour in contours:
-        if len(contour) > 10:
+        # Calculate contour perimeter (length)
+        perimeter = cv2.arcLength(contour, closed=True)
+
+        # Filter out small contours (single dots, small artifacts)
+        # Keep only contours with sufficient length (actual lines/outlines)
+        if perimeter > min_contour_length and len(contour) > 10:
             # Reshape contour to get points
             points = contour.reshape(-1, 2)
             # Add points in order (following the path)
@@ -60,7 +72,8 @@ def vectorize_contours(contours, num_points):
 def image_to_xy_coordinates_outlines(image_path, num_points=1500, threshold_value=127, invert=False):
     """
     Convert an image to X,Y coordinate arrays by tracing OUTLINES only.
-    Better for filled objects like hair, silhouettes, etc.
+    Optimized for tracing outlines of humans and objects (not filled shapes).
+    Filters out single dots and small artifacts.
 
     Parameters:
     - image_path: Path to input image
@@ -94,6 +107,13 @@ def image_to_xy_coordinates_outlines(image_path, num_points=1500, threshold_valu
     else:
         _, binary = cv2.threshold(blurred, threshold_value, 255, cv2.THRESH_BINARY)
 
+    # Apply morphological operations to remove noise and small artifacts
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    # Opening: erosion followed by dilation - removes small dots and noise
+    binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=1)
+    # Closing: dilation followed by erosion - closes small holes
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=1)
+
     # Skeletonize to get single-pixel thickness outlines
     skeleton = skeletonize_edges(binary)
 
@@ -106,11 +126,15 @@ def image_to_xy_coordinates_outlines(image_path, num_points=1500, threshold_valu
     # Sort contours by perimeter (largest first)
     contours = sorted(contours, key=lambda c: cv2.arcLength(c, True), reverse=True)
 
-    # Vectorize contours (follow paths naturally)
-    x_coords, y_coords = vectorize_contours(contours, num_points)
+    # Calculate minimum contour length based on image size to filter out artifacts
+    img_diagonal = np.sqrt(img.shape[0]**2 + img.shape[1]**2)
+    min_contour_length = max(50, img_diagonal * 0.02)  # At least 2% of image diagonal
+
+    # Vectorize contours (follow paths naturally, filter out small artifacts)
+    x_coords, y_coords = vectorize_contours(contours, num_points, min_contour_length)
 
     if len(x_coords) == 0:
-        raise ValueError("No valid contours found. Try adjusting threshold.")
+        raise ValueError("No valid contours found. Try adjusting threshold or lowering filtering.")
 
     # Normalize to -1 to 1 range
     x_norm = 2 * (x_coords - x_coords.min()) / (x_coords.max() - x_coords.min()) - 1
@@ -126,6 +150,7 @@ def image_to_xy_coordinates(image_path, num_points=1500, edge_threshold1=50, edg
     """
     Convert an image to X,Y coordinate arrays for oscilloscope display using EDGE DETECTION.
     Use this for line drawings or when you want interior details.
+    Filters out single dots and small artifacts.
 
     Parameters:
     - image_path: Path to input image
@@ -155,6 +180,13 @@ def image_to_xy_coordinates(image_path, num_points=1500, edge_threshold1=50, edg
     # Detect edges using Canny
     edges = cv2.Canny(blurred, edge_threshold1, edge_threshold2)
 
+    # Apply morphological operations to remove noise and small artifacts
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    # Opening: erosion followed by dilation - removes small dots and noise
+    edges = cv2.morphologyEx(edges, cv2.MORPH_OPEN, kernel, iterations=1)
+    # Closing: dilation followed by erosion - closes small holes
+    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, iterations=1)
+
     # Skeletonize to get single-pixel thickness edges
     skeleton = skeletonize_edges(edges)
 
@@ -167,11 +199,15 @@ def image_to_xy_coordinates(image_path, num_points=1500, edge_threshold1=50, edg
     # Sort contours by perimeter (largest first) for better path ordering
     contours = sorted(contours, key=lambda c: cv2.arcLength(c, True), reverse=True)
 
-    # Vectorize contours (follow paths naturally)
-    x_coords, y_coords = vectorize_contours(contours, num_points)
+    # Calculate minimum contour length based on image size to filter out artifacts
+    img_diagonal = np.sqrt(img.shape[0]**2 + img.shape[1]**2)
+    min_contour_length = max(50, img_diagonal * 0.02)  # At least 2% of image diagonal
+
+    # Vectorize contours (follow paths naturally, filter out small artifacts)
+    x_coords, y_coords = vectorize_contours(contours, num_points, min_contour_length)
 
     if len(x_coords) == 0:
-        raise ValueError("No edges detected. Try adjusting edge thresholds.")
+        raise ValueError("No valid contours found. Try adjusting edge thresholds or lowering filtering.")
 
     # Normalize to -1 to 1 range (for oscilloscope)
     x_norm = 2 * (x_coords - x_coords.min()) / (x_coords.max() - x_coords.min()) - 1
