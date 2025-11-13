@@ -1,10 +1,61 @@
 import cv2
 import numpy as np
 from scipy import ndimage
+from skimage.morphology import skeletonize
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 import tkinter as tk
 from tkinter import messagebox
+
+
+def sharpen_image(img):
+    """Apply sharpening filter to enhance edges"""
+    # Create sharpening kernel
+    kernel = np.array([[-1, -1, -1],
+                       [-1,  9, -1],
+                       [-1, -1, -1]])
+    sharpened = cv2.filter2D(img, -1, kernel)
+    return sharpened
+
+
+def skeletonize_edges(edges):
+    """Reduce edges to single pixel thickness"""
+    # Convert to binary
+    binary = (edges > 0).astype(np.uint8)
+    # Apply skeletonization to get single-pixel thickness
+    skeleton = skeletonize(binary)
+    return (skeleton * 255).astype(np.uint8)
+
+
+def vectorize_contours(contours, num_points):
+    """
+    Vectorize contours by following paths naturally instead of random sampling.
+    Returns coordinates that follow the natural path of contours.
+    """
+    all_points = []
+
+    for contour in contours:
+        if len(contour) > 10:
+            # Reshape contour to get points
+            points = contour.reshape(-1, 2)
+            # Add points in order (following the path)
+            all_points.extend(points)
+
+    if len(all_points) == 0:
+        return np.array([]), np.array([])
+
+    all_points = np.array(all_points)
+
+    # Resample to target number of points while maintaining path order
+    if len(all_points) > num_points:
+        # Use linear interpolation to resample evenly along the path
+        indices = np.linspace(0, len(all_points) - 1, num_points, dtype=int)
+        points = all_points[indices]
+    else:
+        points = all_points
+
+    return points[:, 0], points[:, 1]
+
 
 def image_to_xy_coordinates_outlines(image_path, num_points=1500, threshold_value=127, invert=False):
     """
@@ -31,8 +82,11 @@ def image_to_xy_coordinates_outlines(image_path, num_points=1500, threshold_valu
     # Convert to grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # Apply slight blur to reduce noise
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    # Sharpen the image to enhance edges
+    sharpened = sharpen_image(gray)
+
+    # Apply slight blur to reduce noise (after sharpening)
+    blurred = cv2.GaussianBlur(sharpened, (3, 3), 0)
 
     # Apply binary threshold to separate object from background
     if invert:
@@ -40,8 +94,11 @@ def image_to_xy_coordinates_outlines(image_path, num_points=1500, threshold_valu
     else:
         _, binary = cv2.threshold(blurred, threshold_value, 255, cv2.THRESH_BINARY)
 
+    # Skeletonize to get single-pixel thickness outlines
+    skeleton = skeletonize_edges(binary)
+
     # Find contours (EXTERNAL only - just outlines, no interior details)
-    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    contours, _ = cv2.findContours(skeleton, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
     if len(contours) == 0:
         raise ValueError("No outlines detected. Try adjusting threshold value.")
@@ -49,28 +106,11 @@ def image_to_xy_coordinates_outlines(image_path, num_points=1500, threshold_valu
     # Sort contours by perimeter (largest first)
     contours = sorted(contours, key=lambda c: cv2.arcLength(c, True), reverse=True)
 
-    # Combine contours, prioritizing larger ones
-    all_points = []
-    for contour in contours:
-        if len(contour) > 10:  # Skip very small contours
-            points = contour.reshape(-1, 2)
-            all_points.extend(points)
+    # Vectorize contours (follow paths naturally)
+    x_coords, y_coords = vectorize_contours(contours, num_points)
 
-    if len(all_points) == 0:
+    if len(x_coords) == 0:
         raise ValueError("No valid contours found. Try adjusting threshold.")
-
-    all_points = np.array(all_points)
-
-    # Resample to target number of points
-    if len(all_points) > num_points:
-        indices = np.linspace(0, len(all_points) - 1, num_points, dtype=int)
-        points = all_points[indices]
-    else:
-        points = all_points
-
-    # Extract x and y coordinates
-    x_coords = points[:, 0].astype(float)
-    y_coords = points[:, 1].astype(float)
 
     # Normalize to -1 to 1 range
     x_norm = 2 * (x_coords - x_coords.min()) / (x_coords.max() - x_coords.min()) - 1
@@ -79,7 +119,7 @@ def image_to_xy_coordinates_outlines(image_path, num_points=1500, threshold_valu
     # Flip y-axis
     y_norm = -y_norm
 
-    return x_norm, y_norm, binary
+    return x_norm, y_norm, skeleton
 
 
 def image_to_xy_coordinates(image_path, num_points=1500, edge_threshold1=50, edge_threshold2=150):
@@ -106,39 +146,32 @@ def image_to_xy_coordinates(image_path, num_points=1500, edge_threshold1=50, edg
     # Convert to grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # Apply Gaussian blur to reduce noise
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    # Sharpen the image to enhance edges
+    sharpened = sharpen_image(gray)
+
+    # Apply Gaussian blur to reduce noise (after sharpening)
+    blurred = cv2.GaussianBlur(sharpened, (3, 3), 0)
 
     # Detect edges using Canny
     edges = cv2.Canny(blurred, edge_threshold1, edge_threshold2)
 
+    # Skeletonize to get single-pixel thickness edges
+    skeleton = skeletonize_edges(edges)
+
     # Find contours (edge traces)
-    contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    contours, _ = cv2.findContours(skeleton, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
-    # Combine all contours into single path
-    all_points = []
-    for contour in contours:
-        # Only include contours with sufficient points
-        if len(contour) > 10:
-            points = contour.reshape(-1, 2)
-            all_points.extend(points)
-
-    if len(all_points) == 0:
+    if len(contours) == 0:
         raise ValueError("No edges detected. Try adjusting edge thresholds.")
 
-    all_points = np.array(all_points)
+    # Sort contours by perimeter (largest first) for better path ordering
+    contours = sorted(contours, key=lambda c: cv2.arcLength(c, True), reverse=True)
 
-    # Resample to target number of points
-    if len(all_points) > num_points:
-        # Downsample
-        indices = np.linspace(0, len(all_points) - 1, num_points, dtype=int)
-        points = all_points[indices]
-    else:
-        points = all_points
+    # Vectorize contours (follow paths naturally)
+    x_coords, y_coords = vectorize_contours(contours, num_points)
 
-    # Extract x and y coordinates
-    x_coords = points[:, 0].astype(float)
-    y_coords = points[:, 1].astype(float)
+    if len(x_coords) == 0:
+        raise ValueError("No edges detected. Try adjusting edge thresholds.")
 
     # Normalize to -1 to 1 range (for oscilloscope)
     x_norm = 2 * (x_coords - x_coords.min()) / (x_coords.max() - x_coords.min()) - 1
@@ -147,52 +180,60 @@ def image_to_xy_coordinates(image_path, num_points=1500, edge_threshold1=50, edg
     # Flip y-axis (image coordinates are top-down, scope is bottom-up)
     y_norm = -y_norm
 
-    return x_norm, y_norm, edges
+    return x_norm, y_norm, skeleton
 
 
-def trace_single_contour(image_path, contour_index=0, num_points=1500, 
+def trace_single_contour(image_path, contour_index=0, num_points=1500,
                          edge_threshold1=50, edge_threshold2=150):
     """
     Trace a single continuous contour (better for clean images with one main object).
+    Now with sharpening and single-pixel thickness.
     """
-    
+
     # Read and preprocess image
     img = cv2.imread(image_path)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # Sharpen the image
+    sharpened = sharpen_image(gray)
+
+    blurred = cv2.GaussianBlur(sharpened, (3, 3), 0)
     edges = cv2.Canny(blurred, edge_threshold1, edge_threshold2)
-    
+
+    # Skeletonize to single-pixel thickness
+    skeleton = skeletonize_edges(edges)
+
     # Find contours
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    
+    contours, _ = cv2.findContours(skeleton, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
     if len(contours) == 0:
         raise ValueError("No contours found")
-    
+
     # Sort by contour size (perimeter)
     contours = sorted(contours, key=lambda c: cv2.arcLength(c, True), reverse=True)
-    
+
     # Use specified contour (default: largest)
     if contour_index >= len(contours):
         contour_index = 0
-    
+
     contour = contours[contour_index].reshape(-1, 2)
-    
-    # Resample to target points
+
+    # Resample to target points while maintaining path order
     if len(contour) > num_points:
         indices = np.linspace(0, len(contour) - 1, num_points, dtype=int)
         points = contour[indices]
     else:
         points = contour
-    
+
     x_coords = points[:, 0].astype(float)
     y_coords = points[:, 1].astype(float)
-    
+
     # Normalize
     x_norm = 2 * (x_coords - x_coords.min()) / (x_coords.max() - x_coords.min()) - 1
     y_norm = 2 * (y_coords - y_coords.min()) / (y_coords.max() - y_coords.min()) - 1
     y_norm = -y_norm
-    
-    return x_norm, y_norm, edges
+
+    return x_norm, y_norm, skeleton
 
 
 def save_matlab_arrays(x_coords, y_coords, output_file='coordinates.txt'):
@@ -773,4 +814,4 @@ if __name__ == "__main__":
         print("1. Make sure image file path is correct")
         print("2. Try adjusting edge_threshold1 and edge_threshold2")
         print("3. Use trace_single_contour() for cleaner images")
-        print("4. Install required packages: pip install opencv-python numpy scipy matplotlib")
+        print("4. Install required packages: pip install opencv-python numpy scipy matplotlib scikit-image")
