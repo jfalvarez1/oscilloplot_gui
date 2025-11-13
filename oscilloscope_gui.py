@@ -59,35 +59,39 @@ class OscilloscopeGUI:
         main_container.rowconfigure(0, weight=1)
         
         # Left panel - Controls (with scrollbar)
-        control_container = ttk.Frame(main_container)
+        control_container = ttk.Frame(main_container, width=300)
         control_container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
-        
+        control_container.grid_propagate(False)
+
         # Create canvas and scrollbar for controls
-        control_canvas = tk.Canvas(control_container, width=280, highlightthickness=0)
+        control_canvas = tk.Canvas(control_container, highlightthickness=0, bg='#f0f0f0')
         scrollbar = ttk.Scrollbar(control_container, orient="vertical", command=control_canvas.yview)
         control_frame = ttk.LabelFrame(control_canvas, text="Controls", padding="10")
-        
+
         control_canvas.configure(yscrollcommand=scrollbar.set)
-        
+
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         control_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
+
         # Create window in canvas
         canvas_frame = control_canvas.create_window((0, 0), window=control_frame, anchor=tk.NW)
-        
+
         # Configure scrolling
         def configure_scroll_region(event):
             control_canvas.configure(scrollregion=control_canvas.bbox("all"))
-            # Update canvas width to match frame width
-            canvas_width = event.width
+
+        def configure_canvas_width(event):
+            # Update canvas window width to match canvas width (minus scrollbar)
+            canvas_width = control_canvas.winfo_width()
             control_canvas.itemconfig(canvas_frame, width=canvas_width)
-        
+
         control_frame.bind("<Configure>", configure_scroll_region)
-        
+        control_canvas.bind("<Configure>", configure_canvas_width)
+
         # Mouse wheel scrolling
         def on_mousewheel(event):
             control_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
+
         control_canvas.bind_all("<MouseWheel>", on_mousewheel)  # Windows
         control_canvas.bind_all("<Button-4>", lambda e: control_canvas.yview_scroll(-1, "units"))  # Linux up
         control_canvas.bind_all("<Button-5>", lambda e: control_canvas.yview_scroll(1, "units"))   # Linux down
