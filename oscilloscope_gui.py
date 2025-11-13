@@ -167,15 +167,11 @@ class OscilloscopeGUI:
         self.n_repeat_spin.grid(row=4, column=1, pady=2)
         
         # Rotation info label
-        self.rotation_info_label = ttk.Label(audio_frame, text="", 
+        self.rotation_info_label = ttk.Label(audio_frame, text="",
                                             font=('Arial', 8, 'italic'),
                                             foreground='blue')
         self.rotation_info_label.grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(2,5))
-        
-        # Update rotation info when values change
-        self.n_repeat_var.trace('w', self.update_rotation_info)
-        self.rotation_speed.trace('w', self.update_rotation_info)
-        
+
         # Update rate label on change
         self.freq_mult_var.trace('w', self.update_rate_label)
         self.sample_rate_var.trace('w', self.update_rate_label)
@@ -248,9 +244,13 @@ class OscilloscopeGUI:
         ttk.Scale(rotation_frame, from_=0.5, to=45, orient=tk.HORIZONTAL,
                  variable=self.rotation_speed,
                  command=lambda v: self.rotation_mode_changed()).pack(fill=tk.X)
-        
-        ttk.Label(rotation_frame, text="Tip: 360° ÷ speed = steps per rotation\nMore Pattern Repeats = more rotations", 
+
+        ttk.Label(rotation_frame, text="Tip: 360° ÷ speed = steps per rotation\nMore Pattern Repeats = more rotations",
                  font=('Arial', 7, 'italic'), foreground='gray').pack(anchor=tk.W, pady=(5,0))
+
+        # Update rotation info when values change (set up after all variables are created)
+        self.n_repeat_var.trace('w', self.update_rotation_info)
+        self.rotation_speed.trace('w', self.update_rotation_info)
         
         # === ACTION BUTTONS ===
         button_frame = ttk.Frame(parent)
