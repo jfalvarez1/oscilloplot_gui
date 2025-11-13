@@ -349,12 +349,12 @@ class InteractiveEditor:
             if self.mode == 'outline':
                 instruction_text = (
                     'LEFT DRAG: Erase | RIGHT DRAG: Add | SCROLL: Adjust radius | TAB: Toggle radius mode\n'
-                    'SLIDER: Threshold | CHECKBOX: Invert | S: Save | R: Reset | Q: Quit'
+                    'SLIDER: Threshold | CHECKBOX: Invert | APPLY: Update detection | S: Save | R: Reset | Q: Quit'
                 )
             else:
                 instruction_text = (
                     'LEFT DRAG: Erase | RIGHT DRAG: Add | SCROLL: Adjust radius | TAB: Toggle radius mode\n'
-                    'SLIDERS: Edge sensitivity | S: Save | R: Reset | Q: Quit'
+                    'SLIDERS: Edge sensitivity | APPLY: Update detection | S: Save | R: Reset | Q: Quit'
                 )
         else:
             instruction_text = (
@@ -362,7 +362,7 @@ class InteractiveEditor:
                 'S: Save | R: Reset | Q: Quit'
             )
         self.fig.text(0.5, 0.02, instruction_text, ha='center',
-                     fontsize=10, bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+                     fontsize=9, bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
         # Mouse button state tracking for continuous erase/add
         self.mouse_pressed = False
@@ -396,18 +396,23 @@ class InteractiveEditor:
         """Add control buttons to the figure"""
         from matplotlib.widgets import Button
 
+        # Apply button (for detection updates)
+        ax_apply = plt.axes([0.28, 0.92, 0.08, 0.04])
+        self.btn_apply = Button(ax_apply, 'Apply')
+        self.btn_apply.on_clicked(lambda e: self.update_detection(None))
+
         # Save button
-        ax_save = plt.axes([0.35, 0.92, 0.08, 0.04])
+        ax_save = plt.axes([0.38, 0.92, 0.08, 0.04])
         self.btn_save = Button(ax_save, 'Save')
         self.btn_save.on_clicked(self.save_coordinates)
 
         # Reset button
-        ax_reset = plt.axes([0.45, 0.92, 0.08, 0.04])
+        ax_reset = plt.axes([0.48, 0.92, 0.08, 0.04])
         self.btn_reset = Button(ax_reset, 'Reset')
         self.btn_reset.on_clicked(self.reset_coordinates)
 
         # Quit button
-        ax_quit = plt.axes([0.55, 0.92, 0.08, 0.04])
+        ax_quit = plt.axes([0.58, 0.92, 0.08, 0.04])
         self.btn_quit = Button(ax_quit, 'Quit')
         self.btn_quit.on_clicked(self.quit_editor)
 
@@ -423,12 +428,12 @@ class InteractiveEditor:
                 valmin=0, valmax=255, valinit=self.threshold_value,
                 valstep=1, color='lightgreen'
             )
-            self.slider_threshold.on_changed(self.update_detection)
+            # Note: No on_changed callback - use Apply button instead
 
             # Checkbox for invert
             ax_check = plt.axes([0.15, 0.08, 0.15, 0.03])
             self.check_invert = CheckButtons(ax_check, ['Invert (dark→light)'], [self.invert])
-            self.check_invert.on_clicked(self.toggle_invert)
+            # Note: No on_clicked callback - use Apply button instead
 
         elif self.mode == 'edge':
             # Slider for lower threshold (edge_threshold1)
@@ -438,7 +443,7 @@ class InteractiveEditor:
                 valmin=1, valmax=200, valinit=self.edge_threshold1,
                 valstep=1, color='lightblue'
             )
-            self.slider1.on_changed(self.update_detection)
+            # Note: No on_changed callback - use Apply button instead
 
             # Slider for upper threshold (edge_threshold2)
             ax_slider2 = plt.axes([0.15, 0.09, 0.25, 0.02])
@@ -447,12 +452,7 @@ class InteractiveEditor:
                 valmin=1, valmax=300, valinit=self.edge_threshold2,
                 valstep=1, color='lightcoral'
             )
-            self.slider2.on_changed(self.update_detection)
-
-    def toggle_invert(self, label):
-        """Toggle invert mode for outline detection"""
-        self.invert = not self.invert
-        self.update_detection(None)
+            # Note: No on_changed callback - use Apply button instead
 
     def update_detection(self, val):
         """Re-run detection with new parameter values (mode-dependent)"""
@@ -463,6 +463,9 @@ class InteractiveEditor:
             if self.mode == 'outline':
                 # Get current threshold value
                 self.threshold_value = int(self.slider_threshold.val)
+
+                # Get checkbox state (returns list of active checkboxes)
+                self.invert = self.check_invert.get_status()[0] if hasattr(self, 'check_invert') else self.invert
 
                 print(f"Updating outline detection: Threshold={self.threshold_value}, Invert={self.invert}")
 
