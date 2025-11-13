@@ -169,9 +169,11 @@ class InteractiveEditor:
     - Right click: Add point
     - 's' key: Save to file
     - 'r' key: Reset to original
+    - Sliders: Adjust edge detection sensitivity
     """
 
-    def __init__(self, x_coords, y_coords, edges=None, output_file='coordinates.txt'):
+    def __init__(self, x_coords, y_coords, edges=None, output_file='coordinates.txt',
+                 image_path=None, num_points=1000, edge_threshold1=50, edge_threshold2=150):
         self.x_original = x_coords.copy()
         self.y_original = y_coords.copy()
         self.x_coords = x_coords.copy()
@@ -180,15 +182,22 @@ class InteractiveEditor:
         self.output_file = output_file
         self.erase_radius = 0.1  # Radius for erasing points
 
-        # Create figure
+        # Store parameters for re-running edge detection
+        self.image_path = image_path
+        self.num_points = num_points
+        self.edge_threshold1 = edge_threshold1
+        self.edge_threshold2 = edge_threshold2
+
+        # Create figure with more space for sliders
         self.fig, self.axes = plt.subplots(1, 2, figsize=(14, 6))
 
         # Plot edges
         if edges is not None:
-            self.axes[0].imshow(edges, cmap='gray')
+            self.edge_img = self.axes[0].imshow(edges, cmap='gray')
             self.axes[0].set_title('Detected Edges (Reference)')
             self.axes[0].axis('off')
         else:
+            self.edge_img = None
             self.axes[0].text(0.5, 0.5, 'No edge image available',
                              ha='center', va='center', transform=self.axes[0].transAxes)
             self.axes[0].axis('off')
@@ -203,10 +212,16 @@ class InteractiveEditor:
         self.axes[1].grid(True, alpha=0.3)
 
         # Add instruction text
-        instruction_text = (
-            'LEFT CLICK: Erase points | RIGHT CLICK: Add point\n'
-            'SCROLL: Adjust erase radius | S: Save | R: Reset | Q: Quit'
-        )
+        if self.image_path is not None:
+            instruction_text = (
+                'LEFT CLICK: Erase points | RIGHT CLICK: Add point | SCROLL: Adjust erase radius\n'
+                'SLIDERS: Adjust edge sensitivity (live) | S: Save | R: Reset | Q: Quit'
+            )
+        else:
+            instruction_text = (
+                'LEFT CLICK: Erase points | RIGHT CLICK: Add point\n'
+                'SCROLL: Adjust erase radius | S: Save | R: Reset | Q: Quit'
+            )
         self.fig.text(0.5, 0.02, instruction_text, ha='center',
                      fontsize=10, bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
@@ -215,8 +230,10 @@ class InteractiveEditor:
         self.fig.canvas.mpl_connect('key_press_event', self.on_key)
         self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
 
-        # Add control buttons
+        # Add control buttons and sliders
         self.add_buttons()
+        if self.image_path is not None:
+            self.add_sliders()
 
         plt.tight_layout(rect=[0, 0.06, 1, 1])
 
@@ -245,6 +262,77 @@ class InteractiveEditor:
         ax_quit = plt.axes([0.55, 0.92, 0.08, 0.04])
         self.btn_quit = Button(ax_quit, 'Quit')
         self.btn_quit.on_clicked(self.quit_editor)
+
+    def add_sliders(self):
+        """Add sliders for edge detection threshold adjustment"""
+        from matplotlib.widgets import Slider
+
+        # Slider for lower threshold (edge_threshold1)
+        ax_slider1 = plt.axes([0.15, 0.12, 0.25, 0.02])
+        self.slider1 = Slider(
+            ax_slider1, 'Low Threshold',
+            valmin=1, valmax=200, valinit=self.edge_threshold1,
+            valstep=1, color='lightblue'
+        )
+        self.slider1.on_changed(self.update_edge_detection)
+
+        # Slider for upper threshold (edge_threshold2)
+        ax_slider2 = plt.axes([0.15, 0.09, 0.25, 0.02])
+        self.slider2 = Slider(
+            ax_slider2, 'High Threshold',
+            valmin=1, valmax=300, valinit=self.edge_threshold2,
+            valstep=1, color='lightcoral'
+        )
+        self.slider2.on_changed(self.update_edge_detection)
+
+    def update_edge_detection(self, val):
+        """Re-run edge detection with new threshold values"""
+        if self.image_path is None:
+            return
+
+        # Get current slider values
+        self.edge_threshold1 = int(self.slider1.val)
+        self.edge_threshold2 = int(self.slider2.val)
+
+        # Ensure threshold1 < threshold2
+        if self.edge_threshold1 >= self.edge_threshold2:
+            return
+
+        print(f"Updating edge detection: Low={self.edge_threshold1}, High={self.edge_threshold2}")
+
+        try:
+            # Re-run edge detection
+            x_new, y_new, edges_new = image_to_xy_coordinates(
+                self.image_path,
+                num_points=self.num_points,
+                edge_threshold1=self.edge_threshold1,
+                edge_threshold2=self.edge_threshold2
+            )
+
+            # Update edges display
+            if self.edge_img is not None:
+                self.edge_img.set_data(edges_new)
+            else:
+                self.edge_img = self.axes[0].imshow(edges_new, cmap='gray')
+                self.axes[0].set_title('Detected Edges (Reference)')
+                self.axes[0].axis('off')
+
+            # Update coordinates
+            self.x_original = x_new.copy()
+            self.y_original = y_new.copy()
+            self.x_coords = x_new.copy()
+            self.y_coords = y_new.copy()
+            self.edges = edges_new
+
+            # Update trace plot
+            self.line.set_data(self.x_coords, self.y_coords)
+            self.update_title()
+
+            # Redraw
+            self.fig.canvas.draw_idle()
+
+        except Exception as e:
+            print(f"Error updating edge detection: {e}")
 
     def on_click(self, event):
         """Handle mouse click events"""
@@ -346,7 +434,8 @@ class InteractiveEditor:
         plt.show()
 
 
-def edit_coordinates_interactive(x_coords, y_coords, edges=None, output_file='coordinates.txt'):
+def edit_coordinates_interactive(x_coords, y_coords, edges=None, output_file='coordinates.txt',
+                                image_path=None, num_points=1000, edge_threshold1=50, edge_threshold2=150):
     """
     Launch interactive editor for post-processing coordinates.
 
@@ -354,11 +443,13 @@ def edit_coordinates_interactive(x_coords, y_coords, edges=None, output_file='co
     - Left click: Erase nearby points
     - Right click: Add a point
     - Scroll wheel: Adjust erase radius
+    - Sliders: Adjust edge detection sensitivity (updates live)
     - 's' key or Save button: Save to file
     - 'r' key or Reset button: Reset to original
     - 'q' key or Quit button: Close editor
     """
-    editor = InteractiveEditor(x_coords, y_coords, edges, output_file)
+    editor = InteractiveEditor(x_coords, y_coords, edges, output_file,
+                              image_path, num_points, edge_threshold1, edge_threshold2)
     editor.show()
     return editor.x_coords, editor.y_coords
 
@@ -381,6 +472,7 @@ if __name__ == "__main__":
         print("  - LEFT CLICK: Erase nearby points")
         print("  - RIGHT CLICK: Add a point")
         print("  - SCROLL WHEEL: Adjust erase radius")
+        print("  - SLIDERS: Adjust edge detection sensitivity (live updates)")
         print("  - S key: Save to coordinates.txt")
         print("  - R key: Reset to original")
         print("  - Q key: Quit editor")
@@ -424,10 +516,18 @@ if __name__ == "__main__":
             print("\n=== Launching Interactive Editor ===")
             print("Controls:")
             print("  LEFT CLICK: Erase points | RIGHT CLICK: Add point")
-            print("  SCROLL: Adjust erase radius | S: Save | R: Reset | Q: Quit")
+            print("  SCROLL: Adjust erase radius")
+            print("  SLIDERS: Adjust edge detection sensitivity (live preview)")
+            print("  S: Save | R: Reset | Q: Quit")
             print("\nEdit the trace, then press 'S' to save or use the Save button")
 
-            x_edited, y_edited = edit_coordinates_interactive(x, y, edges, 'coordinates.txt')
+            x_edited, y_edited = edit_coordinates_interactive(
+                x, y, edges, 'coordinates.txt',
+                image_path=image_file,
+                num_points=num_points,
+                edge_threshold1=50,
+                edge_threshold2=150
+            )
             print(f"\nFinal point count: {len(x_edited)}")
         else:
             # Just visualize and save
