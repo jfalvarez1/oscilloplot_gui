@@ -599,7 +599,8 @@ class OscilloscopeGUI:
                 fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
                 one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
 
-                if self.alternate_xy_fade_var.get():
+                # Only apply alternate mode if BOTH X and Y fades are explicitly enabled
+                if self.alternate_xy_fade_var.get() and self.x_fade_var.get() and self.y_fade_var.get():
                     # ALTERNATE MODE: X fade first, then Y fade, repeat
                     x_combined = []
                     y_combined = []
@@ -975,8 +976,8 @@ class OscilloscopeGUI:
                     y_base = np.concatenate(y_faded_list)
                 else:
                     # Y-fade already created many copies
-                    # Check if alternating mode is enabled
-                    if self.alternate_xy_fade_var.get():
+                    # Check if alternating mode is enabled (only when BOTH X and Y fades are enabled)
+                    if self.alternate_xy_fade_var.get() and self.x_fade_var.get() and self.y_fade_var.get():
                         # ALTERNATE MODE: Do X fade sequence, then Y fade sequence, repeat
                         original_x = x_norm.copy()
                         original_y = y_norm.copy()
