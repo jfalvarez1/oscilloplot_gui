@@ -259,6 +259,8 @@ class InteractiveEditor:
         self.edges = edges
         self.output_file = output_file
         self.erase_radius = 0.1  # Radius for erasing points
+        self.add_radius = 0.05  # Radius for adding points (smaller than erase)
+        self.active_radius_mode = 'erase'  # 'erase' or 'add'
 
         # Store parameters for re-running detection
         self.image_path = image_path
@@ -296,28 +298,39 @@ class InteractiveEditor:
         self.axes[1].set_ylabel('Y')
         self.axes[1].grid(True, alpha=0.3)
 
+        # Add preview circle for radius visualization
+        self.preview_circle = plt.Circle((0, 0), 0.1, fill=False, color='red',
+                                        linestyle='--', visible=False)
+        self.axes[1].add_patch(self.preview_circle)
+
         # Add instruction text
         if self.image_path is not None:
             if self.mode == 'outline':
                 instruction_text = (
-                    'LEFT CLICK: Erase points | RIGHT CLICK: Add point | SCROLL: Adjust erase radius\n'
-                    'SLIDER: Adjust threshold | CHECKBOX: Invert | S: Save | R: Reset | Q: Quit'
+                    'LEFT DRAG: Erase | RIGHT DRAG: Add | SCROLL: Adjust radius | TAB: Toggle radius mode\n'
+                    'SLIDER: Threshold | CHECKBOX: Invert | S: Save | R: Reset | Q: Quit'
                 )
             else:
                 instruction_text = (
-                    'LEFT CLICK: Erase points | RIGHT CLICK: Add point | SCROLL: Adjust erase radius\n'
-                    'SLIDERS: Adjust edge sensitivity (live) | S: Save | R: Reset | Q: Quit'
+                    'LEFT DRAG: Erase | RIGHT DRAG: Add | SCROLL: Adjust radius | TAB: Toggle radius mode\n'
+                    'SLIDERS: Edge sensitivity | S: Save | R: Reset | Q: Quit'
                 )
         else:
             instruction_text = (
-                'LEFT CLICK: Erase points | RIGHT CLICK: Add point\n'
-                'SCROLL: Adjust erase radius | S: Save | R: Reset | Q: Quit'
+                'LEFT DRAG: Erase | RIGHT DRAG: Add | SCROLL: Adjust radius | TAB: Toggle radius mode\n'
+                'S: Save | R: Reset | Q: Quit'
             )
         self.fig.text(0.5, 0.02, instruction_text, ha='center',
                      fontsize=10, bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
+        # Mouse button state tracking for continuous erase/add
+        self.mouse_pressed = False
+        self.mouse_button = None
+
         # Connect events
-        self.fig.canvas.mpl_connect('button_press_event', self.on_click)
+        self.fig.canvas.mpl_connect('button_press_event', self.on_press)
+        self.fig.canvas.mpl_connect('button_release_event', self.on_release)
+        self.fig.canvas.mpl_connect('motion_notify_event', self.on_motion)
         self.fig.canvas.mpl_connect('key_press_event', self.on_key)
         self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
 
@@ -330,9 +343,12 @@ class InteractiveEditor:
 
     def update_title(self):
         """Update the title with current point count"""
+        mode_indicator = "ERASE" if self.active_radius_mode == 'erase' else "ADD"
+        active_radius = self.erase_radius if self.active_radius_mode == 'erase' else self.add_radius
         self.axes[1].set_title(
             f'Editable Trace ({len(self.x_coords)} points) | '
-            f'Erase radius: {self.erase_radius:.3f}'
+            f'Mode: {mode_indicator} | Radius: {active_radius:.3f} | '
+            f'[TAB to switch]'
         )
 
     def add_buttons(self):
@@ -466,24 +482,67 @@ class InteractiveEditor:
         except Exception as e:
             print(f"Error updating detection: {e}")
 
-    def on_click(self, event):
-        """Handle mouse click events"""
+    def on_press(self, event):
+        """Handle mouse button press events"""
         if event.inaxes != self.axes[1]:
             return
 
-        if event.button == 1:  # Left click - erase
+        self.mouse_pressed = True
+        self.mouse_button = event.button
+
+        # Perform initial action
+        if event.button == 1:  # Left button - erase
             self.erase_points(event.xdata, event.ydata)
-        elif event.button == 3:  # Right click - add
+        elif event.button == 3:  # Right button - add
             self.add_point(event.xdata, event.ydata)
 
-    def on_scroll(self, event):
-        """Handle scroll events to adjust erase radius"""
-        if event.button == 'up':
-            self.erase_radius *= 1.2
-        elif event.button == 'down':
-            self.erase_radius /= 1.2
+    def on_release(self, event):
+        """Handle mouse button release events"""
+        self.mouse_pressed = False
+        self.mouse_button = None
+        self.preview_circle.set_visible(False)
+        self.fig.canvas.draw_idle()
 
-        self.erase_radius = max(0.01, min(0.5, self.erase_radius))
+    def on_motion(self, event):
+        """Handle mouse motion events"""
+        if event.inaxes != self.axes[1]:
+            self.preview_circle.set_visible(False)
+            self.fig.canvas.draw_idle()
+            return
+
+        # Show preview circle at cursor
+        if event.xdata is not None and event.ydata is not None:
+            current_radius = self.erase_radius if self.active_radius_mode == 'erase' else self.add_radius
+            color = 'red' if self.active_radius_mode == 'erase' else 'green'
+            self.preview_circle.set_center((event.xdata, event.ydata))
+            self.preview_circle.set_radius(current_radius)
+            self.preview_circle.set_color(color)
+            self.preview_circle.set_visible(True)
+
+            # If mouse button is held, continuously erase/add
+            if self.mouse_pressed:
+                if self.mouse_button == 1:  # Left button - continuous erase
+                    self.erase_points(event.xdata, event.ydata)
+                elif self.mouse_button == 3:  # Right button - continuous add
+                    self.add_point(event.xdata, event.ydata)
+
+            self.fig.canvas.draw_idle()
+
+    def on_scroll(self, event):
+        """Handle scroll events to adjust radius (based on active mode)"""
+        if self.active_radius_mode == 'erase':
+            if event.button == 'up':
+                self.erase_radius *= 1.2
+            elif event.button == 'down':
+                self.erase_radius /= 1.2
+            self.erase_radius = max(0.01, min(0.5, self.erase_radius))
+        else:  # add mode
+            if event.button == 'up':
+                self.add_radius *= 1.2
+            elif event.button == 'down':
+                self.add_radius /= 1.2
+            self.add_radius = max(0.005, min(0.3, self.add_radius))
+
         self.update_title()
         self.fig.canvas.draw()
 
@@ -495,6 +554,12 @@ class InteractiveEditor:
             self.reset_coordinates(None)
         elif event.key == 'q':
             self.quit_editor(None)
+        elif event.key == 'tab':
+            # Toggle between erase and add radius modes
+            self.active_radius_mode = 'add' if self.active_radius_mode == 'erase' else 'erase'
+            self.update_title()
+            self.fig.canvas.draw()
+            print(f"Switched to {self.active_radius_mode.upper()} mode")
 
     def erase_points(self, x, y):
         """Erase points within radius of click"""
@@ -515,13 +580,19 @@ class InteractiveEditor:
             print(f"Erased {points_removed} points")
 
     def add_point(self, x, y):
-        """Add a new point at click location"""
+        """Add a new point at click location if not too close to existing points"""
         if x is None or y is None:
             return
 
-        # Find nearest point to determine insertion index
+        # Check if there's already a point very close (within add_radius)
         if len(self.x_coords) > 0:
             distances = np.sqrt((self.x_coords - x)**2 + (self.y_coords - y)**2)
+            min_distance = np.min(distances)
+
+            # Don't add if too close to existing point (prevents clustering during drag)
+            if min_distance < self.add_radius * 0.5:
+                return
+
             nearest_idx = np.argmin(distances)
 
             # Insert near the closest point
@@ -533,7 +604,6 @@ class InteractiveEditor:
             self.y_coords = np.array([y])
 
         self.update_plot()
-        print(f"Added point at ({x:.3f}, {y:.3f})")
 
     def update_plot(self):
         """Refresh the plot with current coordinates"""
