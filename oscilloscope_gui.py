@@ -430,10 +430,40 @@ class OscilloscopeGUI:
         
         # X-Axis Fade Sequence
         if self.x_fade_var.get():
-            n_fade = self.x_fade_steps.get()
-            fade_factors = np.linspace(1, 0, n_fade, dtype=np.float32)
-            y = np.tile(y, n_fade)
-            x = np.concatenate([x * fade_factors[i] for i in range(n_fade)])
+            n_fade_x = self.x_fade_steps.get()
+            fade_factors_x = np.linspace(1, 0, n_fade_x, dtype=np.float32)
+
+            # Check if Y-fade was already applied
+            if self.y_fade_var.get():
+                # Both fades enabled - need to rebuild from scratch to avoid huge arrays
+                # Store the original before Y-fade was applied
+                original_x = self.normalize_data(self.x_data)
+                original_y = self.normalize_data(self.y_data)
+
+                # Rebuild with both fades
+                x_combined = []
+                y_combined = []
+
+                # Get Y-fade parameters
+                n_fade_y = self.y_fade_steps.get()
+                fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
+                fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
+                one_cycle_y = np.concatenate([fade_down_y, fade_up_y])
+
+                # Show 3 cycles for preview
+                num_preview_cycles = 3
+                for cycle_idx in range(num_preview_cycles):
+                    for x_fade_factor in fade_factors_x:
+                        for y_fade_factor in one_cycle_y:
+                            x_combined.append(original_x * x_fade_factor)
+                            y_combined.append(original_y * y_fade_factor)
+
+                x = np.concatenate(x_combined)
+                y = np.concatenate(y_combined)
+            else:
+                # Only X-fade enabled
+                y = np.tile(y, n_fade_x)
+                x = np.concatenate([x * fade_factors_x[i] for i in range(n_fade_x)])
         
         # Mirror Reflections
         if self.reflections_var.get():
@@ -471,56 +501,60 @@ class OscilloscopeGUI:
     
     def update_live_preview(self):
         """Update display to show current audio output position as a continuous stream"""
-        if self.preview_active and self.is_playing and self.current_audio is not None:
-            try:
-                import time
-                if hasattr(self, 'playback_start_time'):
-                    # Calculate current playback position
-                    elapsed = time.time() - self.playback_start_time
-                    sample_position = int(elapsed * self.current_fs)
+        try:
+            if self.preview_active and self.is_playing and self.current_audio is not None:
+                try:
+                    import time
+                    if hasattr(self, 'playback_start_time'):
+                        # Calculate current playback position
+                        elapsed = time.time() - self.playback_start_time
+                        sample_position = int(elapsed * self.current_fs)
 
-                    # Wrap around if we exceed audio length (looping)
-                    total_samples = len(self.current_audio)
-                    if sample_position >= total_samples:
-                        sample_position = sample_position % total_samples
-                        # Reset buffer on loop
-                        self.preview_buffer = []
-                        self.last_preview_update = sample_position
-                        # Update start time for smoother looping
-                        self.playback_start_time = time.time() - (sample_position / self.current_fs)
+                        # Wrap around if we exceed audio length (looping)
+                        total_samples = len(self.current_audio)
+                        if sample_position >= total_samples:
+                            sample_position = sample_position % total_samples
+                            # Reset buffer on loop
+                            self.preview_buffer = []
+                            self.last_preview_update = sample_position
+                            # Update start time for smoother looping
+                            self.playback_start_time = time.time() - (sample_position / self.current_fs)
 
-                    # Add new samples to rolling buffer since last update
-                    if sample_position > self.last_preview_update:
-                        new_samples = self.current_audio[self.last_preview_update:sample_position]
-                        if len(self.preview_buffer) == 0:
-                            self.preview_buffer = new_samples.tolist()
-                        else:
-                            self.preview_buffer.extend(new_samples.tolist())
-                        self.last_preview_update = sample_position
+                        # Add new samples to rolling buffer since last update
+                        if sample_position > self.last_preview_update:
+                            new_samples = self.current_audio[self.last_preview_update:sample_position]
+                            if len(self.preview_buffer) == 0:
+                                self.preview_buffer = new_samples.tolist()
+                            else:
+                                self.preview_buffer.extend(new_samples.tolist())
+                            self.last_preview_update = sample_position
 
-                        # Keep buffer at desired window size (remove old samples)
-                        if len(self.preview_buffer) > self.preview_window_size:
-                            self.preview_buffer = self.preview_buffer[-self.preview_window_size:]
+                            # Keep buffer at desired window size (remove old samples)
+                            if len(self.preview_buffer) > self.preview_window_size:
+                                self.preview_buffer = self.preview_buffer[-self.preview_window_size:]
 
-                    # Display the rolling buffer
-                    if len(self.preview_buffer) >= 10:
-                        buffer_array = np.array(self.preview_buffer)
-                        x_preview = buffer_array[:, 0]
-                        y_preview = buffer_array[:, 1]
+                        # Display the rolling buffer
+                        if len(self.preview_buffer) >= 10:
+                            buffer_array = np.array(self.preview_buffer)
+                            x_preview = buffer_array[:, 0]
+                            y_preview = buffer_array[:, 1]
 
-                        # Update plot
-                        self.line.set_data(x_preview, y_preview)
+                            # Update plot
+                            self.line.set_data(x_preview, y_preview)
 
-                        # Keep consistent axis limits for smooth viewing
-                        self.ax.set_xlim(-1.2, 1.2)
-                        self.ax.set_ylim(-1.2, 1.2)
+                            # Keep consistent axis limits for smooth viewing
+                            self.ax.set_xlim(-1.2, 1.2)
+                            self.ax.set_ylim(-1.2, 1.2)
 
-                        self.canvas.draw_idle()
-            except Exception as e:
-                pass  # Silently ignore preview errors
+                            self.canvas.draw_idle()
+                except Exception as e:
+                    pass  # Silently ignore preview errors
 
-        # Schedule next update (50 FPS)
-        self.root.after(20, self.update_live_preview)
+            # Schedule next update (50 FPS)
+            if self.root.winfo_exists():
+                self.root.after(20, self.update_live_preview)
+        except Exception:
+            pass  # Window destroyed, stop scheduling
     
     def update_display(self):
         """Update the oscilloscope display"""
@@ -600,8 +634,41 @@ class OscilloscopeGUI:
         if self.x_fade_var.get():
             n_fade = self.x_fade_steps.get()
             fade_factors = np.linspace(1, 0, n_fade, dtype=np.float32)
-            y_base = np.tile(y_base, n_fade)
-            x_base = np.concatenate([x_base * fade_factors[i] for i in range(n_fade)])
+
+            # If repeats were already applied in Y-fade, don't multiply again
+            # Just apply X-fade to the existing pattern
+            if not repeats_applied_in_effects:
+                y_base = np.tile(y_base, n_fade)
+                x_base = np.concatenate([x_base * fade_factors[i] for i in range(n_fade)])
+            else:
+                # Y-fade already created many copies, just fade X across the whole thing
+                # This is more complex - we need to fade across the entire sequence
+                # For simplicity, apply X-fade to each individual base pattern
+                original_x = x_norm.copy()
+                original_y = y_norm.copy()
+
+                # Create X-faded then Y-faded sequence
+                x_faded_combined = []
+                y_faded_combined = []
+
+                # Get Y-fade parameters
+                n_fade_y = self.y_fade_steps.get()
+                fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
+                fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
+                one_cycle_y = np.concatenate([fade_down_y, fade_up_y])
+
+                # For each repeat cycle
+                for repeat_idx in range(n_repeat):
+                    # For each X-fade step
+                    for x_fade_factor in fade_factors:
+                        # For each Y-fade step in the cycle
+                        for y_fade_factor in one_cycle_y:
+                            x_faded_combined.append(original_x * x_fade_factor)
+                            y_faded_combined.append(original_y * y_fade_factor)
+
+                x_base = np.concatenate(x_faded_combined)
+                y_base = np.concatenate(y_faded_combined)
+                # Still marked as repeats applied
         
         # Apply Mirror Reflections if enabled
         if self.reflections_var.get():
@@ -854,21 +921,26 @@ class OscilloscopeGUI:
     def check_updates(self):
         """Check for updates from audio thread"""
         try:
-            while True:
-                msg, data = self.update_queue.get_nowait()
-                
-                if msg == "playback_complete":
-                    self.is_playing = False
-                    self.play_btn.config(text="▶ Play Audio")
-                    self.status_label.config(text="Playback complete")
-                elif msg == "error":
-                    self.is_playing = False
-                    self.play_btn.config(text="▶ Play Audio")
-                    self.status_label.config(text=f"Error: {data}")
-        except queue.Empty:
-            pass
-        
-        self.root.after(50, self.check_updates)
+            try:
+                while True:
+                    msg, data = self.update_queue.get_nowait()
+
+                    if msg == "playback_complete":
+                        self.is_playing = False
+                        self.play_btn.config(text="▶ Play Audio")
+                        self.status_label.config(text="Playback complete")
+                    elif msg == "error":
+                        self.is_playing = False
+                        self.play_btn.config(text="▶ Play Audio")
+                        self.status_label.config(text=f"Error: {data}")
+            except queue.Empty:
+                pass
+
+            # Schedule next update
+            if self.root.winfo_exists():
+                self.root.after(50, self.check_updates)
+        except Exception:
+            pass  # Window destroyed, stop scheduling
     
     def load_txt_file(self):
         """Load coordinates from text file with x_fun=[] and y_fun=[] format"""
