@@ -256,6 +256,32 @@ class OscilloscopeGUI:
                        command=self.effect_changed).pack(anchor=tk.W, pady=(5,0))
 
         ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Shrink/Unshrink (scale both X and Y together)
+        self.shrink_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(effects_frame, text="Shrink/Unshrink (Scale X & Y together)",
+                       variable=self.shrink_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        ttk.Label(effects_frame, text="Shrink Steps:",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.shrink_steps = tk.IntVar(value=10)
+        self.shrink_steps.trace('w', lambda *args: self.effect_changed())
+        self.shrink_steps_spin = ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
+                   textvariable=self.shrink_steps,
+                   command=self.effect_changed)
+        self.shrink_steps_spin.pack(anchor=tk.W, padx=20)
+
+        ttk.Label(effects_frame, text="Shrink Speed (repeats/step):",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.shrink_speed = tk.IntVar(value=1)
+        self.shrink_speed.trace('w', lambda *args: self.effect_changed())
+        self.shrink_speed_spin = ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
+                   textvariable=self.shrink_speed,
+                   command=self.effect_changed)
+        self.shrink_speed_spin.pack(anchor=tk.W, padx=20)
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
         
         # Rotation
         rotation_frame = ttk.LabelFrame(effects_frame, text="Rotation", padding="5")
@@ -362,6 +388,8 @@ class OscilloscopeGUI:
             self.y_fade_speed_spin,
             self.x_fade_steps_spin,
             self.x_fade_speed_spin,
+            self.shrink_steps_spin,
+            self.shrink_speed_spin,
             self.preview_size_spin,
         ]
 
@@ -483,6 +511,7 @@ class OscilloscopeGUI:
         self.y_fade_var.set(False)
         self.x_fade_var.set(False)
         self.alternate_xy_fade_var.set(False)
+        self.shrink_var.set(False)
         self.rotation_mode_var.set("Off")
 
         # Reset values to defaults
@@ -490,6 +519,8 @@ class OscilloscopeGUI:
         self.y_fade_speed.set(1)
         self.x_fade_steps.set(10)
         self.x_fade_speed.set(1)
+        self.shrink_steps.set(10)
+        self.shrink_speed.set(1)
         self.rotation_angle.set(0.0)
         self.rotation_speed.set(5.0)
 
@@ -632,7 +663,39 @@ class OscilloscopeGUI:
                         y_faded_list.append(y)
                 x = np.concatenate(x_faded_list)
                 y = np.concatenate(y_faded_list)
-        
+
+        # Shrink/Unshrink (scale both X and Y together)
+        if self.shrink_var.get():
+            n_shrink = self.shrink_steps.get()
+            shrink_speed = self.shrink_speed.get()
+            # Create one complete shrink cycle: 1 → 0 → -1 → 0 → 1
+            shrink_down = np.linspace(1, 0, n_shrink, dtype=np.float32)
+            shrink_negative_down = np.linspace(0, -1, n_shrink, dtype=np.float32)[1:]
+            shrink_negative_up = np.linspace(-1, 0, n_shrink, dtype=np.float32)[1:]
+            shrink_up = np.linspace(0, 1, n_shrink, dtype=np.float32)[1:]
+            one_cycle = np.concatenate([shrink_down, shrink_negative_down, shrink_negative_up, shrink_up])
+
+            # Adapt number of cycles based on shrink steps
+            if n_shrink <= 10:
+                num_preview_cycles = 3
+            elif n_shrink <= 30:
+                num_preview_cycles = 2
+            else:
+                num_preview_cycles = 1
+
+            x_shrunk = []
+            y_shrunk = []
+
+            for cycle_idx in range(num_preview_cycles):
+                for scale_factor in one_cycle:
+                    # Repeat each shrink step 'shrink_speed' times for speed control
+                    for _ in range(shrink_speed):
+                        x_shrunk.append(x * scale_factor)
+                        y_shrunk.append(y * scale_factor)
+
+            x = np.concatenate(x_shrunk)
+            y = np.concatenate(y_shrunk)
+
         # Mirror Reflections
         if self.reflections_var.get():
             x, y = self.apply_reflections(x, y)
@@ -978,7 +1041,35 @@ class OscilloscopeGUI:
                         x_base = np.concatenate(x_faded_combined)
                         y_base = np.concatenate(y_faded_combined)
                     # Still marked as repeats applied
-        
+
+            # Apply Shrink/Unshrink if enabled
+            if self.shrink_var.get():
+                n_shrink = self.shrink_steps.get()
+                shrink_speed = self.shrink_speed.get()
+                # Create one complete shrink cycle: 1 → 0 → -1 → 0 → 1
+                shrink_down = np.linspace(1, 0, n_shrink, dtype=np.float32)
+                shrink_negative_down = np.linspace(0, -1, n_shrink, dtype=np.float32)[1:]
+                shrink_negative_up = np.linspace(-1, 0, n_shrink, dtype=np.float32)[1:]
+                shrink_up = np.linspace(0, 1, n_shrink, dtype=np.float32)[1:]
+                one_cycle = np.concatenate([shrink_down, shrink_negative_down, shrink_negative_up, shrink_up])
+
+                # Build the complete shrink sequence
+                x_shrunk = []
+                y_shrunk = []
+
+                for repeat_idx in range(n_repeat):
+                    for scale_factor in one_cycle:
+                        # Repeat each shrink step 'shrink_speed' times for speed control
+                        for _ in range(shrink_speed):
+                            x_shrunk.append(x_base * scale_factor)
+                            y_shrunk.append(y_base * scale_factor)
+
+                x_base = np.concatenate(x_shrunk)
+                y_base = np.concatenate(y_shrunk)
+
+                # Mark that repeats have been applied
+                repeats_applied_in_effects = True
+
         # Apply Mirror Reflections if enabled
         if self.reflections_var.get():
             x_base, y_base = self.apply_reflections(x_base, y_base)
