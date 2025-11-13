@@ -39,6 +39,10 @@ class OscilloscopeGUI:
         self.preview_active = True  # Enable by default
         self.preview_buffer = []  # Rolling buffer for streaming display
         self.last_preview_update = 0  # Track last update position
+
+        # Effect change debouncing
+        self.effect_change_timer = None
+        self.is_regenerating = False  # Flag to prevent simultaneous regenerations
         
         # Create GUI
         self.create_widgets()
@@ -368,15 +372,26 @@ class OscilloscopeGUI:
         return 2.0 * (data - data_min) / (data_max - data_min) - 1.0
     
     def effect_changed(self):
-        """Handle effect changes - automatically apply and generate"""
+        """Handle effect changes - debounced to prevent freeze from rapid changes"""
+        # Always update display immediately for visual feedback
         self.update_display()
-        # Always regenerate and play when effects change
+
+        # Cancel any pending regeneration timer
+        if self.effect_change_timer is not None:
+            self.root.after_cancel(self.effect_change_timer)
+            self.effect_change_timer = None
+
+        # Only schedule regeneration if audio exists
         if hasattr(self, 'current_audio') and self.current_audio is not None:
-            # Already have audio generated, regenerate with new effects
+            # Schedule regeneration after 300ms delay
+            # This allows multiple rapid changes to be batched together
+            self.effect_change_timer = self.root.after(300, self.delayed_regenerate)
+
+    def delayed_regenerate(self):
+        """Execute the actual regeneration after debounce delay"""
+        self.effect_change_timer = None
+        if not self.is_regenerating:
             self.apply_parameters()
-        else:
-            # No audio yet, just update display
-            pass
     
     def update_rotation_info(self, *args):
         """Update rotation info label showing number of full rotations"""
@@ -398,16 +413,19 @@ class OscilloscopeGUI:
             pass
     
     def rotation_mode_changed(self):
-        """Handle rotation mode changes - automatically apply and generate"""
+        """Handle rotation mode changes - debounced to prevent freeze"""
         self.update_rotation_info()
         self.update_display()
-        # Always regenerate and play when rotation changes
+
+        # Cancel any pending regeneration timer
+        if self.effect_change_timer is not None:
+            self.root.after_cancel(self.effect_change_timer)
+            self.effect_change_timer = None
+
+        # Only schedule regeneration if audio exists
         if hasattr(self, 'current_audio') and self.current_audio is not None:
-            # Already have audio generated, regenerate with new rotation
-            self.apply_parameters()
-        else:
-            # No audio yet, just update display
-            pass
+            # Schedule regeneration after 300ms delay
+            self.effect_change_timer = self.root.after(300, self.delayed_regenerate)
 
     def reset_effects(self):
         """Reset all effects to their default values"""
@@ -922,7 +940,13 @@ class OscilloscopeGUI:
     
     def apply_parameters(self):
         """Apply parameters, generate audio, and auto-play"""
+        # Prevent concurrent regenerations
+        if self.is_regenerating:
+            return
+
         try:
+            self.is_regenerating = True
+
             # Stop current playback if playing and clear the buffer
             was_playing = self.is_playing
             if self.is_playing:
@@ -941,6 +965,8 @@ class OscilloscopeGUI:
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to generate audio:\n{str(e)}")
+        finally:
+            self.is_regenerating = False
     
     def toggle_playback(self):
         """Toggle between play and pause"""
