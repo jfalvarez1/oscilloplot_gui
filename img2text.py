@@ -6,38 +6,115 @@ from matplotlib.widgets import Button
 import tkinter as tk
 from tkinter import messagebox
 
+def image_to_xy_coordinates_outlines(image_path, num_points=1500, threshold_value=127, invert=False):
+    """
+    Convert an image to X,Y coordinate arrays by tracing OUTLINES only.
+    Better for filled objects like hair, silhouettes, etc.
+
+    Parameters:
+    - image_path: Path to input image
+    - num_points: Target number of points
+    - threshold_value: Binary threshold (0-255). Lower = more white becomes outline
+    - invert: If True, trace dark objects on light background
+
+    Returns:
+    - x_coords: Array of x coordinates
+    - y_coords: Array of y coordinates
+    - binary_img: Binary threshold image for reference
+    """
+
+    # Read image
+    img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError(f"Could not read image from {image_path}")
+
+    # Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Apply slight blur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # Apply binary threshold to separate object from background
+    if invert:
+        _, binary = cv2.threshold(blurred, threshold_value, 255, cv2.THRESH_BINARY_INV)
+    else:
+        _, binary = cv2.threshold(blurred, threshold_value, 255, cv2.THRESH_BINARY)
+
+    # Find contours (EXTERNAL only - just outlines, no interior details)
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+    if len(contours) == 0:
+        raise ValueError("No outlines detected. Try adjusting threshold value.")
+
+    # Sort contours by perimeter (largest first)
+    contours = sorted(contours, key=cv2.contourPerimeter, reverse=True)
+
+    # Combine contours, prioritizing larger ones
+    all_points = []
+    for contour in contours:
+        if len(contour) > 10:  # Skip very small contours
+            points = contour.reshape(-1, 2)
+            all_points.extend(points)
+
+    if len(all_points) == 0:
+        raise ValueError("No valid contours found. Try adjusting threshold.")
+
+    all_points = np.array(all_points)
+
+    # Resample to target number of points
+    if len(all_points) > num_points:
+        indices = np.linspace(0, len(all_points) - 1, num_points, dtype=int)
+        points = all_points[indices]
+    else:
+        points = all_points
+
+    # Extract x and y coordinates
+    x_coords = points[:, 0].astype(float)
+    y_coords = points[:, 1].astype(float)
+
+    # Normalize to -1 to 1 range
+    x_norm = 2 * (x_coords - x_coords.min()) / (x_coords.max() - x_coords.min()) - 1
+    y_norm = 2 * (y_coords - y_coords.min()) / (y_coords.max() - y_coords.min()) - 1
+
+    # Flip y-axis
+    y_norm = -y_norm
+
+    return x_norm, y_norm, binary
+
+
 def image_to_xy_coordinates(image_path, num_points=1500, edge_threshold1=50, edge_threshold2=150):
     """
-    Convert an image to X,Y coordinate arrays for oscilloscope display.
-    
+    Convert an image to X,Y coordinate arrays for oscilloscope display using EDGE DETECTION.
+    Use this for line drawings or when you want interior details.
+
     Parameters:
     - image_path: Path to input image
     - num_points: Target number of points (will affect smoothness and refresh rate)
     - edge_threshold1: Lower threshold for Canny edge detection
     - edge_threshold2: Upper threshold for Canny edge detection
-    
+
     Returns:
     - x_coords: Array of x coordinates
     - y_coords: Array of y coordinates
     """
-    
+
     # Read image
     img = cv2.imread(image_path)
     if img is None:
         raise ValueError(f"Could not read image from {image_path}")
-    
+
     # Convert to grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
+
     # Apply Gaussian blur to reduce noise
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    
+
     # Detect edges using Canny
     edges = cv2.Canny(blurred, edge_threshold1, edge_threshold2)
-    
+
     # Find contours (edge traces)
     contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-    
+
     # Combine all contours into single path
     all_points = []
     for contour in contours:
@@ -45,12 +122,12 @@ def image_to_xy_coordinates(image_path, num_points=1500, edge_threshold1=50, edg
         if len(contour) > 10:
             points = contour.reshape(-1, 2)
             all_points.extend(points)
-    
+
     if len(all_points) == 0:
         raise ValueError("No edges detected. Try adjusting edge thresholds.")
-    
+
     all_points = np.array(all_points)
-    
+
     # Resample to target number of points
     if len(all_points) > num_points:
         # Downsample
@@ -58,18 +135,18 @@ def image_to_xy_coordinates(image_path, num_points=1500, edge_threshold1=50, edg
         points = all_points[indices]
     else:
         points = all_points
-    
+
     # Extract x and y coordinates
     x_coords = points[:, 0].astype(float)
     y_coords = points[:, 1].astype(float)
-    
+
     # Normalize to -1 to 1 range (for oscilloscope)
     x_norm = 2 * (x_coords - x_coords.min()) / (x_coords.max() - x_coords.min()) - 1
     y_norm = 2 * (y_coords - y_coords.min()) / (y_coords.max() - y_coords.min()) - 1
-    
+
     # Flip y-axis (image coordinates are top-down, scope is bottom-up)
     y_norm = -y_norm
-    
+
     return x_norm, y_norm, edges
 
 
@@ -169,11 +246,12 @@ class InteractiveEditor:
     - Right click: Add point
     - 's' key: Save to file
     - 'r' key: Reset to original
-    - Sliders: Adjust edge detection sensitivity
+    - Sliders: Adjust detection sensitivity (mode-dependent)
     """
 
     def __init__(self, x_coords, y_coords, edges=None, output_file='coordinates.txt',
-                 image_path=None, num_points=1000, edge_threshold1=50, edge_threshold2=150):
+                 image_path=None, num_points=1000, mode='outline',
+                 edge_threshold1=50, edge_threshold2=150, threshold_value=127, invert=False):
         self.x_original = x_coords.copy()
         self.y_original = y_coords.copy()
         self.x_coords = x_coords.copy()
@@ -182,11 +260,18 @@ class InteractiveEditor:
         self.output_file = output_file
         self.erase_radius = 0.1  # Radius for erasing points
 
-        # Store parameters for re-running edge detection
+        # Store parameters for re-running detection
         self.image_path = image_path
         self.num_points = num_points
+        self.mode = mode  # 'outline' or 'edge'
+
+        # Edge detection parameters
         self.edge_threshold1 = edge_threshold1
         self.edge_threshold2 = edge_threshold2
+
+        # Outline detection parameters
+        self.threshold_value = threshold_value
+        self.invert = invert
 
         # Create figure with more space for sliders
         self.fig, self.axes = plt.subplots(1, 2, figsize=(14, 6))
@@ -213,10 +298,16 @@ class InteractiveEditor:
 
         # Add instruction text
         if self.image_path is not None:
-            instruction_text = (
-                'LEFT CLICK: Erase points | RIGHT CLICK: Add point | SCROLL: Adjust erase radius\n'
-                'SLIDERS: Adjust edge sensitivity (live) | S: Save | R: Reset | Q: Quit'
-            )
+            if self.mode == 'outline':
+                instruction_text = (
+                    'LEFT CLICK: Erase points | RIGHT CLICK: Add point | SCROLL: Adjust erase radius\n'
+                    'SLIDER: Adjust threshold | CHECKBOX: Invert | S: Save | R: Reset | Q: Quit'
+                )
+            else:
+                instruction_text = (
+                    'LEFT CLICK: Erase points | RIGHT CLICK: Add point | SCROLL: Adjust erase radius\n'
+                    'SLIDERS: Adjust edge sensitivity (live) | S: Save | R: Reset | Q: Quit'
+                )
         else:
             instruction_text = (
                 'LEFT CLICK: Erase points | RIGHT CLICK: Add point\n'
@@ -264,57 +355,99 @@ class InteractiveEditor:
         self.btn_quit.on_clicked(self.quit_editor)
 
     def add_sliders(self):
-        """Add sliders for edge detection threshold adjustment"""
-        from matplotlib.widgets import Slider
+        """Add sliders for detection threshold adjustment (mode-dependent)"""
+        from matplotlib.widgets import Slider, CheckButtons
 
-        # Slider for lower threshold (edge_threshold1)
-        ax_slider1 = plt.axes([0.15, 0.12, 0.25, 0.02])
-        self.slider1 = Slider(
-            ax_slider1, 'Low Threshold',
-            valmin=1, valmax=200, valinit=self.edge_threshold1,
-            valstep=1, color='lightblue'
-        )
-        self.slider1.on_changed(self.update_edge_detection)
+        if self.mode == 'outline':
+            # Slider for binary threshold
+            ax_slider1 = plt.axes([0.15, 0.12, 0.25, 0.02])
+            self.slider_threshold = Slider(
+                ax_slider1, 'Threshold',
+                valmin=0, valmax=255, valinit=self.threshold_value,
+                valstep=1, color='lightgreen'
+            )
+            self.slider_threshold.on_changed(self.update_detection)
 
-        # Slider for upper threshold (edge_threshold2)
-        ax_slider2 = plt.axes([0.15, 0.09, 0.25, 0.02])
-        self.slider2 = Slider(
-            ax_slider2, 'High Threshold',
-            valmin=1, valmax=300, valinit=self.edge_threshold2,
-            valstep=1, color='lightcoral'
-        )
-        self.slider2.on_changed(self.update_edge_detection)
+            # Checkbox for invert
+            ax_check = plt.axes([0.15, 0.08, 0.15, 0.03])
+            self.check_invert = CheckButtons(ax_check, ['Invert (dark→light)'], [self.invert])
+            self.check_invert.on_clicked(self.toggle_invert)
 
-    def update_edge_detection(self, val):
-        """Re-run edge detection with new threshold values"""
+        elif self.mode == 'edge':
+            # Slider for lower threshold (edge_threshold1)
+            ax_slider1 = plt.axes([0.15, 0.12, 0.25, 0.02])
+            self.slider1 = Slider(
+                ax_slider1, 'Low Threshold',
+                valmin=1, valmax=200, valinit=self.edge_threshold1,
+                valstep=1, color='lightblue'
+            )
+            self.slider1.on_changed(self.update_detection)
+
+            # Slider for upper threshold (edge_threshold2)
+            ax_slider2 = plt.axes([0.15, 0.09, 0.25, 0.02])
+            self.slider2 = Slider(
+                ax_slider2, 'High Threshold',
+                valmin=1, valmax=300, valinit=self.edge_threshold2,
+                valstep=1, color='lightcoral'
+            )
+            self.slider2.on_changed(self.update_detection)
+
+    def toggle_invert(self, label):
+        """Toggle invert mode for outline detection"""
+        self.invert = not self.invert
+        self.update_detection(None)
+
+    def update_detection(self, val):
+        """Re-run detection with new parameter values (mode-dependent)"""
         if self.image_path is None:
             return
 
-        # Get current slider values
-        self.edge_threshold1 = int(self.slider1.val)
-        self.edge_threshold2 = int(self.slider2.val)
-
-        # Ensure threshold1 < threshold2
-        if self.edge_threshold1 >= self.edge_threshold2:
-            return
-
-        print(f"Updating edge detection: Low={self.edge_threshold1}, High={self.edge_threshold2}")
-
         try:
-            # Re-run edge detection
-            x_new, y_new, edges_new = image_to_xy_coordinates(
-                self.image_path,
-                num_points=self.num_points,
-                edge_threshold1=self.edge_threshold1,
-                edge_threshold2=self.edge_threshold2
-            )
+            if self.mode == 'outline':
+                # Get current threshold value
+                self.threshold_value = int(self.slider_threshold.val)
 
-            # Update edges display
+                print(f"Updating outline detection: Threshold={self.threshold_value}, Invert={self.invert}")
+
+                # Re-run outline detection
+                x_new, y_new, binary_img = image_to_xy_coordinates_outlines(
+                    self.image_path,
+                    num_points=self.num_points,
+                    threshold_value=self.threshold_value,
+                    invert=self.invert
+                )
+
+                reference_img = binary_img
+                title = 'Binary Threshold (Reference)'
+
+            elif self.mode == 'edge':
+                # Get current slider values
+                self.edge_threshold1 = int(self.slider1.val)
+                self.edge_threshold2 = int(self.slider2.val)
+
+                # Ensure threshold1 < threshold2
+                if self.edge_threshold1 >= self.edge_threshold2:
+                    return
+
+                print(f"Updating edge detection: Low={self.edge_threshold1}, High={self.edge_threshold2}")
+
+                # Re-run edge detection
+                x_new, y_new, edges_img = image_to_xy_coordinates(
+                    self.image_path,
+                    num_points=self.num_points,
+                    edge_threshold1=self.edge_threshold1,
+                    edge_threshold2=self.edge_threshold2
+                )
+
+                reference_img = edges_img
+                title = 'Detected Edges (Reference)'
+
+            # Update reference image display
             if self.edge_img is not None:
-                self.edge_img.set_data(edges_new)
+                self.edge_img.set_data(reference_img)
             else:
-                self.edge_img = self.axes[0].imshow(edges_new, cmap='gray')
-                self.axes[0].set_title('Detected Edges (Reference)')
+                self.edge_img = self.axes[0].imshow(reference_img, cmap='gray')
+                self.axes[0].set_title(title)
                 self.axes[0].axis('off')
 
             # Update coordinates
@@ -322,7 +455,6 @@ class InteractiveEditor:
             self.y_original = y_new.copy()
             self.x_coords = x_new.copy()
             self.y_coords = y_new.copy()
-            self.edges = edges_new
 
             # Update trace plot
             self.line.set_data(self.x_coords, self.y_coords)
@@ -332,7 +464,7 @@ class InteractiveEditor:
             self.fig.canvas.draw_idle()
 
         except Exception as e:
-            print(f"Error updating edge detection: {e}")
+            print(f"Error updating detection: {e}")
 
     def on_click(self, event):
         """Handle mouse click events"""
@@ -435,7 +567,9 @@ class InteractiveEditor:
 
 
 def edit_coordinates_interactive(x_coords, y_coords, edges=None, output_file='coordinates.txt',
-                                image_path=None, num_points=1000, edge_threshold1=50, edge_threshold2=150):
+                                image_path=None, num_points=1000, mode='outline',
+                                edge_threshold1=50, edge_threshold2=150,
+                                threshold_value=127, invert=False):
     """
     Launch interactive editor for post-processing coordinates.
 
@@ -443,13 +577,15 @@ def edit_coordinates_interactive(x_coords, y_coords, edges=None, output_file='co
     - Left click: Erase nearby points
     - Right click: Add a point
     - Scroll wheel: Adjust erase radius
-    - Sliders: Adjust edge detection sensitivity (updates live)
+    - Sliders: Adjust detection sensitivity (updates live, mode-dependent)
     - 's' key or Save button: Save to file
     - 'r' key or Reset button: Reset to original
     - 'q' key or Quit button: Close editor
     """
     editor = InteractiveEditor(x_coords, y_coords, edges, output_file,
-                              image_path, num_points, edge_threshold1, edge_threshold2)
+                              image_path, num_points, mode,
+                              edge_threshold1, edge_threshold2,
+                              threshold_value, invert)
     editor.show()
     return editor.x_coords, editor.y_coords
 
@@ -460,19 +596,24 @@ if __name__ == "__main__":
 
     # Parse command line arguments
     if len(sys.argv) < 2:
-        print("Usage: python img2text.py <image_path> [num_points] [--edit]")
+        print("Usage: python img2text.py <image_path> [num_points] [--edit] [--mode=MODE]")
         print("\nOptions:")
         print("  <image_path>   Path to the input image")
         print("  [num_points]   Target number of points (default: 1000)")
         print("  --edit         Launch interactive editor for post-processing")
+        print("  --mode=MODE    Detection mode: 'outline' (default) or 'edge'")
+        print("                 outline: Trace object outlines (best for filled shapes)")
+        print("                 edge: Detect all edges (best for line drawings)")
         print("\nExamples:")
         print("  python img2text.py image.png 2000")
         print("  python img2text.py image.png 2000 --edit")
+        print("  python img2text.py image.png 2000 --edit --mode=outline")
+        print("  python img2text.py image.png 2000 --mode=edge")
         print("\nInteractive Editor Controls:")
         print("  - LEFT CLICK: Erase nearby points")
         print("  - RIGHT CLICK: Add a point")
         print("  - SCROLL WHEEL: Adjust erase radius")
-        print("  - SLIDERS: Adjust edge detection sensitivity (live updates)")
+        print("  - SLIDERS: Adjust detection sensitivity (live updates)")
         print("  - S key: Save to coordinates.txt")
         print("  - R key: Reset to original")
         print("  - Q key: Quit editor")
@@ -480,33 +621,46 @@ if __name__ == "__main__":
 
     image_file = sys.argv[1]
 
-    # Check for --edit flag
+    # Check for flags
     use_editor = '--edit' in sys.argv
 
-    # Get num_points (filter out --edit from args)
+    # Get mode
+    mode = 'outline'  # Default to outline mode
+    for arg in sys.argv:
+        if arg.startswith('--mode='):
+            mode = arg.split('=')[1]
+            if mode not in ['outline', 'edge']:
+                print(f"Invalid mode: {mode}. Using 'outline' mode.")
+                mode = 'outline'
+
+    # Get num_points (filter out flags from args)
     args_without_flags = [arg for arg in sys.argv[2:] if not arg.startswith('--')]
     num_points = int(args_without_flags[0]) if len(args_without_flags) > 0 else 1000
 
     print(f"Processing image: {image_file}")
     print(f"Target points: {num_points}")
+    print(f"Mode: {mode}")
     if use_editor:
         print("Interactive editor mode enabled")
 
     try:
-        # Option A: Trace all edges (default)
-        x, y, edges = image_to_xy_coordinates(
-            image_file,
-            num_points=num_points,
-            edge_threshold1=50,  # Lower = more edges detected
-            edge_threshold2=150   # Higher = fewer edges
-        )
-
-        # Option B: Trace single largest contour (uncomment to use instead)
-        # x, y, edges = trace_single_contour(
-        #     image_file,
-        #     num_points=num_points,
-        #     contour_index=0  # 0 = largest contour
-        # )
+        # Run detection based on mode
+        if mode == 'outline':
+            print("Using OUTLINE mode (traces object boundaries, ignores interior)")
+            x, y, reference_img = image_to_xy_coordinates_outlines(
+                image_file,
+                num_points=num_points,
+                threshold_value=127,
+                invert=False
+            )
+        elif mode == 'edge':
+            print("Using EDGE mode (detects all edges including interior details)")
+            x, y, reference_img = image_to_xy_coordinates(
+                image_file,
+                num_points=num_points,
+                edge_threshold1=50,
+                edge_threshold2=150
+            )
 
         print(f"Generated {len(x)} coordinate points")
         print(f"Refresh rate at 100kHz: {100000/len(x):.1f} Hz")
@@ -517,21 +671,28 @@ if __name__ == "__main__":
             print("Controls:")
             print("  LEFT CLICK: Erase points | RIGHT CLICK: Add point")
             print("  SCROLL: Adjust erase radius")
-            print("  SLIDERS: Adjust edge detection sensitivity (live preview)")
+            if mode == 'outline':
+                print("  SLIDER: Adjust threshold (0-255)")
+                print("  CHECKBOX: Toggle invert (dark objects vs light objects)")
+            else:
+                print("  SLIDERS: Adjust Low/High edge thresholds")
             print("  S: Save | R: Reset | Q: Quit")
             print("\nEdit the trace, then press 'S' to save or use the Save button")
 
             x_edited, y_edited = edit_coordinates_interactive(
-                x, y, edges, 'coordinates.txt',
+                x, y, reference_img, 'coordinates.txt',
                 image_path=image_file,
                 num_points=num_points,
+                mode=mode,
                 edge_threshold1=50,
-                edge_threshold2=150
+                edge_threshold2=150,
+                threshold_value=127,
+                invert=False
             )
             print(f"\nFinal point count: {len(x_edited)}")
         else:
             # Just visualize and save
-            visualize_trace(x, y, edges)
+            visualize_trace(x, y, reference_img)
             save_matlab_arrays(x, y, 'coordinates.txt')
             print(f"\n✓ Saved to coordinates.txt")
             print("Load this file in the oscilloscope GUI using 'Load Text File (.txt)'")
