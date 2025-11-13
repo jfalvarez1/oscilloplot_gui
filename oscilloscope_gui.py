@@ -212,6 +212,14 @@ class OscilloscopeGUI:
         ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
                    textvariable=self.y_fade_steps,
                    command=self.effect_changed).pack(anchor=tk.W, padx=20)
+
+        ttk.Label(effects_frame, text="Y Fade Speed (repeats/step):",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.y_fade_speed = tk.IntVar(value=1)
+        self.y_fade_speed.trace('w', lambda *args: self.effect_changed())
+        ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
+                   textvariable=self.y_fade_speed,
+                   command=self.effect_changed).pack(anchor=tk.W, padx=20)
         
         ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
         
@@ -227,6 +235,14 @@ class OscilloscopeGUI:
         self.x_fade_steps.trace('w', lambda *args: self.effect_changed())
         ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
                    textvariable=self.x_fade_steps,
+                   command=self.effect_changed).pack(anchor=tk.W, padx=20)
+
+        ttk.Label(effects_frame, text="X Fade Speed (repeats/step):",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.x_fade_speed = tk.IntVar(value=1)
+        self.x_fade_speed.trace('w', lambda *args: self.effect_changed())
+        ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
+                   textvariable=self.x_fade_speed,
                    command=self.effect_changed).pack(anchor=tk.W, padx=20)
         
         ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
@@ -383,9 +399,9 @@ class OscilloscopeGUI:
 
         # Only schedule regeneration if audio exists
         if hasattr(self, 'current_audio') and self.current_audio is not None:
-            # Schedule regeneration after 300ms delay
+            # Schedule regeneration after 600ms delay
             # This allows multiple rapid changes to be batched together
-            self.effect_change_timer = self.root.after(300, self.delayed_regenerate)
+            self.effect_change_timer = self.root.after(600, self.delayed_regenerate)
 
     def delayed_regenerate(self):
         """Execute the actual regeneration after debounce delay"""
@@ -424,8 +440,8 @@ class OscilloscopeGUI:
 
         # Only schedule regeneration if audio exists
         if hasattr(self, 'current_audio') and self.current_audio is not None:
-            # Schedule regeneration after 300ms delay
-            self.effect_change_timer = self.root.after(300, self.delayed_regenerate)
+            # Schedule regeneration after 600ms delay
+            self.effect_change_timer = self.root.after(600, self.delayed_regenerate)
 
     def reset_effects(self):
         """Reset all effects to their default values"""
@@ -437,7 +453,9 @@ class OscilloscopeGUI:
 
         # Reset values to defaults
         self.y_fade_steps.set(10)
+        self.y_fade_speed.set(1)
         self.x_fade_steps.set(10)
+        self.x_fade_speed.set(1)
         self.rotation_angle.set(0.0)
         self.rotation_speed.set(5.0)
 
@@ -456,6 +474,7 @@ class OscilloscopeGUI:
         # Y-Axis Fade Sequence
         if self.y_fade_var.get():
             n_fade = self.y_fade_steps.get()
+            fade_speed = self.y_fade_speed.get()
             # Create one complete fade cycle: 1 → 0 → -1 → 0 → 1
             # Decrease from 1 to 0
             fade_down = np.linspace(1, 0, n_fade, dtype=np.float32)
@@ -481,8 +500,10 @@ class OscilloscopeGUI:
 
             for cycle_idx in range(num_preview_cycles):
                 for fade_factor in one_cycle:
-                    x_faded.append(x)
-                    y_faded.append(y * fade_factor)
+                    # Repeat each fade step 'fade_speed' times for speed control
+                    for _ in range(fade_speed):
+                        x_faded.append(x)
+                        y_faded.append(y * fade_factor)
 
             x = np.concatenate(x_faded)
             y = np.concatenate(y_faded)
@@ -490,6 +511,7 @@ class OscilloscopeGUI:
         # X-Axis Fade Sequence
         if self.x_fade_var.get():
             n_fade_x = self.x_fade_steps.get()
+            x_fade_speed = self.x_fade_speed.get()
             # Create one complete X fade cycle: 1 → 0 → -1 → 0 → 1
             fade_down_x = np.linspace(1, 0, n_fade_x, dtype=np.float32)
             fade_negative_down_x = np.linspace(0, -1, n_fade_x, dtype=np.float32)[1:]
@@ -510,6 +532,7 @@ class OscilloscopeGUI:
 
                 # Get Y-fade parameters
                 n_fade_y = self.y_fade_steps.get()
+                y_fade_speed = self.y_fade_speed.get()
                 fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
                 fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
                 fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
@@ -518,7 +541,7 @@ class OscilloscopeGUI:
 
                 # Adapt number of cycles for combined fades based on total complexity
                 # Use fewer cycles when both fades have large step counts
-                total_complexity = len(fade_factors_x) * len(one_cycle_y)
+                total_complexity = len(fade_factors_x) * len(one_cycle_y) * x_fade_speed * y_fade_speed
                 if total_complexity > 5000:
                     num_preview_cycles = 1
                 elif total_complexity > 1000:
@@ -529,16 +552,23 @@ class OscilloscopeGUI:
                 for cycle_idx in range(num_preview_cycles):
                     for x_fade_factor in fade_factors_x:
                         for y_fade_factor in one_cycle_y:
-                            x_combined.append(original_x * x_fade_factor)
-                            y_combined.append(original_y * y_fade_factor)
+                            # Apply speed multipliers for both fades
+                            for _ in range(x_fade_speed * y_fade_speed):
+                                x_combined.append(original_x * x_fade_factor)
+                                y_combined.append(original_y * y_fade_factor)
 
                 x = np.concatenate(x_combined)
                 y = np.concatenate(y_combined)
             else:
                 # Only X-fade enabled
-                len_cycle = len(fade_factors_x)
-                y = np.tile(y, len_cycle)
-                x = np.concatenate([x * fade_factors_x[i] for i in range(len_cycle)])
+                x_faded_list = []
+                y_faded_list = []
+                for x_fade_factor in fade_factors_x:
+                    for _ in range(x_fade_speed):
+                        x_faded_list.append(x * x_fade_factor)
+                        y_faded_list.append(y)
+                x = np.concatenate(x_faded_list)
+                y = np.concatenate(y_faded_list)
         
         # Mirror Reflections
         if self.reflections_var.get():
@@ -693,6 +723,7 @@ class OscilloscopeGUI:
         # Apply Y-Axis Fade Sequence if enabled
         if self.y_fade_var.get():
             n_fade = self.y_fade_steps.get()
+            fade_speed = self.y_fade_speed.get()
             # Create one complete fade cycle: 1 → 0 → -1 → 0 → 1
             fade_down = np.linspace(1, 0, n_fade, dtype=np.float32)
             fade_negative_down = np.linspace(0, -1, n_fade, dtype=np.float32)[1:]
@@ -706,8 +737,10 @@ class OscilloscopeGUI:
 
             for repeat_idx in range(n_repeat):
                 for fade_factor in one_cycle:
-                    x_faded.append(x_base)
-                    y_faded.append(y_base * fade_factor)
+                    # Repeat each fade step 'fade_speed' times for speed control
+                    for _ in range(fade_speed):
+                        x_faded.append(x_base)
+                        y_faded.append(y_base * fade_factor)
 
             x_base = np.concatenate(x_faded)
             y_base = np.concatenate(y_faded)
@@ -718,6 +751,7 @@ class OscilloscopeGUI:
         # Apply X-Axis Fade Sequence if enabled
         if self.x_fade_var.get():
             n_fade = self.x_fade_steps.get()
+            x_fade_speed = self.x_fade_speed.get()
             # Create one complete X fade cycle: 1 → 0 → -1 → 0 → 1
             fade_down = np.linspace(1, 0, n_fade, dtype=np.float32)
             fade_negative_down = np.linspace(0, -1, n_fade, dtype=np.float32)[1:]
@@ -728,13 +762,18 @@ class OscilloscopeGUI:
             # If repeats were already applied in Y-fade, don't multiply again
             # Just apply X-fade to the existing pattern
             if not repeats_applied_in_effects:
-                len_cycle = len(fade_factors)
-                y_base = np.tile(y_base, len_cycle)
-                x_base = np.concatenate([x_base * fade_factors[i] for i in range(len_cycle)])
+                # Only X-fade enabled (no Y-fade)
+                x_faded_list = []
+                y_faded_list = []
+                for x_fade_factor in fade_factors:
+                    # Repeat each fade step 'x_fade_speed' times for speed control
+                    for _ in range(x_fade_speed):
+                        x_faded_list.append(x_base * x_fade_factor)
+                        y_faded_list.append(y_base)
+                x_base = np.concatenate(x_faded_list)
+                y_base = np.concatenate(y_faded_list)
             else:
-                # Y-fade already created many copies, just fade X across the whole thing
-                # This is more complex - we need to fade across the entire sequence
-                # For simplicity, apply X-fade to each individual base pattern
+                # Y-fade already created many copies, apply both X and Y fade with speed control
                 original_x = x_norm.copy()
                 original_y = y_norm.copy()
 
@@ -744,6 +783,7 @@ class OscilloscopeGUI:
 
                 # Get Y-fade parameters
                 n_fade_y = self.y_fade_steps.get()
+                y_fade_speed = self.y_fade_speed.get()
                 fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
                 fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
                 fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
@@ -756,8 +796,10 @@ class OscilloscopeGUI:
                     for x_fade_factor in fade_factors:
                         # For each Y-fade step in the cycle
                         for y_fade_factor in one_cycle_y:
-                            x_faded_combined.append(original_x * x_fade_factor)
-                            y_faded_combined.append(original_y * y_fade_factor)
+                            # Apply speed multipliers for both fades
+                            for _ in range(x_fade_speed * y_fade_speed):
+                                x_faded_combined.append(original_x * x_fade_factor)
+                                y_faded_combined.append(original_y * y_fade_factor)
 
                 x_base = np.concatenate(x_faded_combined)
                 y_base = np.concatenate(y_faded_combined)
@@ -951,9 +993,6 @@ class OscilloscopeGUI:
             was_playing = self.is_playing
             if self.is_playing:
                 self.stop_playback()
-                # Small delay to ensure audio buffer is cleared
-                import time
-                time.sleep(0.1)
 
             # Generate new audio
             self.generate_audio()
