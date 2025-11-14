@@ -138,6 +138,8 @@ class OscilloscopeGUI:
                   command=self.generate_test_pattern).pack(fill=tk.X, pady=2)
         ttk.Button(file_frame, text="Draw Pattern",
                   command=self.open_drawing_canvas).pack(fill=tk.X, pady=2)
+        ttk.Button(file_frame, text="Sum of Harmonics",
+                  command=self.open_harmonic_sum).pack(fill=tk.X, pady=2)
 
         # Data info
         self.data_info_label = ttk.Label(file_frame, text="Points: 3", 
@@ -2010,6 +2012,234 @@ class OscilloscopeGUI:
         ttk.Button(button_frame, text="Clear", command=clear_canvas).pack(
             side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Apply Drawing", command=apply_drawing).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+            side=tk.LEFT, padx=5)
+
+    def open_harmonic_sum(self):
+        """Open dialog to create pattern from sum of harmonics"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Sum of Harmonics")
+        dialog.geometry("700x600")
+
+        # Instructions
+        instruction_frame = ttk.Frame(dialog)
+        instruction_frame.pack(pady=10, padx=10, fill=tk.X)
+        ttk.Label(instruction_frame, text="Create pattern from sum of sinusoidal terms",
+                 font=('Arial', 10, 'bold')).pack()
+        ttk.Label(instruction_frame, text="X(t) = Σ A_n·sin(ω_n·t + φ_n)  or  A_n·cos(ω_n·t + φ_n)",
+                 font=('Arial', 8), foreground='gray').pack()
+
+        # Main container with two columns
+        main_frame = ttk.Frame(dialog)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Storage for terms
+        x_terms = []  # List of dicts: {'type': 'sin'/'cos', 'amp': float, 'freq': float, 'phase': float}
+        y_terms = []
+
+        # X Channel (Left)
+        x_frame = ttk.LabelFrame(main_frame, text="X Channel (Left)", padding="10")
+        x_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        # X terms display
+        x_canvas = tk.Canvas(x_frame, height=300, highlightthickness=1, highlightbackground='gray')
+        x_scrollbar = ttk.Scrollbar(x_frame, orient="vertical", command=x_canvas.yview)
+        x_scrollable = ttk.Frame(x_canvas)
+
+        x_scrollable.bind("<Configure>", lambda e: x_canvas.configure(scrollregion=x_canvas.bbox("all")))
+        x_canvas.create_window((0, 0), window=x_scrollable, anchor="nw")
+        x_canvas.configure(yscrollcommand=x_scrollbar.set)
+
+        x_canvas.pack(side="left", fill="both", expand=True)
+        x_scrollbar.pack(side="right", fill="y")
+
+        # Y Channel (Right)
+        y_frame = ttk.LabelFrame(main_frame, text="Y Channel (Right)", padding="10")
+        y_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+
+        # Y terms display
+        y_canvas = tk.Canvas(y_frame, height=300, highlightthickness=1, highlightbackground='gray')
+        y_scrollbar = ttk.Scrollbar(y_frame, orient="vertical", command=y_canvas.yview)
+        y_scrollable = ttk.Frame(y_canvas)
+
+        y_scrollable.bind("<Configure>", lambda e: y_canvas.configure(scrollregion=y_canvas.bbox("all")))
+        y_canvas.create_window((0, 0), window=y_scrollable, anchor="nw")
+        y_canvas.configure(yscrollcommand=y_scrollbar.set)
+
+        y_canvas.pack(side="left", fill="both", expand=True)
+        y_scrollbar.pack(side="right", fill="y")
+
+        def refresh_x_display():
+            """Refresh X channel term display"""
+            for widget in x_scrollable.winfo_children():
+                widget.destroy()
+
+            if not x_terms:
+                ttk.Label(x_scrollable, text="No terms added yet",
+                         font=('Arial', 8, 'italic'), foreground='gray').pack(pady=10)
+            else:
+                for i, term in enumerate(x_terms):
+                    term_frame = ttk.Frame(x_scrollable, relief='solid', borderwidth=1)
+                    term_frame.pack(fill=tk.X, pady=2, padx=2)
+
+                    # Term label
+                    term_text = f"{term['amp']:.2f}·{term['type']}({term['freq']:.1f}·t"
+                    if term['phase'] != 0:
+                        term_text += f" + {term['phase']:.2f}"
+                    term_text += ")"
+                    ttk.Label(term_frame, text=f"Term {i+1}: {term_text}",
+                             font=('Arial', 8)).pack(side=tk.LEFT, padx=5, pady=2)
+
+                    # Remove button
+                    def remove_x_term(idx=i):
+                        x_terms.pop(idx)
+                        refresh_x_display()
+
+                    ttk.Button(term_frame, text="✕", width=3,
+                              command=remove_x_term).pack(side=tk.RIGHT, padx=2, pady=2)
+
+        def refresh_y_display():
+            """Refresh Y channel term display"""
+            for widget in y_scrollable.winfo_children():
+                widget.destroy()
+
+            if not y_terms:
+                ttk.Label(y_scrollable, text="No terms added yet",
+                         font=('Arial', 8, 'italic'), foreground='gray').pack(pady=10)
+            else:
+                for i, term in enumerate(y_terms):
+                    term_frame = ttk.Frame(y_scrollable, relief='solid', borderwidth=1)
+                    term_frame.pack(fill=tk.X, pady=2, padx=2)
+
+                    # Term label
+                    term_text = f"{term['amp']:.2f}·{term['type']}({term['freq']:.1f}·t"
+                    if term['phase'] != 0:
+                        term_text += f" + {term['phase']:.2f}"
+                    term_text += ")"
+                    ttk.Label(term_frame, text=f"Term {i+1}: {term_text}",
+                             font=('Arial', 8)).pack(side=tk.LEFT, padx=5, pady=2)
+
+                    # Remove button
+                    def remove_y_term(idx=i):
+                        y_terms.pop(idx)
+                        refresh_y_display()
+
+                    ttk.Button(term_frame, text="✕", width=3,
+                              command=remove_y_term).pack(side=tk.RIGHT, padx=2, pady=2)
+
+        # Add term controls for X
+        x_add_frame = ttk.LabelFrame(x_frame, text="Add Term", padding="5")
+        x_add_frame.pack(fill=tk.X, pady=(10, 0))
+
+        x_type_var = tk.StringVar(value="sin")
+        ttk.Radiobutton(x_add_frame, text="sin", variable=x_type_var, value="sin").pack(side=tk.LEFT, padx=2)
+        ttk.Radiobutton(x_add_frame, text="cos", variable=x_type_var, value="cos").pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(x_add_frame, text="A:").pack(side=tk.LEFT, padx=(10, 2))
+        x_amp_var = tk.DoubleVar(value=1.0)
+        ttk.Entry(x_add_frame, textvariable=x_amp_var, width=6).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(x_add_frame, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
+        x_freq_var = tk.DoubleVar(value=1.0)
+        ttk.Entry(x_add_frame, textvariable=x_freq_var, width=6).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(x_add_frame, text="φ:").pack(side=tk.LEFT, padx=(5, 2))
+        x_phase_var = tk.DoubleVar(value=0.0)
+        ttk.Entry(x_add_frame, textvariable=x_phase_var, width=6).pack(side=tk.LEFT, padx=2)
+
+        def add_x_term():
+            x_terms.append({
+                'type': x_type_var.get(),
+                'amp': x_amp_var.get(),
+                'freq': x_freq_var.get(),
+                'phase': x_phase_var.get()
+            })
+            refresh_x_display()
+
+        ttk.Button(x_add_frame, text="Add", command=add_x_term).pack(side=tk.LEFT, padx=5)
+
+        # Add term controls for Y
+        y_add_frame = ttk.LabelFrame(y_frame, text="Add Term", padding="5")
+        y_add_frame.pack(fill=tk.X, pady=(10, 0))
+
+        y_type_var = tk.StringVar(value="sin")
+        ttk.Radiobutton(y_add_frame, text="sin", variable=y_type_var, value="sin").pack(side=tk.LEFT, padx=2)
+        ttk.Radiobutton(y_add_frame, text="cos", variable=y_type_var, value="cos").pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(y_add_frame, text="A:").pack(side=tk.LEFT, padx=(10, 2))
+        y_amp_var = tk.DoubleVar(value=1.0)
+        ttk.Entry(y_add_frame, textvariable=y_amp_var, width=6).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(y_add_frame, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
+        y_freq_var = tk.DoubleVar(value=1.0)
+        ttk.Entry(y_add_frame, textvariable=y_freq_var, width=6).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(y_add_frame, text="φ:").pack(side=tk.LEFT, padx=(5, 2))
+        y_phase_var = tk.DoubleVar(value=0.0)
+        ttk.Entry(y_add_frame, textvariable=y_phase_var, width=6).pack(side=tk.LEFT, padx=2)
+
+        def add_y_term():
+            y_terms.append({
+                'type': y_type_var.get(),
+                'amp': y_amp_var.get(),
+                'freq': y_freq_var.get(),
+                'phase': y_phase_var.get()
+            })
+            refresh_y_display()
+
+        ttk.Button(y_add_frame, text="Add", command=add_y_term).pack(side=tk.LEFT, padx=5)
+
+        # Initialize displays
+        refresh_x_display()
+        refresh_y_display()
+
+        # Generate button
+        def apply_harmonic_sum():
+            """Generate pattern from harmonic sums"""
+            if not x_terms and not y_terms:
+                messagebox.showwarning("No Terms", "Please add at least one term to X or Y channel!")
+                return
+
+            # Time array (0 to 2π with high resolution)
+            num_points = 1000
+            t = np.linspace(0, 2*np.pi, num_points)
+
+            # Calculate X channel
+            if x_terms:
+                x_data = np.zeros(num_points)
+                for term in x_terms:
+                    if term['type'] == 'sin':
+                        x_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
+                    else:  # cos
+                        x_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
+            else:
+                x_data = np.zeros(num_points)
+
+            # Calculate Y channel
+            if y_terms:
+                y_data = np.zeros(num_points)
+                for term in y_terms:
+                    if term['type'] == 'sin':
+                        y_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
+                    else:  # cos
+                        y_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
+            else:
+                y_data = np.zeros(num_points)
+
+            # Set as current data
+            self.x_data = x_data
+            self.y_data = y_data
+            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.update_display()
+            self.status_label.config(text=f"Generated harmonic sum (N={len(x_terms)}, M={len(y_terms)})")
+            dialog.destroy()
+
+        # Button frame
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Button(button_frame, text="Generate Pattern", command=apply_harmonic_sum).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
             side=tk.LEFT, padx=5)
