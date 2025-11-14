@@ -389,6 +389,44 @@ class OscilloscopeGUI:
         # Update rotation info when values change (set up after all variables are created)
         self.n_repeat_var.trace('w', self.update_rotation_info)
         self.rotation_speed.trace('w', self.update_rotation_info)
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Lightning Bolts Effect
+        lightning_frame = ttk.LabelFrame(effects_frame, text="Lightning Bolts", padding="5")
+        lightning_frame.pack(fill=tk.X, pady=5)
+
+        self.lightning_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(lightning_frame, text="Add Lightning Bolts",
+                       variable=self.lightning_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        self.lightning_mode_var = tk.StringVar(value="Static")
+        ttk.Radiobutton(lightning_frame, text="Static", variable=self.lightning_mode_var,
+                       value="Static", command=self.effect_changed).pack(anchor=tk.W, padx=20)
+        ttk.Radiobutton(lightning_frame, text="Dynamic (Animated)", variable=self.lightning_mode_var,
+                       value="Dynamic", command=self.effect_changed).pack(anchor=tk.W, padx=20)
+
+        ttk.Label(lightning_frame, text="Number of Bolts:",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20, pady=(5,0))
+        self.lightning_count = tk.IntVar(value=4)
+        ttk.Scale(lightning_frame, from_=1, to=12, orient=tk.HORIZONTAL,
+                 variable=self.lightning_count,
+                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+
+        ttk.Label(lightning_frame, text="Jaggedness (Detail):",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.lightning_jaggedness = tk.IntVar(value=3)
+        ttk.Scale(lightning_frame, from_=2, to=6, orient=tk.HORIZONTAL,
+                 variable=self.lightning_jaggedness,
+                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+
+        ttk.Label(lightning_frame, text="Bolt Length:",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.lightning_length = tk.DoubleVar(value=0.3)
+        ttk.Scale(lightning_frame, from_=0.1, to=0.8, orient=tk.HORIZONTAL,
+                 variable=self.lightning_length,
+                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
         
         # === ACTION BUTTONS ===
         button_frame = ttk.Frame(parent)
@@ -591,6 +629,7 @@ class OscilloscopeGUI:
         self.x_wavy_var.set(False)
         self.y_wavy_var.set(False)
         self.rotation_mode_var.set("Off")
+        self.lightning_var.set(False)
 
         # Reset values to defaults
         self.y_fade_steps.set(10)
@@ -607,6 +646,10 @@ class OscilloscopeGUI:
         self.y_wavy_freq.set(10.0)
         self.rotation_angle.set(0.0)
         self.rotation_speed.set(5.0)
+        self.lightning_mode_var.set("Static")
+        self.lightning_count.set(4)
+        self.lightning_jaggedness.set(3)
+        self.lightning_length.set(0.3)
 
         # Update display
         self.update_display()
@@ -773,6 +816,31 @@ class OscilloscopeGUI:
                 K_y = self.y_wavy_amp.get()
                 w_y = self.y_wavy_freq.get()
                 y = y + K_y * np.sin(w_y * t)
+
+        # Apply lightning bolts if enabled
+        if self.lightning_var.get():
+            num_bolts = self.lightning_count.get()
+            jaggedness = self.lightning_jaggedness.get()
+            length = self.lightning_length.get()
+            is_dynamic = self.lightning_mode_var.get() == "Dynamic"
+
+            # For static preview, use frame 0; for dynamic, use time-based index
+            import time
+            frame_idx = int(time.time() * 5) if is_dynamic else 0
+
+            x_lightning, y_lightning = self.generate_lightning_bolts(
+                self.x_data, self.y_data, num_bolts, jaggedness, length,
+                dynamic=is_dynamic, frame_idx=frame_idx
+            )
+
+            # Normalize lightning to same range as data
+            if len(x_lightning) > 0:
+                x_lightning = self.normalize_data(x_lightning)
+                y_lightning = self.normalize_data(y_lightning)
+
+                # Append lightning to the end (drawn as background)
+                x = np.concatenate([x_lightning, x])
+                y = np.concatenate([y_lightning, y])
 
         return x, y
     
@@ -1065,6 +1133,58 @@ class OscilloscopeGUI:
             x_repeated = self.normalize_data(x_rot)
             y_repeated = self.normalize_data(y_rot)
 
+        # Add lightning bolts if enabled (before tiling)
+        if self.lightning_var.get():
+            num_bolts = self.lightning_count.get()
+            jaggedness = self.lightning_jaggedness.get()
+            length = self.lightning_length.get()
+            is_dynamic = self.lightning_mode_var.get() == "Dynamic"
+
+            if is_dynamic:
+                # For dynamic mode, generate multiple variations
+                num_variations = 5
+                lightning_variations_x = []
+                lightning_variations_y = []
+
+                for variation_idx in range(num_variations):
+                    x_lightning, y_lightning = self.generate_lightning_bolts(
+                        x_repeated, y_repeated, num_bolts, jaggedness, length,
+                        dynamic=True, frame_idx=variation_idx
+                    )
+                    if len(x_lightning) > 0:
+                        x_lightning = self.normalize_data(x_lightning)
+                        y_lightning = self.normalize_data(y_lightning)
+                        lightning_variations_x.append(x_lightning)
+                        lightning_variations_y.append(y_lightning)
+
+                # Combine pattern with lightning for each variation
+                if lightning_variations_x:
+                    # Prepend lightning to pattern (so pattern draws on top)
+                    combined_x = []
+                    combined_y = []
+                    for i in range(num_variations):
+                        combined_x.append(lightning_variations_x[i])
+                        combined_x.append(x_repeated)
+                        combined_y.append(lightning_variations_y[i])
+                        combined_y.append(y_repeated)
+
+                    x_repeated = np.concatenate(combined_x)
+                    y_repeated = np.concatenate(combined_y)
+            else:
+                # For static mode, generate once and prepend
+                x_lightning, y_lightning = self.generate_lightning_bolts(
+                    x_repeated, y_repeated, num_bolts, jaggedness, length,
+                    dynamic=False, frame_idx=0
+                )
+
+                if len(x_lightning) > 0:
+                    x_lightning = self.normalize_data(x_lightning)
+                    y_lightning = self.normalize_data(y_lightning)
+
+                    # Prepend lightning to pattern (so pattern draws on top)
+                    x_repeated = np.concatenate([x_lightning, x_repeated])
+                    y_repeated = np.concatenate([y_lightning, y_repeated])
+
         # Calculate playback rate and target length
         fs = self.sample_rate_var.get()
         mult = self.freq_mult_var.get()
@@ -1151,7 +1271,130 @@ class OscilloscopeGUI:
         y_reflected = np.concatenate([y, y_stage2, y_stage3, y_stage4])
         
         return x_reflected, y_reflected
-    
+
+    def generate_lightning_bolt(self, x_start, y_start, x_end, y_end, jaggedness, seed=None):
+        """
+        Generate a single lightning bolt using recursive midpoint displacement
+        """
+        if seed is not None:
+            np.random.seed(seed)
+
+        # Create initial line from start to end
+        points = [(x_start, y_start), (x_end, y_end)]
+
+        # Recursively subdivide the line with random displacement
+        for iteration in range(jaggedness):
+            new_points = [points[0]]
+            for i in range(len(points) - 1):
+                x1, y1 = points[i]
+                x2, y2 = points[i + 1]
+
+                # Calculate midpoint
+                mid_x = (x1 + x2) / 2
+                mid_y = (y1 + y2) / 2
+
+                # Calculate displacement perpendicular to the line
+                dx = x2 - x1
+                dy = y2 - y1
+                length = np.sqrt(dx**2 + dy**2)
+
+                # Perpendicular vector (normalized)
+                if length > 0:
+                    perp_x = -dy / length
+                    perp_y = dx / length
+                else:
+                    perp_x, perp_y = 0, 0
+
+                # Random displacement (decreases with each iteration)
+                displacement = (np.random.random() - 0.5) * length * 0.5 / (2 ** iteration)
+
+                # Apply displacement
+                mid_x += perp_x * displacement
+                mid_y += perp_y * displacement
+
+                new_points.append((mid_x, mid_y))
+                new_points.append(points[i + 1])
+
+            points = new_points
+
+        # Convert to arrays
+        x_bolt = np.array([p[0] for p in points])
+        y_bolt = np.array([p[1] for p in points])
+
+        return x_bolt, y_bolt
+
+    def generate_lightning_bolts(self, x_data, y_data, num_bolts, jaggedness, length, dynamic=False, frame_idx=0):
+        """
+        Generate multiple lightning bolts emanating from the outer edges of the image
+        """
+        # Find bounding box of current data
+        x_min, x_max = np.min(x_data), np.max(x_data)
+        y_min, y_max = np.min(y_data), np.max(y_data)
+
+        # Expand bounding box slightly
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+        margin = 0.05
+
+        x_min -= x_range * margin
+        x_max += x_range * margin
+        y_min -= y_range * margin
+        y_max += y_range * margin
+
+        all_x_bolts = []
+        all_y_bolts = []
+
+        # Generate bolts from different edge positions
+        for i in range(num_bolts):
+            # Seed for deterministic static bolts or random for dynamic
+            seed = None if dynamic else i
+            if dynamic:
+                # Add frame index to seed for animation
+                seed = i * 1000 + frame_idx
+
+            # Choose which edge (top, bottom, left, right)
+            edge = i % 4
+            position = (i / num_bolts) + (frame_idx * 0.1 if dynamic else 0)
+
+            if edge == 0:  # Top edge
+                x_start = x_min + (x_max - x_min) * (position % 1)
+                y_start = y_max
+                x_end = x_start + (np.random.random() - 0.5) * length * 2
+                y_end = y_max + length * y_range
+            elif edge == 1:  # Bottom edge
+                x_start = x_min + (x_max - x_min) * (position % 1)
+                y_start = y_min
+                x_end = x_start + (np.random.random() - 0.5) * length * 2
+                y_end = y_min - length * y_range
+            elif edge == 2:  # Left edge
+                x_start = x_min
+                y_start = y_min + (y_max - y_min) * (position % 1)
+                x_end = x_min - length * x_range
+                y_end = y_start + (np.random.random() - 0.5) * length * 2
+            else:  # Right edge
+                x_start = x_max
+                y_start = y_min + (y_max - y_min) * (position % 1)
+                x_end = x_max + length * x_range
+                y_end = y_start + (np.random.random() - 0.5) * length * 2
+
+            # Generate the bolt
+            x_bolt, y_bolt = self.generate_lightning_bolt(
+                x_start, y_start, x_end, y_end, jaggedness, seed
+            )
+
+            all_x_bolts.append(x_bolt)
+            all_y_bolts.append(y_bolt)
+
+        # Combine all bolts
+        if all_x_bolts:
+            x_lightning = np.concatenate(all_x_bolts)
+            y_lightning = np.concatenate(all_y_bolts)
+        else:
+            x_lightning = np.array([])
+            y_lightning = np.array([])
+
+        return x_lightning, y_lightning
+
     def create_fade_sequence(self, x_norm, y_norm, n_fade, enable_reflections=False):
         """
         DEPRECATED - kept for compatibility but not used in main flow
