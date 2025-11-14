@@ -2132,21 +2132,31 @@ class OscilloscopeGUI:
         x_add_frame = ttk.LabelFrame(x_frame, text="Add Term", padding="5")
         x_add_frame.pack(fill=tk.X, pady=(10, 0))
 
+        # Row 1: Type selection
+        x_type_row = ttk.Frame(x_add_frame)
+        x_type_row.pack(fill=tk.X, pady=2)
         x_type_var = tk.StringVar(value="sin")
-        ttk.Radiobutton(x_add_frame, text="sin", variable=x_type_var, value="sin").pack(side=tk.LEFT, padx=2)
-        ttk.Radiobutton(x_add_frame, text="cos", variable=x_type_var, value="cos").pack(side=tk.LEFT, padx=2)
+        ttk.Radiobutton(x_type_row, text="sin", variable=x_type_var, value="sin").pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(x_type_row, text="cos", variable=x_type_var, value="cos").pack(side=tk.LEFT, padx=5)
 
-        ttk.Label(x_add_frame, text="A:").pack(side=tk.LEFT, padx=(10, 2))
+        # Row 2: Parameters
+        x_param_row = ttk.Frame(x_add_frame)
+        x_param_row.pack(fill=tk.X, pady=2)
+        ttk.Label(x_param_row, text="A:").pack(side=tk.LEFT, padx=(5, 2))
         x_amp_var = tk.DoubleVar(value=1.0)
-        ttk.Entry(x_add_frame, textvariable=x_amp_var, width=6).pack(side=tk.LEFT, padx=2)
+        ttk.Entry(x_param_row, textvariable=x_amp_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(x_add_frame, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
+        ttk.Label(x_param_row, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
         x_freq_var = tk.DoubleVar(value=1.0)
-        ttk.Entry(x_add_frame, textvariable=x_freq_var, width=6).pack(side=tk.LEFT, padx=2)
+        ttk.Entry(x_param_row, textvariable=x_freq_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(x_add_frame, text="φ:").pack(side=tk.LEFT, padx=(5, 2))
+        ttk.Label(x_param_row, text="φ:").pack(side=tk.LEFT, padx=(5, 2))
         x_phase_var = tk.DoubleVar(value=0.0)
-        ttk.Entry(x_add_frame, textvariable=x_phase_var, width=6).pack(side=tk.LEFT, padx=2)
+        ttk.Entry(x_param_row, textvariable=x_phase_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        # Row 3: Add button
+        x_button_row = ttk.Frame(x_add_frame)
+        x_button_row.pack(fill=tk.X, pady=(5, 0))
 
         def add_x_term():
             x_terms.append({
@@ -2157,27 +2167,37 @@ class OscilloscopeGUI:
             })
             refresh_x_display()
 
-        ttk.Button(x_add_frame, text="Add", command=add_x_term).pack(side=tk.LEFT, padx=5)
+        ttk.Button(x_button_row, text="Add Term to X Channel", command=add_x_term).pack(fill=tk.X, padx=5)
 
         # Add term controls for Y
         y_add_frame = ttk.LabelFrame(y_frame, text="Add Term", padding="5")
         y_add_frame.pack(fill=tk.X, pady=(10, 0))
 
+        # Row 1: Type selection
+        y_type_row = ttk.Frame(y_add_frame)
+        y_type_row.pack(fill=tk.X, pady=2)
         y_type_var = tk.StringVar(value="sin")
-        ttk.Radiobutton(y_add_frame, text="sin", variable=y_type_var, value="sin").pack(side=tk.LEFT, padx=2)
-        ttk.Radiobutton(y_add_frame, text="cos", variable=y_type_var, value="cos").pack(side=tk.LEFT, padx=2)
+        ttk.Radiobutton(y_type_row, text="sin", variable=y_type_var, value="sin").pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(y_type_row, text="cos", variable=y_type_var, value="cos").pack(side=tk.LEFT, padx=5)
 
-        ttk.Label(y_add_frame, text="A:").pack(side=tk.LEFT, padx=(10, 2))
+        # Row 2: Parameters
+        y_param_row = ttk.Frame(y_add_frame)
+        y_param_row.pack(fill=tk.X, pady=2)
+        ttk.Label(y_param_row, text="A:").pack(side=tk.LEFT, padx=(5, 2))
         y_amp_var = tk.DoubleVar(value=1.0)
-        ttk.Entry(y_add_frame, textvariable=y_amp_var, width=6).pack(side=tk.LEFT, padx=2)
+        ttk.Entry(y_param_row, textvariable=y_amp_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(y_add_frame, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
+        ttk.Label(y_param_row, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
         y_freq_var = tk.DoubleVar(value=1.0)
-        ttk.Entry(y_add_frame, textvariable=y_freq_var, width=6).pack(side=tk.LEFT, padx=2)
+        ttk.Entry(y_param_row, textvariable=y_freq_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(y_add_frame, text="φ:").pack(side=tk.LEFT, padx=(5, 2))
+        ttk.Label(y_param_row, text="φ:").pack(side=tk.LEFT, padx=(5, 2))
         y_phase_var = tk.DoubleVar(value=0.0)
-        ttk.Entry(y_add_frame, textvariable=y_phase_var, width=6).pack(side=tk.LEFT, padx=2)
+        ttk.Entry(y_param_row, textvariable=y_phase_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        # Row 3: Add button
+        y_button_row = ttk.Frame(y_add_frame)
+        y_button_row.pack(fill=tk.X, pady=(5, 0))
 
         def add_y_term():
             y_terms.append({
@@ -2188,7 +2208,7 @@ class OscilloscopeGUI:
             })
             refresh_y_display()
 
-        ttk.Button(y_add_frame, text="Add", command=add_y_term).pack(side=tk.LEFT, padx=5)
+        ttk.Button(y_button_row, text="Add Term to Y Channel", command=add_y_term).pack(fill=tk.X, padx=5)
 
         # Initialize displays
         refresh_x_display()
