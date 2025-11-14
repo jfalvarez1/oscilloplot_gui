@@ -350,16 +350,18 @@ class OscilloscopeGUI:
                  variable=self.x_wavy_amp,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
-        # X Frequency with value label
+        # X Frequency with value label and entry
         x_freq_frame = ttk.Frame(wavy_frame)
         x_freq_frame.pack(fill=tk.X, padx=20)
         ttk.Label(x_freq_frame, text="X Angular Frequency (ω):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
+        self.x_wavy_freq = tk.DoubleVar(value=10.0)
+        x_freq_entry = ttk.Entry(x_freq_frame, textvariable=self.x_wavy_freq, width=12)
+        x_freq_entry.pack(side=tk.RIGHT, padx=5)
         self.x_wavy_freq_label = ttk.Label(x_freq_frame, text="10.0",
                  font=('Arial', 8, 'bold'))
         self.x_wavy_freq_label.pack(side=tk.RIGHT)
 
-        self.x_wavy_freq = tk.DoubleVar(value=10.0)
         ttk.Scale(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
                  variable=self.x_wavy_freq,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
@@ -383,16 +385,18 @@ class OscilloscopeGUI:
                  variable=self.y_wavy_amp,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
-        # Y Frequency with value label
+        # Y Frequency with value label and entry
         y_freq_frame = ttk.Frame(wavy_frame)
         y_freq_frame.pack(fill=tk.X, padx=20)
         ttk.Label(y_freq_frame, text="Y Angular Frequency (ω):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
+        self.y_wavy_freq = tk.DoubleVar(value=10.0)
+        y_freq_entry = ttk.Entry(y_freq_frame, textvariable=self.y_wavy_freq, width=12)
+        y_freq_entry.pack(side=tk.RIGHT, padx=5)
         self.y_wavy_freq_label = ttk.Label(y_freq_frame, text="10.0",
                  font=('Arial', 8, 'bold'))
         self.y_wavy_freq_label.pack(side=tk.RIGHT)
 
-        self.y_wavy_freq = tk.DoubleVar(value=10.0)
         ttk.Scale(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
                  variable=self.y_wavy_freq,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
