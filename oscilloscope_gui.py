@@ -2267,13 +2267,15 @@ class OscilloscopeGUI:
             self.data_info_label.config(text=f"Points: {len(x_data)}")
             self.update_display()
             self.status_label.config(text=status_msg)
-            dialog.destroy()
+
+            # Apply parameters and generate audio
+            self.apply_parameters()
 
         # Button frame
         button_frame = ttk.Frame(dialog)
         button_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        ttk.Button(button_frame, text="Generate Pattern", command=apply_harmonic_sum).pack(
+        ttk.Button(button_frame, text="Apply & Generate", command=apply_harmonic_sum).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
             side=tk.LEFT, padx=5)
