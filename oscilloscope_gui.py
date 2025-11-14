@@ -1,728 +1,2467 @@
-import cv2
+#!/usr/bin/env python3
+"""
+Oscilloscope XY Audio Generator with Real-Time GUI
+Features live visualization, parameter controls, and various effects
+"""
+
 import numpy as np
+import sounddevice as sd
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button, Slider, CheckButtons, RadioButtons
-import sys
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+import threading
+import queue
 
 
-def bilateral_denoise(img, d=9, sigma_color=75, sigma_space=75):
-    """
-    Apply bilateral filter to reduce noise while preserving edges.
-    Based on the Medium article technique for photo-to-line-drawing.
+class OscilloscopeGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Oscilloscope XY Audio Generator")
+        self.root.geometry("1200x800")
+        
+        # Audio state
+        self.is_playing = False
+        self.audio_thread = None
+        self.stop_flag = threading.Event()
+        self.update_queue = queue.Queue()
+        
+        # Current data
+        self.x_data = np.array([1, 2, 3])
+        self.y_data = np.array([4, 4, 3])
+        self.current_audio = None
+        self.current_fs = 0
+        
+        # Live preview state
+        self.preview_position = 0
+        self.preview_window_size = 5000  # Number of samples to show at once (increased for large fades)
+        self.preview_active = True  # Enable by default
+        self.preview_buffer = []  # Rolling buffer for streaming display
+        self.last_preview_update = 0  # Track last update position
 
-    Parameters:
-    - d: Diameter of pixel neighborhood
-    - sigma_color: Filter sigma in the color space
-    - sigma_space: Filter sigma in the coordinate space
-    """
-    return cv2.bilateralFilter(img, d, sigma_color, sigma_space)
+        # Effect change debouncing
+        self.effect_change_timer = None
+        self.is_regenerating = False  # Flag to prevent simultaneous regenerations
 
-
-def difference_of_gaussians(img, sigma1=1.0, sigma2=2.0, k=1.6):
-    """
-    Apply Difference of Gaussians (DoG) for artistic line detection.
-    This creates cleaner, more artistic line drawings.
-
-    Parameters:
-    - sigma1: Sigma for first Gaussian blur
-    - sigma2: Sigma for second Gaussian blur
-    - k: Multiplier for DoG response
-    """
-    # Apply two Gaussian blurs with different sigma values
-    blur1 = cv2.GaussianBlur(img, (0, 0), sigma1)
-    blur2 = cv2.GaussianBlur(img, (0, 0), sigma2)
-
-    # Compute difference
-    dog = blur1.astype(float) - blur2.astype(float)
-
-    # Amplify and normalize
-    dog = dog * k
-    dog = np.clip(dog, 0, 255).astype(np.uint8)
-
-    return dog
-
-
-def sharpen_image(img, strength=1.0):
-    """
-    Apply unsharp mask sharpening to enhance edges.
-
-    Parameters:
-    - img: Grayscale image
-    - strength: Sharpening strength (0.5 to 2.5)
-    """
-    gaussian = cv2.GaussianBlur(img, (0, 0), 2.0)
-    sharpened = cv2.addWeighted(img, 1.0 + strength, gaussian, -strength, 0)
-    return sharpened
-
-
-def preprocess_for_lines(img, method='bilateral', sharpen_strength=1.5):
-    """
-    Preprocess image for line detection using various methods.
-
-    Parameters:
-    - img: Grayscale image
-    - method: 'simple', 'bilateral', or 'dog'
-    - sharpen_strength: Sharpening strength
-
-    Returns:
-    - Preprocessed image ready for thresholding
-    """
-    if method == 'bilateral':
-        # Method from Medium article: bilateral filter + sharpening
-        # Step 1: Bilateral filter to reduce noise while preserving edges
-        denoised = bilateral_denoise(img, d=9, sigma_color=75, sigma_space=75)
-        # Step 2: Sharpen to enhance edges
-        processed = sharpen_image(denoised, strength=sharpen_strength)
-
-    elif method == 'dog':
-        # Difference of Gaussians for artistic line drawings
-        # Step 1: Apply bilateral filter first
-        denoised = bilateral_denoise(img, d=9, sigma_color=75, sigma_space=75)
-        # Step 2: DoG for edge enhancement
-        processed = difference_of_gaussians(denoised, sigma1=0.5, sigma2=2.0, k=1.6)
-        # Step 3: Light sharpening
-        processed = sharpen_image(processed, strength=sharpen_strength * 0.7)
-
-    else:  # 'simple'
-        # Simple sharpening only
-        processed = sharpen_image(img, strength=sharpen_strength)
-
-    return processed
-
-
-def vectorize_image(image_path, threshold=127, invert=False, epsilon_factor=0.001,
-                   min_line_length=20, sharpen_strength=1.5, method='bilateral',
-                   use_adaptive=False):
-    """
-    Vectorize an image to clean line segments with advanced preprocessing.
-
-    Process:
-    1. Load and convert to grayscale
-    2. Apply preprocessing (bilateral/DoG/simple)
-    3. Apply thresholding (binary or adaptive)
-    4. Find contours (object outlines)
-    5. Simplify contours using Douglas-Peucker algorithm
-    6. Filter out small artifacts
-
-    Parameters:
-    - image_path: Path to input image
-    - threshold: Binary threshold value (0-255) - ignored if use_adaptive=True
-    - invert: If True, detect dark objects on light background
-    - epsilon_factor: Line simplification (0.0001-0.01). Lower = more detail
-    - min_line_length: Minimum line length to keep
-    - sharpen_strength: Sharpening strength (0.5-2.5)
-    - method: Preprocessing method ('simple', 'bilateral', 'dog')
-    - use_adaptive: Use adaptive thresholding instead of binary
-
-    Returns:
-    - vectorized_contours: List of simplified contours
-    - preview_img: Binary image for preview
-    """
-
-    # Read and convert to grayscale
-    img = cv2.imread(image_path)
-    if img is None:
-        raise ValueError(f"Could not read image from {image_path}")
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # Step 1: Advanced preprocessing
-    processed = preprocess_for_lines(gray, method=method, sharpen_strength=sharpen_strength)
-
-    # Step 2: Apply thresholding
-    if use_adaptive:
-        # Adaptive threshold - better for photos with varying lighting
-        binary = cv2.adaptiveThreshold(
-            processed, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY if not invert else cv2.THRESH_BINARY_INV,
-            blockSize=11, C=2
-        )
-    else:
-        # Simple binary threshold
-        if invert:
-            _, binary = cv2.threshold(processed, threshold, 255, cv2.THRESH_BINARY_INV)
-        else:
-            _, binary = cv2.threshold(processed, threshold, 255, cv2.THRESH_BINARY)
-
-    # Step 3: Clean up noise with morphological operations
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=1)
-    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=1)
-
-    # Step 4: Find contours (only external outlines)
-    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    if len(contours) == 0:
-        raise ValueError("No outlines detected. Try adjusting parameters.")
-
-    # Step 5: Vectorize using polygon approximation (Douglas-Peucker)
-    img_diagonal = np.sqrt(img.shape[0]**2 + img.shape[1]**2)
-    epsilon = epsilon_factor * img_diagonal
-
-    vectorized_contours = []
-    for contour in contours:
-        # Simplify contour to vector lines
-        approx = cv2.approxPolyDP(contour, epsilon, closed=True)
-
-        # Filter by perimeter
-        perimeter = cv2.arcLength(approx, closed=True)
-
-        if perimeter > min_line_length and len(approx) > 2:
-            vectorized_contours.append(approx)
-
-    if len(vectorized_contours) == 0:
-        raise ValueError("No valid lines found. Try adjusting parameters.")
-
-    # Sort by size (largest first)
-    vectorized_contours = sorted(vectorized_contours,
-                                 key=lambda c: cv2.arcLength(c, True),
-                                 reverse=True)
-
-    return vectorized_contours, binary
-
-
-def contours_to_coordinates(contours, num_points):
-    """
-    Convert vectorized contours to coordinate arrays for oscilloscope.
-
-    Parameters:
-    - contours: List of simplified contours
-    - num_points: Target number of points to resample
-
-    Returns:
-    - x_coords, y_coords: Normalized coordinate arrays
-    """
-    all_points = []
-
-    # Extract all points from vectorized contours
-    for contour in contours:
-        points = contour.reshape(-1, 2)
-        all_points.extend(points)
-
-    if len(all_points) == 0:
-        return np.array([]), np.array([])
-
-    all_points = np.array(all_points)
-
-    # Resample to target number of points
-    if len(all_points) > num_points:
-        indices = np.linspace(0, len(all_points) - 1, num_points, dtype=int)
-        points = all_points[indices]
-    else:
-        points = all_points
-
-    x_coords = points[:, 0].astype(float)
-    y_coords = points[:, 1].astype(float)
-
-    # Normalize to -1 to 1 range
-    if x_coords.max() > x_coords.min():
-        x_norm = 2 * (x_coords - x_coords.min()) / (x_coords.max() - x_coords.min()) - 1
-    else:
-        x_norm = np.zeros_like(x_coords)
-
-    if y_coords.max() > y_coords.min():
-        y_norm = 2 * (y_coords - y_coords.min()) / (y_coords.max() - y_coords.min()) - 1
-    else:
-        y_norm = np.zeros_like(y_coords)
-
-    # Flip y-axis (image coordinates are top-down)
-    y_norm = -y_norm
-
-    return x_norm, y_norm
-
-
-def save_coordinates(x_coords, y_coords, output_file='coordinates.txt'):
-    """Save coordinates in oscilloscope format."""
-    with open(output_file, 'w') as f:
-        f.write("x_fun=[")
-        f.write(','.join(f'{val:.6f}' for val in x_coords))
-        f.write("];\n\n")
-
-        f.write("y_fun=[")
-        f.write(','.join(f'{val:.6f}' for val in y_coords))
-        f.write("];\n")
-
-    print(f"✓ Saved {len(x_coords)} points to {output_file}")
-
-
-class InteractiveVectorEditor:
-    """
-    Interactive editor for vectorized image processing with advanced preprocessing.
-
-    Features:
-    - Multiple preprocessing methods (Simple, Bilateral, DoG)
-    - Binary or Adaptive thresholding
-    - Adjustable threshold, simplification, and filtering
-    - Interactive point editing
-    - Apply button to prevent freezing
-    """
-
-    def __init__(self, image_path, num_points=1500, threshold=127, invert=False,
-                 epsilon_factor=0.001, min_line_length=20, output_file='coordinates.txt'):
-
-        self.image_path = image_path
-        self.num_points = num_points
-        self.threshold = threshold
-        self.invert = invert
-        self.epsilon_factor = epsilon_factor
-        self.min_line_length = min_line_length
-        self.output_file = output_file
-        self.sharpen_strength = 1.5
-        self.method = 'bilateral'  # Default to bilateral (from article)
-        self.use_adaptive = False
-
-        # Editing parameters
-        self.erase_radius = 0.1
-        self.add_radius = 0.05
-        self.active_radius_mode = 'erase'
-        self.mouse_pressed = False
-        self.mouse_button = None
-
-        # Initial processing
-        self.update_vectorization()
+        # Floating pattern data
+        self.floating_pattern_x = None
+        self.floating_pattern_y = None
 
         # Create GUI
-        self.setup_gui()
+        self.create_widgets()
+        self.update_display()
 
-    def update_vectorization(self):
-        """Run vectorization with current parameters."""
+        # Initialize wavy and floating pattern labels with default values
+        self.update_wavy_labels_only()
+        self.update_floating_labels_only()
+
+        # Start update loops
+        self.root.after(50, self.check_updates)
+        self.root.after(20, self.update_live_preview)  # 50 FPS preview update
+    
+    def create_widgets(self):
+        """Create all GUI widgets"""
+        
+        # Main container
+        main_container = ttk.Frame(self.root, padding="10")
+        main_container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        main_container.columnconfigure(1, weight=1)
+        main_container.rowconfigure(0, weight=1)
+        
+        # Left panel - Controls (with scrollbar)
+        control_container = ttk.Frame(main_container, width=300)
+        control_container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
+        control_container.grid_propagate(False)
+
+        # Create canvas and scrollbar for controls
+        control_canvas = tk.Canvas(control_container, highlightthickness=0, bg='#f0f0f0')
+        scrollbar = ttk.Scrollbar(control_container, orient="vertical", command=control_canvas.yview)
+        control_frame = ttk.LabelFrame(control_canvas, text="Controls", padding="10")
+
+        control_canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        control_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Create window in canvas
+        canvas_frame = control_canvas.create_window((0, 0), window=control_frame, anchor=tk.NW)
+
+        # Configure scrolling
+        def configure_scroll_region(event):
+            control_canvas.configure(scrollregion=control_canvas.bbox("all"))
+
+        def configure_canvas_width(event):
+            # Update canvas window width to match canvas width (minus scrollbar)
+            canvas_width = control_canvas.winfo_width()
+            control_canvas.itemconfig(canvas_frame, width=canvas_width)
+
+        control_frame.bind("<Configure>", configure_scroll_region)
+        control_canvas.bind("<Configure>", configure_canvas_width)
+
+        # Mouse wheel scrolling
+        def on_mousewheel(event):
+            control_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+        control_canvas.bind_all("<MouseWheel>", on_mousewheel)  # Windows
+        control_canvas.bind_all("<Button-4>", lambda e: control_canvas.yview_scroll(-1, "units"))  # Linux up
+        control_canvas.bind_all("<Button-5>", lambda e: control_canvas.yview_scroll(1, "units"))   # Linux down
+        
+        # Right panel - Display
+        display_frame = ttk.LabelFrame(main_container, text="Oscilloscope Display", padding="10")
+        display_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
+        display_frame.columnconfigure(0, weight=1)
+        display_frame.rowconfigure(0, weight=1)
+        
+        # Create controls
+        self.create_control_panel(control_frame)
+        
+        # Create display
+        self.create_display(display_frame)
+    
+    def create_control_panel(self, parent):
+        """Create control panel with parameters and buttons"""
+        
+        row = 0
+        
+        # === FILE CONTROLS ===
+        file_frame = ttk.LabelFrame(parent, text="Data Source", padding="5")
+        file_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
+        row += 1
+        
+        ttk.Button(file_frame, text="Load MATLAB File (.m)", 
+                  command=self.load_matlab_file).pack(fill=tk.X, pady=2)
+        ttk.Button(file_frame, text="Load Text File (.txt)", 
+                  command=self.load_txt_file).pack(fill=tk.X, pady=2)
+        ttk.Button(file_frame, text="Load NumPy File (.npz)",
+                  command=self.load_numpy_file).pack(fill=tk.X, pady=2)
+        ttk.Button(file_frame, text="Generate Test Pattern",
+                  command=self.generate_test_pattern).pack(fill=tk.X, pady=2)
+        ttk.Button(file_frame, text="Draw Pattern",
+                  command=self.open_drawing_canvas).pack(fill=tk.X, pady=2)
+        ttk.Button(file_frame, text="Sum of Harmonics",
+                  command=self.open_harmonic_sum).pack(fill=tk.X, pady=2)
+        ttk.Button(file_frame, text="Archimedean Spiral",
+                  command=self.open_archimedean_spiral).pack(fill=tk.X, pady=2)
+
+        # Data info
+        self.data_info_label = ttk.Label(file_frame, text="Points: 3", 
+                                         font=('Arial', 9, 'italic'))
+        self.data_info_label.pack(pady=5)
+        
+        # === AUDIO PARAMETERS ===
+        audio_frame = ttk.LabelFrame(parent, text="Audio Parameters", padding="5")
+        audio_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
+        row += 1
+        
+        # Sample Rate
+        ttk.Label(audio_frame, text="Base Sample Rate (Hz):").grid(row=0, column=0, sticky=tk.W)
+        self.sample_rate_var = tk.IntVar(value=1000)
+        self.sample_rate_spin = ttk.Spinbox(audio_frame, from_=100, to=10000, 
+                                           textvariable=self.sample_rate_var, width=10)
+        self.sample_rate_spin.grid(row=0, column=1, pady=2)
+        
+        # Playback Multiplier (Frequency)
+        ttk.Label(audio_frame, text="Playback Multiplier:").grid(row=1, column=0, sticky=tk.W)
+        self.freq_mult_var = tk.IntVar(value=100)
+        self.freq_mult_spin = ttk.Spinbox(audio_frame, from_=10, to=500, 
+                                         textvariable=self.freq_mult_var, width=10)
+        self.freq_mult_spin.grid(row=1, column=1, pady=2)
+        
+        ttk.Label(audio_frame, text="→ Actual Rate:").grid(row=2, column=0, sticky=tk.W)
+        self.actual_rate_label = ttk.Label(audio_frame, text="100 kHz", 
+                                          font=('Arial', 9, 'bold'))
+        self.actual_rate_label.grid(row=2, column=1, pady=2)
+        
+        # Duration
+        ttk.Label(audio_frame, text="Duration (seconds):").grid(row=3, column=0, sticky=tk.W)
+        self.duration_var = tk.IntVar(value=15)
+        self.duration_spin = ttk.Spinbox(audio_frame, from_=5, to=120, 
+                                        textvariable=self.duration_var, width=10)
+        self.duration_spin.grid(row=3, column=1, pady=2)
+        
+        # N Repeat
+        ttk.Label(audio_frame, text="Pattern Repeats:").grid(row=4, column=0, sticky=tk.W)
+        self.n_repeat_var = tk.IntVar(value=200)  # Increased default for full rotations
+        self.n_repeat_spin = ttk.Spinbox(audio_frame, from_=1, to=2000, 
+                                        textvariable=self.n_repeat_var, width=10)
+        self.n_repeat_spin.grid(row=4, column=1, pady=2)
+        
+        # Rotation info label
+        self.rotation_info_label = ttk.Label(audio_frame, text="",
+                                            font=('Arial', 8, 'italic'),
+                                            foreground='blue')
+        self.rotation_info_label.grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(2,5))
+
+        # Update rate label on change
+        self.freq_mult_var.trace('w', self.update_rate_label)
+        self.sample_rate_var.trace('w', self.update_rate_label)
+        
+        # === EFFECTS ===
+        effects_frame = ttk.LabelFrame(parent, text="Effects", padding="5")
+        effects_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
+        row += 1
+        
+        # Enable Reflections
+        self.reflections_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(effects_frame, text="Enable Mirror Reflections", 
+                       variable=self.reflections_var,
+                       command=self.effect_changed).pack(anchor=tk.W, pady=5)
+        
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        
+        # Y-Axis Fade Sequence
+        self.y_fade_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(effects_frame, text="Y-Axis Fade Sequence", 
+                       variable=self.y_fade_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+        
+        ttk.Label(effects_frame, text="Y Fade Steps:",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.y_fade_steps = tk.IntVar(value=10)
+        self.y_fade_steps.trace('w', lambda *args: self.effect_changed())
+        self.y_fade_steps_spin = ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
+                   textvariable=self.y_fade_steps,
+                   command=self.effect_changed)
+        self.y_fade_steps_spin.pack(anchor=tk.W, padx=20)
+
+        ttk.Label(effects_frame, text="Y Fade Speed (repeats/step):",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.y_fade_speed = tk.IntVar(value=1)
+        self.y_fade_speed.trace('w', lambda *args: self.effect_changed())
+        self.y_fade_speed_spin = ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
+                   textvariable=self.y_fade_speed,
+                   command=self.effect_changed)
+        self.y_fade_speed_spin.pack(anchor=tk.W, padx=20)
+        
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        
+        # X-Axis Fade Sequence
+        self.x_fade_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(effects_frame, text="X-Axis Fade Sequence", 
+                       variable=self.x_fade_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+        
+        ttk.Label(effects_frame, text="X Fade Steps:",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.x_fade_steps = tk.IntVar(value=10)
+        self.x_fade_steps.trace('w', lambda *args: self.effect_changed())
+        self.x_fade_steps_spin = ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
+                   textvariable=self.x_fade_steps,
+                   command=self.effect_changed)
+        self.x_fade_steps_spin.pack(anchor=tk.W, padx=20)
+
+        ttk.Label(effects_frame, text="X Fade Speed (repeats/step):",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.x_fade_speed = tk.IntVar(value=1)
+        self.x_fade_speed.trace('w', lambda *args: self.effect_changed())
+        self.x_fade_speed_spin = ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
+                   textvariable=self.x_fade_speed,
+                   command=self.effect_changed)
+        self.x_fade_speed_spin.pack(anchor=tk.W, padx=20)
+
+        # Alternate X/Y Fade option
+        self.alternate_xy_fade_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(effects_frame, text="Alternate X/Y Fade (X first, then Y, repeat)",
+                       variable=self.alternate_xy_fade_var,
+                       command=self.effect_changed).pack(anchor=tk.W, pady=(5,0))
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Shrink/Unshrink (scale both X and Y together)
+        self.shrink_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(effects_frame, text="Shrink/Unshrink (Scale X & Y together)",
+                       variable=self.shrink_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        ttk.Label(effects_frame, text="Shrink Steps:",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.shrink_steps = tk.IntVar(value=10)
+        self.shrink_steps.trace('w', lambda *args: self.effect_changed())
+        self.shrink_steps_spin = ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
+                   textvariable=self.shrink_steps,
+                   command=self.effect_changed)
+        self.shrink_steps_spin.pack(anchor=tk.W, padx=20)
+
+        ttk.Label(effects_frame, text="Shrink Speed (repeats/step):",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.shrink_speed = tk.IntVar(value=1)
+        self.shrink_speed.trace('w', lambda *args: self.effect_changed())
+        self.shrink_speed_spin = ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
+                   textvariable=self.shrink_speed,
+                   command=self.effect_changed)
+        self.shrink_speed_spin.pack(anchor=tk.W, padx=20)
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Noise Effects
+        noise_frame = ttk.LabelFrame(effects_frame, text="Noise", padding="5")
+        noise_frame.pack(fill=tk.X, pady=5)
+
+        self.x_noise_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(noise_frame, text="Add X-Channel Noise",
+                       variable=self.x_noise_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        ttk.Label(noise_frame, text="X Noise Amplitude:",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.x_noise_amp = tk.DoubleVar(value=0.05)
+        ttk.Scale(noise_frame, from_=0.001, to=0.3, orient=tk.HORIZONTAL,
+                 variable=self.x_noise_amp,
+                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+
+        self.y_noise_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(noise_frame, text="Add Y-Channel Noise",
+                       variable=self.y_noise_var,
+                       command=self.effect_changed).pack(anchor=tk.W, pady=(10,0))
+
+        ttk.Label(noise_frame, text="Y Noise Amplitude:",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.y_noise_amp = tk.DoubleVar(value=0.05)
+        ttk.Scale(noise_frame, from_=0.001, to=0.3, orient=tk.HORIZONTAL,
+                 variable=self.y_noise_amp,
+                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Wavy Effects
+        wavy_frame = ttk.LabelFrame(effects_frame, text="Wavy Effect", padding="5")
+        wavy_frame.pack(fill=tk.X, pady=5)
+
+        self.x_wavy_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(wavy_frame, text="Add X-Channel Wavy",
+                       variable=self.x_wavy_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        # X Amplitude with value label
+        x_amp_frame = ttk.Frame(wavy_frame)
+        x_amp_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(x_amp_frame, text="X Amplitude (K):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.x_wavy_amp_label = ttk.Label(x_amp_frame, text="0.200",
+                 font=('Arial', 8, 'bold'))
+        self.x_wavy_amp_label.pack(side=tk.RIGHT)
+
+        self.x_wavy_amp = tk.DoubleVar(value=0.2)
+        ttk.Scale(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
+                 variable=self.x_wavy_amp,
+                 command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
+
+        # X Frequency with value label
+        x_freq_frame = ttk.Frame(wavy_frame)
+        x_freq_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(x_freq_frame, text="X Angular Frequency (ω):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.x_wavy_freq_label = ttk.Label(x_freq_frame, text="10.0",
+                 font=('Arial', 8, 'bold'))
+        self.x_wavy_freq_label.pack(side=tk.RIGHT)
+
+        self.x_wavy_freq = tk.DoubleVar(value=10.0)
+        ttk.Scale(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
+                 variable=self.x_wavy_freq,
+                 command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
+
+        self.y_wavy_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(wavy_frame, text="Add Y-Channel Wavy",
+                       variable=self.y_wavy_var,
+                       command=self.effect_changed).pack(anchor=tk.W, pady=(10,0))
+
+        # Y Amplitude with value label
+        y_amp_frame = ttk.Frame(wavy_frame)
+        y_amp_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(y_amp_frame, text="Y Amplitude (K):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.y_wavy_amp_label = ttk.Label(y_amp_frame, text="0.200",
+                 font=('Arial', 8, 'bold'))
+        self.y_wavy_amp_label.pack(side=tk.RIGHT)
+
+        self.y_wavy_amp = tk.DoubleVar(value=0.2)
+        ttk.Scale(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
+                 variable=self.y_wavy_amp,
+                 command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
+
+        # Y Frequency with value label
+        y_freq_frame = ttk.Frame(wavy_frame)
+        y_freq_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(y_freq_frame, text="Y Angular Frequency (ω):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.y_wavy_freq_label = ttk.Label(y_freq_frame, text="10.0",
+                 font=('Arial', 8, 'bold'))
+        self.y_wavy_freq_label.pack(side=tk.RIGHT)
+
+        self.y_wavy_freq = tk.DoubleVar(value=10.0)
+        ttk.Scale(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
+                 variable=self.y_wavy_freq,
+                 command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Rotation
+        rotation_frame = ttk.LabelFrame(effects_frame, text="Rotation", padding="5")
+        rotation_frame.pack(fill=tk.X, pady=5)
+        
+        self.rotation_mode_var = tk.StringVar(value="Off")
+        ttk.Radiobutton(rotation_frame, text="Off", variable=self.rotation_mode_var, 
+                       value="Off", command=self.rotation_mode_changed).pack(anchor=tk.W)
+        ttk.Radiobutton(rotation_frame, text="Static Angle", variable=self.rotation_mode_var, 
+                       value="Static", command=self.rotation_mode_changed).pack(anchor=tk.W)
+        ttk.Radiobutton(rotation_frame, text="Rotate Clockwise (CW)", variable=self.rotation_mode_var, 
+                       value="CW", command=self.rotation_mode_changed).pack(anchor=tk.W)
+        ttk.Radiobutton(rotation_frame, text="Rotate Counter-Clockwise (CCW)", variable=self.rotation_mode_var, 
+                       value="CCW", command=self.rotation_mode_changed).pack(anchor=tk.W)
+        
+        ttk.Label(rotation_frame, text="Static Angle (degrees):").pack(anchor=tk.W, pady=(5,0))
+        self.rotation_angle = tk.DoubleVar(value=0.0)
+        ttk.Scale(rotation_frame, from_=-180, to=180, orient=tk.HORIZONTAL,
+                 variable=self.rotation_angle,
+                 command=lambda v: self.rotation_mode_changed()).pack(fill=tk.X)
+        
+        ttk.Label(rotation_frame, text="Rotation Speed (degrees/cycle):").pack(anchor=tk.W, pady=(5,0))
+        self.rotation_speed = tk.DoubleVar(value=5.0)
+        ttk.Scale(rotation_frame, from_=0.5, to=45, orient=tk.HORIZONTAL,
+                 variable=self.rotation_speed,
+                 command=lambda v: self.rotation_mode_changed()).pack(fill=tk.X)
+
+        ttk.Label(rotation_frame, text="Tip: 360° ÷ speed = steps per rotation\nMore Pattern Repeats = more rotations",
+                 font=('Arial', 7, 'italic'), foreground='gray').pack(anchor=tk.W, pady=(5,0))
+
+        # Update rotation info when values change (set up after all variables are created)
+        self.n_repeat_var.trace('w', self.update_rotation_info)
+        self.rotation_speed.trace('w', self.update_rotation_info)
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Floating Pattern Effect
+        floating_frame = ttk.LabelFrame(effects_frame, text="Floating Pattern", padding="5")
+        floating_frame.pack(fill=tk.X, pady=5)
+
+        self.floating_pattern_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(floating_frame, text="Add Floating Pattern",
+                       variable=self.floating_pattern_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        # Button to draw/set floating pattern
+        ttk.Button(floating_frame, text="Draw Floating Pattern",
+                  command=self.draw_floating_pattern).pack(fill=tk.X, padx=20, pady=5)
+
+        self.floating_pattern_status = ttk.Label(floating_frame,
+                                                 text="No pattern set",
+                                                 font=('Arial', 8, 'italic'),
+                                                 foreground='gray')
+        self.floating_pattern_status.pack(padx=20, pady=2)
+
+        # Number of instances with value label
+        instance_count_frame = ttk.Frame(floating_frame)
+        instance_count_frame.pack(fill=tk.X, padx=20, pady=(5,0))
+        ttk.Label(instance_count_frame, text="Number of Instances:",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.floating_count_label = ttk.Label(instance_count_frame, text="4",
+                 font=('Arial', 8, 'bold'))
+        self.floating_count_label.pack(side=tk.RIGHT)
+
+        self.floating_count = tk.IntVar(value=4)
+        ttk.Scale(floating_frame, from_=1, to=12, orient=tk.HORIZONTAL,
+                 variable=self.floating_count,
+                 command=lambda v: self.update_floating_labels()).pack(fill=tk.X, padx=20)
+
+        # Scale with value label
+        scale_frame = ttk.Frame(floating_frame)
+        scale_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(scale_frame, text="Pattern Scale:",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.floating_scale_label = ttk.Label(scale_frame, text="0.30",
+                 font=('Arial', 8, 'bold'))
+        self.floating_scale_label.pack(side=tk.RIGHT)
+
+        self.floating_scale = tk.DoubleVar(value=0.3)
+        ttk.Scale(floating_frame, from_=0.1, to=1.0, orient=tk.HORIZONTAL,
+                 variable=self.floating_scale,
+                 command=lambda v: self.update_floating_labels()).pack(fill=tk.X, padx=20)
+
+        # Offset distance with value label
+        offset_frame = ttk.Frame(floating_frame)
+        offset_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(offset_frame, text="Distance from Center:",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.floating_offset_label = ttk.Label(offset_frame, text="1.50",
+                 font=('Arial', 8, 'bold'))
+        self.floating_offset_label.pack(side=tk.RIGHT)
+
+        self.floating_offset = tk.DoubleVar(value=1.5)
+        ttk.Scale(floating_frame, from_=0.5, to=3.0, orient=tk.HORIZONTAL,
+                 variable=self.floating_offset,
+                 command=lambda v: self.update_floating_labels()).pack(fill=tk.X, padx=20)
+        
+        # === ACTION BUTTONS ===
+        button_frame = ttk.Frame(parent)
+        button_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=10)
+        row += 1
+
+        self.apply_btn = ttk.Button(button_frame, text="Apply & Generate",
+                                    command=self.apply_parameters,
+                                    style='Accent.TButton')
+        self.apply_btn.pack(fill=tk.X, pady=2)
+
+        self.play_btn = ttk.Button(button_frame, text="▶ Play Audio",
+                                   command=self.toggle_playback)
+        self.play_btn.pack(fill=tk.X, pady=2)
+
+        ttk.Button(button_frame, text="Reset Effects",
+                  command=self.reset_effects).pack(fill=tk.X, pady=2)
+
+        ttk.Button(button_frame, text="Save to WAV",
+                  command=self.save_to_wav).pack(fill=tk.X, pady=2)
+        
+        # === STATUS ===
+        status_frame = ttk.LabelFrame(parent, text="Status", padding="5")
+        status_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
+        row += 1
+        
+        self.status_label = ttk.Label(status_frame, text="Ready", 
+                                      wraplength=200, justify=tk.LEFT)
+        self.status_label.pack(fill=tk.X)
+        
+        # Live Preview Toggle
+        ttk.Separator(status_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        ttk.Label(status_frame, text="Display Mode:",
+                 font=('Arial', 9, 'bold')).pack(anchor=tk.W, pady=(5,2))
+
+        self.live_preview_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(status_frame, text="Live Preview",
+                       variable=self.live_preview_var,
+                       command=self.toggle_live_preview).pack(anchor=tk.W)
+
+        ttk.Label(status_frame, text="Shows real-time output during playback",
+                 font=('Arial', 7, 'italic'),
+                 foreground='gray').pack(anchor=tk.W, padx=(20,0))
+
+        # Preview window size control
+        preview_control_frame = ttk.Frame(status_frame)
+        preview_control_frame.pack(fill=tk.X, pady=(5,0))
+        ttk.Label(preview_control_frame, text="Window Size:",
+                 font=('Arial', 8)).pack(side=tk.LEFT, padx=(15,5))
+        self.preview_size_var = tk.IntVar(value=5000)
+        self.preview_size_spin = ttk.Spinbox(preview_control_frame, from_=100, to=50000,
+                                       width=8, textvariable=self.preview_size_var,
+                                       command=self.update_preview_size)
+        self.preview_size_spin.pack(side=tk.LEFT)
+        ttk.Label(preview_control_frame, text="samples",
+                 font=('Arial', 8)).pack(side=tk.LEFT, padx=(5,0))
+
+        # Bind Enter key to all spinbox fields to trigger Apply & Generate
+        self.bind_enter_to_apply()
+    
+    def bind_enter_to_apply(self):
+        """Bind Enter key to all input fields to trigger Apply & Generate"""
+        # List of all spinbox widgets
+        spinboxes = [
+            self.sample_rate_spin,
+            self.freq_mult_spin,
+            self.duration_spin,
+            self.n_repeat_spin,
+            self.y_fade_steps_spin,
+            self.y_fade_speed_spin,
+            self.x_fade_steps_spin,
+            self.x_fade_speed_spin,
+            self.shrink_steps_spin,
+            self.shrink_speed_spin,
+            self.preview_size_spin,
+        ]
+
+        # Bind Return/Enter key to trigger apply_parameters
+        for spinbox in spinboxes:
+            spinbox.bind('<Return>', lambda e: self.apply_parameters())
+            spinbox.bind('<KP_Enter>', lambda e: self.apply_parameters())  # Keypad Enter
+
+    def create_display(self, parent):
+        """Create matplotlib display"""
+
+        # Configure matplotlib to handle large paths
+        import matplotlib as mpl
+        mpl.rcParams['agg.path.chunksize'] = 10000
+
+        # Create figure
+        self.fig = Figure(figsize=(8, 8), dpi=100)
+        self.fig.patch.set_facecolor('#1e1e1e')
+
+        self.ax = self.fig.add_subplot(111, facecolor='#000000')
+        self.ax.set_xlim(-1.2, 1.2)
+        self.ax.set_ylim(-1.2, 1.2)
+        self.ax.set_aspect('equal')
+        self.ax.grid(True, color='#00ff00', alpha=0.3, linestyle='--')
+        self.ax.set_xlabel('X (Left Channel)', color='#00ff00')
+        self.ax.set_ylabel('Y (Right Channel)', color='#00ff00')
+        self.ax.tick_params(colors='#00ff00')
+
+        # Initial plot
+        self.line, = self.ax.plot([], [], color='#00ff00', linewidth=1.5, alpha=0.8)
+
+        # Embed in tkinter
+        self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+    
+    def update_rate_label(self, *args):
+        """Update the actual playback rate label"""
+        fs = self.sample_rate_var.get()
+        mult = self.freq_mult_var.get()
+        actual = fs * mult
+        
+        if actual >= 1000:
+            self.actual_rate_label.config(text=f"{actual/1000:.0f} kHz")
+        else:
+            self.actual_rate_label.config(text=f"{actual} Hz")
+    
+    def normalize_data(self, data):
+        """Normalize data to [-1, 1]"""
+        data = np.asarray(data, dtype=np.float32)
+        data_min = data.min()
+        data_max = data.max()
+        
+        if data_max == data_min:
+            return np.zeros_like(data)
+        
+        return 2.0 * (data - data_min) / (data_max - data_min) - 1.0
+    
+    def effect_changed(self):
+        """Handle effect changes - debounced to prevent freeze from rapid changes"""
+        # Always update display immediately for visual feedback
+        self.update_display()
+
+        # Cancel any pending regeneration timer
+        if self.effect_change_timer is not None:
+            self.root.after_cancel(self.effect_change_timer)
+            self.effect_change_timer = None
+
+        # Only schedule regeneration if audio exists
+        if hasattr(self, 'current_audio') and self.current_audio is not None:
+            # Schedule regeneration after 600ms delay
+            # This allows multiple rapid changes to be batched together
+            self.effect_change_timer = self.root.after(600, self.delayed_regenerate)
+
+    def delayed_regenerate(self):
+        """Execute the actual regeneration after debounce delay"""
+        self.effect_change_timer = None
+        if not self.is_regenerating:
+            self.apply_parameters()
+    
+    def update_rotation_info(self, *args):
+        """Update rotation info label showing number of full rotations"""
         try:
-            print(f"Vectorizing: method={self.method}, threshold={self.threshold}, "
-                  f"adaptive={self.use_adaptive}, epsilon={self.epsilon_factor:.4f}, "
-                  f"min_length={self.min_line_length}")
+            if hasattr(self, 'rotation_mode_var'):
+                mode = self.rotation_mode_var.get()
+                if mode in ["CW", "CCW"]:
+                    n_repeat = self.n_repeat_var.get()
+                    speed = self.rotation_speed.get()
+                    num_rotations = (n_repeat * speed) / 360
+                    
+                    direction = "↻ CW" if mode == "CW" else "↺ CCW"
+                    self.rotation_info_label.config(
+                        text=f"{direction}: {num_rotations:.1f} full rotations"
+                    )
+                else:
+                    self.rotation_info_label.config(text="")
+        except:
+            pass
+    
+    def rotation_mode_changed(self):
+        """Handle rotation mode changes - debounced to prevent freeze"""
+        self.update_rotation_info()
+        self.update_display()
 
-            contours, binary = vectorize_image(
-                self.image_path,
-                threshold=self.threshold,
-                invert=self.invert,
-                epsilon_factor=self.epsilon_factor,
-                min_line_length=self.min_line_length,
-                sharpen_strength=self.sharpen_strength,
-                method=self.method,
-                use_adaptive=self.use_adaptive
-            )
+        # Cancel any pending regeneration timer
+        if self.effect_change_timer is not None:
+            self.root.after_cancel(self.effect_change_timer)
+            self.effect_change_timer = None
 
-            self.binary_img = binary
-            self.contours = contours
+        # Only schedule regeneration if audio exists
+        if hasattr(self, 'current_audio') and self.current_audio is not None:
+            # Schedule regeneration after 600ms delay
+            self.effect_change_timer = self.root.after(600, self.delayed_regenerate)
 
-            # Convert to coordinates
-            x, y = contours_to_coordinates(contours, self.num_points)
+    def update_wavy_labels_only(self):
+        """Update wavy effect value labels without triggering effect_changed"""
+        # Update amplitude labels (3 decimal places)
+        x_amp = self.x_wavy_amp.get()
+        y_amp = self.y_wavy_amp.get()
+        self.x_wavy_amp_label.config(text=f"{x_amp:.3f}")
+        self.y_wavy_amp_label.config(text=f"{y_amp:.3f}")
 
-            if len(x) == 0:
-                raise ValueError("No points generated")
+        # Update frequency labels (formatted for readability)
+        x_freq = self.x_wavy_freq.get()
+        y_freq = self.y_wavy_freq.get()
 
-            self.x_original = x.copy()
-            self.y_original = y.copy()
-            self.x_coords = x.copy()
-            self.y_coords = y.copy()
+        # Format frequency based on magnitude
+        def format_freq(freq):
+            if freq >= 1000:
+                return f"{freq:.0f}"
+            elif freq >= 100:
+                return f"{freq:.1f}"
+            else:
+                return f"{freq:.2f}"
 
-            print(f"✓ Generated {len(self.x_coords)} points from {len(contours)} vectorized outlines")
+        self.x_wavy_freq_label.config(text=format_freq(x_freq))
+        self.y_wavy_freq_label.config(text=format_freq(y_freq))
 
-            return True
+    def update_wavy_labels(self):
+        """Update wavy effect value labels and trigger effect preview"""
+        self.update_wavy_labels_only()
+        # Trigger effect changed for preview update
+        self.effect_changed()
+
+    def update_floating_labels_only(self):
+        """Update floating pattern value labels without triggering effect_changed"""
+        count = self.floating_count.get()
+        scale = self.floating_scale.get()
+        offset = self.floating_offset.get()
+
+        self.floating_count_label.config(text=f"{count}")
+        self.floating_scale_label.config(text=f"{scale:.2f}")
+        self.floating_offset_label.config(text=f"{offset:.2f}")
+
+    def update_floating_labels(self):
+        """Update floating pattern value labels and trigger effect preview"""
+        self.update_floating_labels_only()
+        # Trigger effect changed for preview update
+        self.effect_changed()
+
+    def reset_effects(self):
+        """Reset all effects to their default values"""
+        # Turn off all effects
+        self.reflections_var.set(False)
+        self.y_fade_var.set(False)
+        self.x_fade_var.set(False)
+        self.alternate_xy_fade_var.set(False)
+        self.shrink_var.set(False)
+        self.x_noise_var.set(False)
+        self.y_noise_var.set(False)
+        self.x_wavy_var.set(False)
+        self.y_wavy_var.set(False)
+        self.rotation_mode_var.set("Off")
+        self.floating_pattern_var.set(False)
+
+        # Reset values to defaults
+        self.y_fade_steps.set(10)
+        self.y_fade_speed.set(1)
+        self.x_fade_steps.set(10)
+        self.x_fade_speed.set(1)
+        self.shrink_steps.set(10)
+        self.shrink_speed.set(1)
+        self.x_noise_amp.set(0.05)
+        self.y_noise_amp.set(0.05)
+        self.x_wavy_amp.set(0.2)
+        self.y_wavy_amp.set(0.2)
+        self.x_wavy_freq.set(10.0)
+        self.y_wavy_freq.set(10.0)
+        self.rotation_angle.set(0.0)
+        self.rotation_speed.set(5.0)
+        self.floating_count.set(4)
+        self.floating_scale.set(0.3)
+        self.floating_offset.set(1.5)
+
+        # Update wavy and floating pattern labels to reflect reset values
+        self.update_wavy_labels_only()
+        self.update_floating_labels_only()
+
+        # Update display
+        self.update_display()
+
+        # If audio exists, regenerate with reset effects
+        if hasattr(self, 'current_audio') and self.current_audio is not None:
+            self.apply_parameters()
+    
+    def apply_effects(self, x, y):
+        """Apply selected effects to the data - FOR DISPLAY PREVIEW ONLY - ALL EFFECTS BLEND"""
+        x_norm = x.copy()
+        y_norm = y.copy()
+
+        # Determine which effects are enabled
+        has_y_fade = self.y_fade_var.get()
+        has_x_fade = self.x_fade_var.get()
+        has_shrink = self.shrink_var.get()
+        rotation_mode = self.rotation_mode_var.get()
+
+        # Build effect factor arrays
+        y_fade_factors = None
+        x_fade_factors = None
+        shrink_factors = None
+
+        # Build Y-Fade factors
+        if has_y_fade:
+            n_fade_y = self.y_fade_steps.get()
+            y_fade_speed = self.y_fade_speed.get()
+            fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
+            fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
+            fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
+            fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
+            one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
+            y_fade_factors = np.repeat(one_cycle_y, y_fade_speed)
+
+        # Build X-Fade factors
+        if has_x_fade:
+            n_fade_x = self.x_fade_steps.get()
+            x_fade_speed = self.x_fade_speed.get()
+            fade_down_x = np.linspace(1, 0, n_fade_x, dtype=np.float32)
+            fade_negative_down_x = np.linspace(0, -1, n_fade_x, dtype=np.float32)[1:]
+            fade_negative_up_x = np.linspace(-1, 0, n_fade_x, dtype=np.float32)[1:]
+            fade_up_x = np.linspace(0, 1, n_fade_x, dtype=np.float32)[1:]
+            one_cycle_x = np.concatenate([fade_down_x, fade_negative_down_x, fade_negative_up_x, fade_up_x])
+            x_fade_factors = np.repeat(one_cycle_x, x_fade_speed)
+
+        # Build Shrink factors
+        if has_shrink:
+            n_shrink = self.shrink_steps.get()
+            shrink_speed = self.shrink_speed.get()
+            shrink_down = np.linspace(1, 0, n_shrink, dtype=np.float32)
+            shrink_up = np.linspace(0, 1, n_shrink, dtype=np.float32)[1:]
+            one_cycle_shrink = np.concatenate([shrink_down, shrink_up])
+            shrink_factors = np.repeat(one_cycle_shrink, shrink_speed)
+
+        # Determine if any effects are enabled
+        any_effect_enabled = has_y_fade or has_x_fade or has_shrink
+
+        if not any_effect_enabled:
+            # No effects - return as is
+            pass
+        else:
+            # Calculate number of preview cycles based on complexity
+            max_length = 0
+            if y_fade_factors is not None:
+                max_length = max(max_length, len(y_fade_factors))
+            if x_fade_factors is not None:
+                max_length = max(max_length, len(x_fade_factors))
+            if shrink_factors is not None:
+                max_length = max(max_length, len(shrink_factors))
+
+            # Adapt preview cycles based on total complexity
+            if max_length > 500:
+                num_preview_cycles = 1
+            elif max_length > 200:
+                num_preview_cycles = 2
+            else:
+                num_preview_cycles = 3
+
+            # Check for alternate X/Y fade mode
+            use_alternate = (self.alternate_xy_fade_var.get() and
+                           has_x_fade and has_y_fade and
+                           not has_shrink)
+
+            x_frames = []
+            y_frames = []
+
+            if use_alternate:
+                # ALTERNATE MODE: X fade first, then Y fade, repeat
+                for cycle_idx in range(num_preview_cycles):
+                    # First: Do X fade sequence
+                    for x_fade_idx in range(len(x_fade_factors)):
+                        x_factor = x_fade_factors[x_fade_idx]
+                        x_frames.append(x_norm * x_factor)
+                        y_frames.append(y_norm)
+
+                    # Then: Do Y fade sequence
+                    for y_fade_idx in range(len(y_fade_factors)):
+                        y_factor = y_fade_factors[y_fade_idx]
+                        x_frames.append(x_norm)
+                        y_frames.append(y_norm * y_factor)
+
+                x = np.concatenate(x_frames)
+                y = np.concatenate(y_frames)
+
+            else:
+                # BLENDED MODE: All effects apply simultaneously
+                # Determine total frames for preview
+                total_frames = max_length * num_preview_cycles
+
+                for frame_idx in range(total_frames):
+                    # Get current effect factors (cycling through each effect's sequence)
+                    y_factor = 1.0
+                    x_factor = 1.0
+                    scale_factor = 1.0
+
+                    if y_fade_factors is not None:
+                        y_factor = y_fade_factors[frame_idx % len(y_fade_factors)]
+
+                    if x_fade_factors is not None:
+                        x_factor = x_fade_factors[frame_idx % len(x_fade_factors)]
+
+                    if shrink_factors is not None:
+                        scale_factor = shrink_factors[frame_idx % len(shrink_factors)]
+
+                    # Apply ALL effects to this frame
+                    x_current = x_norm * x_factor * scale_factor
+                    y_current = y_norm * y_factor * scale_factor
+
+                    x_frames.append(x_current)
+                    y_frames.append(y_current)
+
+                x = np.concatenate(x_frames)
+                y = np.concatenate(y_frames)
+
+        # Mirror Reflections
+        if self.reflections_var.get():
+            x, y = self.apply_reflections(x, y)
+
+        # Rotation - static angle only for display
+        if rotation_mode == "Static":
+            angle_rad = np.radians(self.rotation_angle.get())
+            cos_a = np.cos(angle_rad)
+            sin_a = np.sin(angle_rad)
+
+            x_rot = x * cos_a - y * sin_a
+            y_rot = x * sin_a + y * cos_a
+
+            # Renormalize after rotation to prevent clipping
+            x = self.normalize_data(x_rot)
+            y = self.normalize_data(y_rot)
+
+        # Apply wavy effect if enabled
+        if self.x_wavy_var.get() or self.y_wavy_var.get():
+            # Create time array based on position (0 to 2π)
+            t = np.linspace(0, 2*np.pi, len(x))
+
+            if self.x_wavy_var.get():
+                K_x = self.x_wavy_amp.get()
+                w_x = self.x_wavy_freq.get()
+                x = x + K_x * np.sin(w_x * t)
+
+            if self.y_wavy_var.get():
+                K_y = self.y_wavy_amp.get()
+                w_y = self.y_wavy_freq.get()
+                y = y + K_y * np.sin(w_y * t)
+
+        # Apply floating pattern if enabled
+        if self.floating_pattern_var.get() and self.floating_pattern_x is not None:
+            num_instances = self.floating_count.get()
+            pattern_scale = self.floating_scale.get()
+            distance = self.floating_offset.get()
+
+            # Create instances of the pattern around the center
+            all_pattern_x = []
+            all_pattern_y = []
+
+            for i in range(num_instances):
+                # Distribute instances evenly in a circle
+                angle = (2 * np.pi * i) / num_instances
+                offset_x = distance * np.cos(angle)
+                offset_y = distance * np.sin(angle)
+
+                # Scale and position the pattern
+                scaled_x = self.floating_pattern_x * pattern_scale + offset_x
+                scaled_y = self.floating_pattern_y * pattern_scale + offset_y
+
+                all_pattern_x.append(scaled_x)
+                all_pattern_y.append(scaled_y)
+
+            # Combine all pattern instances
+            if all_pattern_x:
+                pattern_x = np.concatenate(all_pattern_x)
+                pattern_y = np.concatenate(all_pattern_y)
+
+                # Prepend pattern (so it's drawn first as background)
+                x = np.concatenate([pattern_x, x])
+                y = np.concatenate([pattern_y, y])
+
+        return x, y
+    
+    def toggle_live_preview(self):
+        """Toggle live preview mode"""
+        self.preview_active = self.live_preview_var.get()
+        if self.preview_active:
+            self.preview_position = 0
+            self.preview_buffer = []
+            self.last_preview_update = 0
+        else:
+            # Return to static preview when disabled
+            self.update_display()
+
+    def update_preview_size(self):
+        """Update preview window size"""
+        self.preview_window_size = self.preview_size_var.get()
+    
+    def update_live_preview(self):
+        """Update display to show current audio output position as a continuous stream"""
+        try:
+            if self.preview_active and self.is_playing and self.current_audio is not None:
+                try:
+                    import time
+                    if hasattr(self, 'playback_start_time'):
+                        # Calculate current playback position
+                        elapsed = time.time() - self.playback_start_time
+                        sample_position = int(elapsed * self.current_fs)
+
+                        # Wrap around if we exceed audio length (looping)
+                        total_samples = len(self.current_audio)
+                        if sample_position >= total_samples:
+                            sample_position = sample_position % total_samples
+                            # Reset buffer on loop
+                            self.preview_buffer = []
+                            self.last_preview_update = sample_position
+                            # Update start time for smoother looping
+                            self.playback_start_time = time.time() - (sample_position / self.current_fs)
+
+                        # Add new samples to rolling buffer since last update
+                        if sample_position > self.last_preview_update:
+                            new_samples = self.current_audio[self.last_preview_update:sample_position]
+                            if len(self.preview_buffer) == 0:
+                                self.preview_buffer = new_samples.tolist()
+                            else:
+                                self.preview_buffer.extend(new_samples.tolist())
+                            self.last_preview_update = sample_position
+
+                            # Keep buffer at desired window size (remove old samples)
+                            if len(self.preview_buffer) > self.preview_window_size:
+                                self.preview_buffer = self.preview_buffer[-self.preview_window_size:]
+
+                        # Display the rolling buffer
+                        if len(self.preview_buffer) >= 10:
+                            buffer_array = np.array(self.preview_buffer)
+                            x_preview = buffer_array[:, 0]
+                            y_preview = buffer_array[:, 1]
+
+                            # Update plot
+                            self.line.set_data(x_preview, y_preview)
+
+                            # Keep consistent axis limits for smooth viewing
+                            self.ax.set_xlim(-1.2, 1.2)
+                            self.ax.set_ylim(-1.2, 1.2)
+
+                            self.canvas.draw_idle()
+                except Exception as e:
+                    pass  # Silently ignore preview errors
+
+            # Schedule next update (50 FPS)
+            if self.root.winfo_exists():
+                self.root.after(20, self.update_live_preview)
+        except Exception:
+            pass  # Window destroyed, stop scheduling
+    
+    def update_display(self):
+        """Update the oscilloscope display"""
+        # Normalize data
+        x_norm = self.normalize_data(self.x_data)
+        y_norm = self.normalize_data(self.y_data)
+
+        # Apply effects
+        x_display, y_display = self.apply_effects(x_norm, y_norm)
+
+        # Repeat pattern for visibility
+        display_repeats = min(20, max(1, 100 // len(x_norm)))
+        x_display = np.tile(x_display, display_repeats)
+        y_display = np.tile(y_display, display_repeats)
+
+        # Downsample if too many points for rendering (prevents matplotlib overflow)
+        max_display_points = 50000
+        if len(x_display) > max_display_points:
+            # Downsample by taking every nth point
+            step = len(x_display) // max_display_points
+            x_display = x_display[::step]
+            y_display = y_display[::step]
+
+        # Update plot
+        self.line.set_data(x_display, y_display)
+        
+        # Update limits if needed
+        margin = 0.1
+        x_range = [x_display.min() - margin, x_display.max() + margin]
+        y_range = [y_display.min() - margin, y_display.max() + margin]
+        
+        max_range = max(x_range[1] - x_range[0], y_range[1] - y_range[0])
+        center_x = (x_range[0] + x_range[1]) / 2
+        center_y = (y_range[0] + y_range[1]) / 2
+        
+        self.ax.set_xlim(center_x - max_range/2, center_x + max_range/2)
+        self.ax.set_ylim(center_y - max_range/2, center_y + max_range/2)
+        
+        self.canvas.draw_idle()
+    
+    def generate_audio(self):
+        """Generate audio with current parameters and effects - ALL EFFECTS BLEND TOGETHER"""
+
+        self.status_label.config(text="Generating audio...")
+        self.root.update()
+
+        # Normalize base pattern
+        x_norm = self.normalize_data(self.x_data)
+        y_norm = self.normalize_data(self.y_data)
+
+        # Get parameters
+        n_repeat = self.n_repeat_var.get()
+        rotation_mode = self.rotation_mode_var.get()
+
+        # ===================================================================
+        # NEW APPROACH: Build effect factor arrays, then apply all together
+        # ===================================================================
+
+        # Step 1: Determine which effects are enabled
+        has_y_fade = self.y_fade_var.get()
+        has_x_fade = self.x_fade_var.get()
+        has_shrink = self.shrink_var.get()
+        has_rotation = rotation_mode in ["CW", "CCW"]
+
+        # Step 2: Build effect factor arrays
+        y_fade_factors = None
+        x_fade_factors = None
+        shrink_factors = None
+        rotation_angles = None
+
+        # Build Y-Fade factors
+        if has_y_fade:
+            n_fade_y = self.y_fade_steps.get()
+            y_fade_speed = self.y_fade_speed.get()
+            # Create one complete fade cycle: 1 → 0 → -1 → 0 → 1
+            fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
+            fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
+            fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
+            fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
+            one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
+            # Apply speed by repeating each step
+            y_fade_factors = np.repeat(one_cycle_y, y_fade_speed)
+
+        # Build X-Fade factors
+        if has_x_fade:
+            n_fade_x = self.x_fade_steps.get()
+            x_fade_speed = self.x_fade_speed.get()
+            # Create one complete fade cycle: 1 → 0 → -1 → 0 → 1
+            fade_down_x = np.linspace(1, 0, n_fade_x, dtype=np.float32)
+            fade_negative_down_x = np.linspace(0, -1, n_fade_x, dtype=np.float32)[1:]
+            fade_negative_up_x = np.linspace(-1, 0, n_fade_x, dtype=np.float32)[1:]
+            fade_up_x = np.linspace(0, 1, n_fade_x, dtype=np.float32)[1:]
+            one_cycle_x = np.concatenate([fade_down_x, fade_negative_down_x, fade_negative_up_x, fade_up_x])
+            # Apply speed by repeating each step
+            x_fade_factors = np.repeat(one_cycle_x, x_fade_speed)
+
+        # Build Shrink factors
+        if has_shrink:
+            n_shrink = self.shrink_steps.get()
+            shrink_speed = self.shrink_speed.get()
+            # Create one complete shrink cycle: 1 → 0 → 1
+            shrink_down = np.linspace(1, 0, n_shrink, dtype=np.float32)
+            shrink_up = np.linspace(0, 1, n_shrink, dtype=np.float32)[1:]
+            one_cycle_shrink = np.concatenate([shrink_down, shrink_up])
+            # Apply speed by repeating each step
+            shrink_factors = np.repeat(one_cycle_shrink, shrink_speed)
+
+        # Build Rotation angles
+        if has_rotation:
+            speed = self.rotation_speed.get()
+            direction = -1 if rotation_mode == "CW" else 1
+            # Create angle sequence for n_repeat steps
+            rotation_angles = np.array([direction * speed * i for i in range(n_repeat)], dtype=np.float32)
+
+        # Step 3: Determine total number of frames
+        # If ANY effect is enabled, use n_repeat as base
+        # Otherwise just repeat the pattern n_repeat times
+
+        any_effect_enabled = has_y_fade or has_x_fade or has_shrink or has_rotation
+
+        if not any_effect_enabled:
+            # No effects - simple tile
+            x_repeated = np.tile(x_norm, n_repeat)
+            y_repeated = np.tile(y_norm, n_repeat)
+
+        else:
+            # Effects enabled - apply all simultaneously frame-by-frame
+            x_frames = []
+            y_frames = []
+
+            # Check for alternate X/Y fade mode
+            use_alternate = (self.alternate_xy_fade_var.get() and
+                           has_x_fade and has_y_fade and
+                           not has_shrink and not has_rotation)
+
+            if use_alternate:
+                # ALTERNATE MODE: X fade first, then Y fade, repeat
+                # This is a special case where X and Y don't blend
+                for repeat_idx in range(n_repeat):
+                    # First: Do X fade sequence
+                    for x_fade_idx in range(len(x_fade_factors)):
+                        x_factor = x_fade_factors[x_fade_idx]
+                        x_frames.append(x_norm * x_factor)
+                        y_frames.append(y_norm)
+
+                    # Then: Do Y fade sequence
+                    for y_fade_idx in range(len(y_fade_factors)):
+                        y_factor = y_fade_factors[y_fade_idx]
+                        x_frames.append(x_norm)
+                        y_frames.append(y_norm * y_factor)
+
+                x_repeated = np.concatenate(x_frames)
+                y_repeated = np.concatenate(y_frames)
+
+            else:
+                # BLENDED MODE: All effects apply simultaneously to each frame
+                for frame_idx in range(n_repeat):
+                    # Get current effect factors (cycling through each effect's sequence)
+                    y_factor = 1.0
+                    x_factor = 1.0
+                    scale_factor = 1.0
+                    rotation_angle = 0.0
+
+                    if y_fade_factors is not None:
+                        y_factor = y_fade_factors[frame_idx % len(y_fade_factors)]
+
+                    if x_fade_factors is not None:
+                        x_factor = x_fade_factors[frame_idx % len(x_fade_factors)]
+
+                    if shrink_factors is not None:
+                        scale_factor = shrink_factors[frame_idx % len(shrink_factors)]
+
+                    if rotation_angles is not None:
+                        rotation_angle = rotation_angles[frame_idx % len(rotation_angles)]
+
+                    # Apply ALL effects to this frame
+                    x_current = x_norm * x_factor * scale_factor
+                    y_current = y_norm * y_factor * scale_factor
+
+                    # Apply rotation if present
+                    if rotation_angle != 0.0:
+                        angle_rad = np.radians(rotation_angle)
+                        cos_a = np.cos(angle_rad)
+                        sin_a = np.sin(angle_rad)
+
+                        x_rot = x_current * cos_a - y_current * sin_a
+                        y_rot = x_current * sin_a + y_current * cos_a
+
+                        x_frames.append(x_rot)
+                        y_frames.append(y_rot)
+                    else:
+                        x_frames.append(x_current)
+                        y_frames.append(y_current)
+
+                x_repeated = np.concatenate(x_frames)
+                y_repeated = np.concatenate(y_frames)
+
+                # Renormalize entire sequence to prevent clipping
+                x_repeated = self.normalize_data(x_repeated)
+                y_repeated = self.normalize_data(y_repeated)
+
+        # Apply Mirror Reflections if enabled
+        if self.reflections_var.get():
+            x_repeated, y_repeated = self.apply_reflections(x_repeated, y_repeated)
+
+        # Handle Static rotation (applied after all other effects)
+        if rotation_mode == "Static":
+            angle_rad = np.radians(self.rotation_angle.get())
+            cos_a = np.cos(angle_rad)
+            sin_a = np.sin(angle_rad)
+
+            x_rot = x_repeated * cos_a - y_repeated * sin_a
+            y_rot = x_repeated * sin_a + y_repeated * cos_a
+
+            # Renormalize to prevent clipping
+            x_repeated = self.normalize_data(x_rot)
+            y_repeated = self.normalize_data(y_rot)
+
+        # Add floating pattern if enabled (before tiling)
+        if self.floating_pattern_var.get() and self.floating_pattern_x is not None:
+            num_instances = self.floating_count.get()
+            pattern_scale = self.floating_scale.get()
+            distance = self.floating_offset.get()
+
+            # Create instances of the pattern around the center
+            all_pattern_x = []
+            all_pattern_y = []
+
+            for i in range(num_instances):
+                # Distribute instances evenly in a circle
+                angle = (2 * np.pi * i) / num_instances
+                offset_x = distance * np.cos(angle)
+                offset_y = distance * np.sin(angle)
+
+                # Scale and position the pattern
+                scaled_x = self.floating_pattern_x * pattern_scale + offset_x
+                scaled_y = self.floating_pattern_y * pattern_scale + offset_y
+
+                all_pattern_x.append(scaled_x)
+                all_pattern_y.append(scaled_y)
+
+            # Combine all pattern instances
+            if all_pattern_x:
+                pattern_x = np.concatenate(all_pattern_x)
+                pattern_y = np.concatenate(all_pattern_y)
+
+                # Prepend pattern (so main image draws on top)
+                x_repeated = np.concatenate([pattern_x, x_repeated])
+                y_repeated = np.concatenate([pattern_y, y_repeated])
+
+        # Calculate playback rate and target length
+        fs = self.sample_rate_var.get()
+        mult = self.freq_mult_var.get()
+        duration = self.duration_var.get()
+        actual_fs = fs * mult
+        target_length = int(actual_fs * duration)
+
+        # Tile to fill duration
+        seq_len = len(x_repeated)
+        num_tiles = int(np.ceil(target_length / seq_len))
+
+        x_full = np.tile(x_repeated, num_tiles)[:target_length]
+        y_full = np.tile(y_repeated, num_tiles)[:target_length]
+
+        # Apply noise if enabled (independent on each channel)
+        if self.x_noise_var.get():
+            x_noise_amp = self.x_noise_amp.get()
+            x_noise = np.random.uniform(-x_noise_amp, x_noise_amp, len(x_full))
+            x_full = x_full + x_noise
+
+        if self.y_noise_var.get():
+            y_noise_amp = self.y_noise_amp.get()
+            y_noise = np.random.uniform(-y_noise_amp, y_noise_amp, len(y_full))
+            y_full = y_full + y_noise
+
+        # Apply wavy effect if enabled
+        if self.x_wavy_var.get() or self.y_wavy_var.get():
+            # Create time array based on actual sample positions
+            t = np.arange(len(x_full)) / actual_fs
+
+            if self.x_wavy_var.get():
+                K_x = self.x_wavy_amp.get()
+                w_x = self.x_wavy_freq.get()
+                x_full = x_full + K_x * np.sin(w_x * 2 * np.pi * t)
+
+            if self.y_wavy_var.get():
+                K_y = self.y_wavy_amp.get()
+                w_y = self.y_wavy_freq.get()
+                y_full = y_full + K_y * np.sin(w_y * 2 * np.pi * t)
+
+        # Create stereo
+        stereo = np.column_stack([x_full, y_full]).astype(np.float32)
+
+        self.current_audio = stereo
+        self.current_fs = actual_fs
+
+        # Update status with rotation info if applicable
+        if has_rotation and rotation_angles is not None:
+            num_full_rotations = (len(rotation_angles) * self.rotation_speed.get()) / 360
+            self.status_label.config(text=f"Ready - {len(stereo)} samples @ {actual_fs/1000:.0f}kHz ({num_full_rotations:.1f} rotations)")
+        else:
+            self.status_label.config(text=f"Ready - {len(stereo)} samples @ {actual_fs/1000:.0f}kHz")
+
+        return stereo, actual_fs
+    
+    def apply_reflections(self, x, y):
+        """
+        Apply mirror reflections as in original MATLAB code
+        This creates the 4-stage reflection pattern
+        """
+        # Get current length
+        base_len = len(x)
+        
+        # Stage 1: Already have the base pattern (or faded pattern)
+        # Just keep x and y as-is for first stage
+        
+        # Stage 2: Negative Y reflection (mirror about x-axis)
+        # Flip y to negative
+        x_stage2 = x.copy()
+        y_stage2 = -y.copy()
+        
+        # Stage 3: Negative X reflection (mirror about y-axis)
+        # Flip x to negative, keep y at last value
+        x_stage3 = -x.copy()
+        y_stage3 = np.full(base_len, y[-1]) if len(y) > 0 else y.copy()
+        
+        # Stage 4: Positive X reflection (back to positive x)
+        # Return x to positive, keep y at last value
+        x_stage4 = x.copy()
+        y_stage4 = np.full(base_len, y[-1]) if len(y) > 0 else y.copy()
+        
+        # Concatenate all stages
+        x_reflected = np.concatenate([x, x_stage2, x_stage3, x_stage4])
+        y_reflected = np.concatenate([y, y_stage2, y_stage3, y_stage4])
+        
+        return x_reflected, y_reflected
+
+    def create_fade_sequence(self, x_norm, y_norm, n_fade, enable_reflections=False):
+        """
+        DEPRECATED - kept for compatibility but not used in main flow
+        Use individual fade checkboxes instead
+        """
+        if not enable_reflections:
+            # Simple fade - just fade y while keeping x constant
+            fade_factors = np.linspace(1, 0, n_fade, dtype=np.float32)
+            x_seq = np.tile(x_norm, n_fade)
+            y_seq = np.concatenate([y_norm * fade_factors[i] for i in range(n_fade)])
+            return x_seq, y_seq
+        
+        # With reflections - recreate MATLAB behavior exactly
+        fade_factors = np.linspace(1, 0, n_fade, dtype=np.float32)
+        
+        # Stage 1: Y fades from 1 to 0, X stays constant
+        x_seq = np.tile(x_norm, n_fade)
+        y_seq = np.concatenate([y_norm * fade_factors[i] for i in range(n_fade)])
+        
+        # Stage 2: Y goes from 0 to -1 (negative reflection about x-axis)
+        neg_fade = -fade_factors[1:]  # Skip first (0) to avoid duplicate
+        for factor in neg_fade:
+            y_seq = np.concatenate([y_seq, y_norm * factor])
+            x_seq = np.concatenate([x_seq, x_norm])
+        
+        # Stage 3: X goes from 1 to -1 (negative reflection about y-axis)
+        # Y stays at last value
+        for factor in neg_fade:
+            x_seq = np.concatenate([x_seq, x_norm * factor])
+            y_seq = np.concatenate([y_seq, y_norm])
+        
+        # Stage 4: X goes from -1 back toward 1 (positive reflection)
+        # Y stays at last value
+        pos_fade = fade_factors[1:]  # Skip first to avoid duplicate
+        for factor in pos_fade:
+            x_seq = np.concatenate([x_seq, x_norm * factor])
+            y_seq = np.concatenate([y_seq, y_norm])
+        
+        return x_seq, y_seq
+    
+    def apply_parameters(self):
+        """Apply parameters, generate audio, and auto-play"""
+        # Prevent concurrent regenerations
+        if self.is_regenerating:
+            return
+
+        try:
+            self.is_regenerating = True
+
+            # Stop current playback if playing and clear the buffer
+            was_playing = self.is_playing
+            if self.is_playing:
+                self.stop_playback()
+
+            # Generate new audio
+            self.generate_audio()
+
+            # Auto-play the generated audio if it was playing before
+            if was_playing or not hasattr(self, '_first_generate'):
+                self.start_playback()
+                self._first_generate = True
 
         except Exception as e:
-            print(f"Error during vectorization: {e}")
-            return False
+            messagebox.showerror("Error", f"Failed to generate audio:\n{str(e)}")
+        finally:
+            self.is_regenerating = False
+    
+    def toggle_playback(self):
+        """Toggle between play and pause"""
+        if self.is_playing:
+            # Pause/Stop
+            self.stop_playback()
+        else:
+            # Play/Resume
+            self.start_playback()
+    
+    def start_playback(self):
+        """Start playing audio"""
+        if self.current_audio is None:
+            messagebox.showwarning("No Audio", "Please click 'Apply & Generate' first to create audio.")
+            return
 
-    def setup_gui(self):
-        """Create the interactive GUI."""
-        self.fig = plt.figure(figsize=(16, 7))
+        self.is_playing = True
+        self.play_btn.config(text="⏸ Pause")
 
-        # Create custom layout
-        gs = self.fig.add_gridspec(2, 2, width_ratios=[1, 1], height_ratios=[1, 0.05])
+        # Update status based on live preview mode
+        if self.preview_active:
+            self.status_label.config(text="Playing (Live Preview)")
+        else:
+            self.status_label.config(text="Playing...")
 
-        self.ax_preview = self.fig.add_subplot(gs[0, 0])
-        self.ax_trace = self.fig.add_subplot(gs[0, 1])
+        # Track playback start time for live preview
+        import time
+        self.playback_start_time = time.time()
+        self.preview_position = 0
+        self.preview_buffer = []
+        self.last_preview_update = 0
 
-        # Left: Binary preview
-        self.preview_img = self.ax_preview.imshow(self.binary_img, cmap='gray')
-        self.ax_preview.set_title('Vectorized Preview (Binary Threshold)')
-        self.ax_preview.axis('off')
+        self.stop_flag.clear()
+        self.audio_thread = threading.Thread(target=self.play_audio_thread)
+        self.audio_thread.daemon = True
+        self.audio_thread.start()
+    
+    def stop_playback(self):
+        """Stop playing audio"""
+        self.stop_flag.set()
+        sd.stop()
+        self.is_playing = False
+        self.play_btn.config(text="▶ Play Audio")
+        self.status_label.config(text="Paused")
+        
+        # Reset preview to static view if live preview is off
+        if not self.preview_active:
+            self.update_display()
+    
+    def play_audio_thread(self):
+        """Thread function for playing audio in continuous loop"""
+        try:
+            while not self.stop_flag.is_set():
+                # Play audio with looping
+                sd.play(self.current_audio, self.current_fs, loop=True)
+                # Wait for playback to be stopped
+                sd.wait()
+                # Check if we should continue looping
+                if self.stop_flag.is_set():
+                    break
+        except Exception as e:
+            self.update_queue.put(("error", str(e)))
+    
+    def check_updates(self):
+        """Check for updates from audio thread"""
+        try:
+            try:
+                while True:
+                    msg, data = self.update_queue.get_nowait()
 
-        # Right: Editable trace
-        self.line, = self.ax_trace.plot(self.x_coords, self.y_coords, 'b.',
-                                        markersize=2, picker=5)
-        self.ax_trace.set_aspect('equal')
-        self.ax_trace.set_xlabel('X')
-        self.ax_trace.set_ylabel('Y')
-        self.ax_trace.grid(True, alpha=0.3)
+                    if msg == "playback_complete":
+                        self.is_playing = False
+                        self.play_btn.config(text="▶ Play Audio")
+                        self.status_label.config(text="Playback complete")
+                    elif msg == "error":
+                        self.is_playing = False
+                        self.play_btn.config(text="▶ Play Audio")
+                        self.status_label.config(text=f"Error: {data}")
+            except queue.Empty:
+                pass
 
-        # Preview circle for editing
-        self.preview_circle = plt.Circle((0, 0), 0.1, fill=False, color='red',
-                                        linestyle='--', visible=False)
-        self.ax_trace.add_patch(self.preview_circle)
+            # Schedule next update
+            if self.root.winfo_exists():
+                self.root.after(50, self.check_updates)
+        except Exception:
+            pass  # Window destroyed, stop scheduling
+    
+    def load_txt_file(self):
+        """Load coordinates from text file with x_fun=[] and y_fun=[] format"""
+        filename = filedialog.askopenfilename(
+            title="Select Text File",
+            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")]
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            x, y = self.extract_txt_arrays(filename)
+            self.x_data = x
+            self.y_data = y
+            self.data_info_label.config(text=f"Points: {len(x)}")
+            self.update_display()
+            self.status_label.config(text=f"Loaded {len(x)} points from text file")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load text file:\n{str(e)}")
+    
+    def extract_txt_arrays(self, filename):
+        """
+        Extract x_fun and y_fun arrays from text file
+        Supports formats:
+        - x_fun=[1 2 3 4];
+        - x_fun=[ 1 2 3 4 ];
+        - x_fun=[1,2,3,4];
+        - x_fun=[ 1, 2, 3, 4 ];
+        """
+        import re
+        
+        with open(filename, 'r') as f:
+            content = f.read()
+        
+        def extract_array(var_name):
+            # Pattern to match: var_name = [ ... ];
+            # Handles spaces, commas, semicolons
+            pattern = rf'{var_name}\s*=\s*\[(.*?)\];'
+            match = re.search(pattern, content, re.DOTALL)
+            
+            if not match:
+                raise ValueError(f"Could not find '{var_name}=[...];' in file")
+            
+            array_str = match.group(1)
+            
+            # Remove comments if any
+            array_str = re.sub(r'%.*?$', '', array_str, flags=re.MULTILINE)
+            
+            # Replace multiple spaces/newlines with single space
+            array_str = re.sub(r'\s+', ' ', array_str)
+            
+            # Remove commas (treat them as spaces)
+            array_str = array_str.replace(',', ' ')
+            
+            # Split and convert to float
+            values = [float(x.strip()) for x in array_str.split() if x.strip()]
+            
+            if len(values) == 0:
+                raise ValueError(f"No values found for '{var_name}'")
+            
+            return np.array(values, dtype=np.float32)
+        
+        x_fun = extract_array('x_fun')
+        y_fun = extract_array('y_fun')
+        
+        # Verify arrays are same length
+        if len(x_fun) != len(y_fun):
+            raise ValueError(f"Array length mismatch: x_fun has {len(x_fun)} points, y_fun has {len(y_fun)} points")
+        
+        return x_fun, y_fun
+    
+    def load_matlab_file(self):
+        """Load coordinates from MATLAB file"""
+        filename = filedialog.askopenfilename(
+            title="Select MATLAB File",
+            filetypes=[("MATLAB Files", "*.m"), ("All Files", "*.*")]
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            x, y = self.extract_matlab_arrays(filename)
+            self.x_data = x
+            self.y_data = y
+            self.data_info_label.config(text=f"Points: {len(x)}")
+            self.update_display()
+            self.status_label.config(text=f"Loaded {len(x)} points from MATLAB file")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load MATLAB file:\n{str(e)}")
+    
+    def extract_matlab_arrays(self, filename):
+        """Extract x_fun and y_fun from MATLAB file"""
+        import re
+        
+        with open(filename, 'r') as f:
+            content = f.read()
+        
+        def extract_array(var_name):
+            pattern = rf'{var_name}\s*=\s*\[(.*?)\];'
+            match = re.search(pattern, content, re.DOTALL)
+            if not match:
+                raise ValueError(f"Could not find '{var_name}'")
+            array_str = match.group(1)
+            array_str = re.sub(r'%.*?$', '', array_str, flags=re.MULTILINE)
+            values = [float(x.strip()) for x in array_str.split(',') if x.strip()]
+            return np.array(values, dtype=np.float32)
+        
+        return extract_array('x_fun'), extract_array('y_fun')
+    
+    def load_numpy_file(self):
+        """Load coordinates from NumPy file"""
+        filename = filedialog.askopenfilename(
+            title="Select NumPy File",
+            filetypes=[("NumPy Files", "*.npz"), ("All Files", "*.*")]
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            data = np.load(filename)
+            self.x_data = data['x']
+            self.y_data = data['y']
+            self.data_info_label.config(text=f"Points: {len(self.x_data)}")
+            self.update_display()
+            self.status_label.config(text=f"Loaded {len(self.x_data)} points from NumPy file")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load NumPy file:\n{str(e)}")
+    
+    def generate_test_pattern(self):
+        """Generate a test pattern with parametric equations"""
+        patterns = {
+            # Basic shapes
+            "Circle": lambda t: (np.cos(t), np.sin(t)),
+            "Ellipse": lambda t: (1.5*np.cos(t), np.sin(t)),
 
-        self.update_title()
+            # Lissajous curves with different phase shifts
+            "Lissajous 3:2": lambda t: (np.sin(3*t), np.sin(2*t)),
+            "Lissajous 3:2 (π/2 phase)": lambda t: (np.sin(3*t), np.sin(2*t + np.pi/2)),
+            "Lissajous 5:4": lambda t: (np.sin(5*t), np.sin(4*t)),
+            "Lissajous 5:4 (π/4 phase)": lambda t: (np.sin(5*t), np.sin(4*t + np.pi/4)),
+            "Lissajous 7:5 (π/3 phase)": lambda t: (np.sin(7*t), np.sin(5*t + np.pi/3)),
 
-        # Add controls
-        self.add_sliders()
-        self.add_buttons()
+            # Stars and flowers
+            "Star (5-point)": lambda t: (np.cos(t) * (1 + 0.5*np.sin(5*t)),
+                                         np.sin(t) * (1 + 0.5*np.sin(5*t))),
+            "Flower (6-petal)": lambda t: (np.cos(t) * (1 + 0.3*np.cos(6*t)),
+                                          np.sin(t) * (1 + 0.3*np.cos(6*t))),
+            "Rose Curve (4-petal)": lambda t: (np.cos(4*t) * np.cos(t),
+                                               np.cos(4*t) * np.sin(t)),
+
+            # Spirals
+            "Spiral (Archimedean)": lambda t: (t/10*np.cos(t), t/10*np.sin(t)),
+            "Spiral (Logarithmic)": lambda t: (np.exp(t/10)*np.cos(t), np.exp(t/10)*np.sin(t)),
+
+            # Complex parametric curves
+            "Hypotrochoid": lambda t: ((3)*np.cos(t) + (1)*np.cos((3)/(1)*t),
+                                       (3)*np.sin(t) - (1)*np.sin((3)/(1)*t)),
+            "Epitrochoid": lambda t: ((5)*np.cos(t) - (2)*np.cos((5)/(2)*t),
+                                      (5)*np.sin(t) - (2)*np.sin((5)/(2)*t)),
+            "Butterfly Curve": lambda t: (np.sin(t)*(np.exp(np.cos(t)) - 2*np.cos(4*t) - np.sin(t/12)**5),
+                                         np.cos(t)*(np.exp(np.cos(t)) - 2*np.cos(4*t) - np.sin(t/12)**5)),
+
+            # Figure-8 and infinity
+            "Figure-8": lambda t: (np.sin(t), np.sin(2*t)),
+            "Infinity (∞)": lambda t: (np.cos(t), np.sin(2*t)),
+
+            # Cardioid and epicycloid
+            "Cardioid": lambda t: ((1-np.cos(t))*np.cos(t), (1-np.cos(t))*np.sin(t)),
+            "Deltoid": lambda t: (2*np.cos(t) + np.cos(2*t), 2*np.sin(t) - np.sin(2*t)),
+        }
+
+        # Create scrollable dialog
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Select Test Pattern")
+        dialog.geometry("380x550")
+
+        ttk.Label(dialog, text="Choose a parametric pattern:",
+                 font=('Arial', 10, 'bold')).pack(pady=10)
+
+        # Create frame for scrollable area
+        scroll_container = ttk.Frame(dialog)
+        scroll_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+        # Create canvas with scrollbar
+        canvas = tk.Canvas(scroll_container, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        selected = tk.StringVar(value="Circle")
+
+        # Group patterns by category
+        categories = {
+            "Basic Shapes": ["Circle", "Ellipse"],
+            "Lissajous Curves": [k for k in patterns.keys() if "Lissajous" in k],
+            "Stars & Flowers": ["Star (5-point)", "Flower (6-petal)", "Rose Curve (4-petal)"],
+            "Spirals": ["Spiral (Archimedean)", "Spiral (Logarithmic)"],
+            "Complex Curves": ["Hypotrochoid", "Epitrochoid", "Butterfly Curve",
+                              "Cardioid", "Deltoid"],
+            "Special": ["Figure-8", "Infinity (∞)"]
+        }
+
+        for category, pattern_names in categories.items():
+            ttk.Label(scrollable_frame, text=category,
+                     font=('Arial', 9, 'bold')).pack(anchor=tk.W, padx=10, pady=(10, 5))
+            for name in pattern_names:
+                ttk.Radiobutton(scrollable_frame, text=name, variable=selected,
+                               value=name).pack(anchor=tk.W, padx=30)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Mouse wheel scrolling
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind("<MouseWheel>", on_mousewheel)
+
+        # Button frame at bottom (always visible)
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        def apply():
+            pattern_name = selected.get()
+
+            # Different time ranges for different patterns
+            if "Spiral" in pattern_name:
+                t = np.linspace(0, 6*np.pi, 800)
+            elif "Butterfly" in pattern_name:
+                t = np.linspace(0, 12*np.pi, 1000)
+            elif "Lissajous" in pattern_name or "Figure" in pattern_name or "Infinity" in pattern_name:
+                t = np.linspace(0, 2*np.pi, 500)
+            else:
+                t = np.linspace(0, 2*np.pi, 600)
+
+            x, y = patterns[pattern_name](t)
+            self.x_data = x
+            self.y_data = y
+            self.data_info_label.config(text=f"Points: {len(x)}")
+            self.update_display()
+            self.status_label.config(text=f"Generated {pattern_name} pattern")
+            dialog.destroy()
+
+        ttk.Button(button_frame, text="Generate Pattern", command=apply).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+
+    def open_drawing_canvas(self):
+        """Open a canvas for drawing custom patterns"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Draw Pattern")
+        dialog.geometry("550x650")
 
         # Instructions
-        instruction_text = (
-            'METHOD: Simple/Bilateral/DoG | THRESHOLD: Binary/Adaptive | '
-            'SLIDERS: Threshold/Simplification/MinLength/Sharpening\n'
-            'LEFT DRAG: Erase | RIGHT DRAG: Add | SCROLL: Radius | TAB: Toggle mode | '
-            'APPLY: Update | S: Save | R: Reset | Q: Quit'
-        )
-        self.fig.text(0.5, 0.02, instruction_text, ha='center', fontsize=8,
-                     bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+        instruction_frame = ttk.Frame(dialog)
+        instruction_frame.pack(pady=10)
+        ttk.Label(instruction_frame, text="Draw your pattern below:",
+                 font=('Arial', 10, 'bold')).pack()
+        ttk.Label(instruction_frame, text="Click and drag to draw • The path will be traced in order",
+                 font=('Arial', 8), foreground='gray').pack()
 
-        # Connect events
-        self.fig.canvas.mpl_connect('button_press_event', self.on_press)
-        self.fig.canvas.mpl_connect('button_release_event', self.on_release)
-        self.fig.canvas.mpl_connect('motion_notify_event', self.on_motion)
-        self.fig.canvas.mpl_connect('key_press_event', self.on_key)
-        self.fig.canvas.mpl_connect('scroll_event', self.on_scroll)
+        # Drawing canvas (square aspect ratio to match oscilloscope display)
+        canvas_frame = ttk.Frame(dialog)
+        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+        canvas = tk.Canvas(canvas_frame, width=500, height=500, bg='white',
+                          highlightthickness=1, highlightbackground='gray')
+        canvas.pack()
 
-    def add_sliders(self):
-        """Add control sliders."""
-        # Threshold slider (only for binary mode)
-        ax_thresh = plt.axes([0.12, 0.22, 0.25, 0.02])
-        self.slider_thresh = Slider(ax_thresh, 'Threshold', 0, 255,
-                                    valinit=self.threshold, valstep=1, color='lightgreen')
+        # Drawing state
+        drawing_data = {
+            'is_drawing': False,
+            'points': [],  # Store (x, y) tuples
+            'canvas_objects': []  # Store line IDs for clearing
+        }
 
-        # Epsilon (simplification) slider
-        ax_epsilon = plt.axes([0.12, 0.19, 0.25, 0.02])
-        self.slider_epsilon = Slider(ax_epsilon, 'Simplification', 0.0001, 0.01,
-                                     valinit=self.epsilon_factor, color='lightblue')
+        def start_drawing(event):
+            """Start drawing when mouse button is pressed"""
+            drawing_data['is_drawing'] = True
+            # Append to existing points instead of replacing them
+            drawing_data['points'].append((event.x, event.y))
 
-        # Min line length slider
-        ax_minlen = plt.axes([0.12, 0.16, 0.25, 0.02])
-        self.slider_minlen = Slider(ax_minlen, 'Min Length', 5, 200,
-                                    valinit=self.min_line_length, valstep=1, color='lightcoral')
+        def draw(event):
+            """Draw as mouse moves"""
+            if drawing_data['is_drawing']:
+                x, y = event.x, event.y
+                prev_x, prev_y = drawing_data['points'][-1]
 
-        # Sharpening strength slider
-        ax_sharpen = plt.axes([0.12, 0.13, 0.25, 0.02])
-        self.slider_sharpen = Slider(ax_sharpen, 'Sharpening', 0.5, 2.5,
-                                     valinit=self.sharpen_strength, color='lightyellow')
+                # Draw line from previous point to current point
+                line_id = canvas.create_line(prev_x, prev_y, x, y,
+                                             fill='blue', width=2, capstyle=tk.ROUND)
+                drawing_data['canvas_objects'].append(line_id)
+                drawing_data['points'].append((x, y))
 
-        # Method radio buttons
-        ax_method = plt.axes([0.12, 0.06, 0.12, 0.06])
-        self.radio_method = RadioButtons(ax_method, ('Simple', 'Bilateral', 'DoG'))
-        self.radio_method.set_active(1)  # Default to Bilateral
+        def stop_drawing(event):
+            """Stop drawing when mouse button is released"""
+            drawing_data['is_drawing'] = False
 
-        # Checkboxes
-        ax_checks = plt.axes([0.26, 0.06, 0.12, 0.06])
-        self.check_options = CheckButtons(ax_checks,
-                                         ['Invert', 'Adaptive Threshold'],
-                                         [self.invert, self.use_adaptive])
+        def clear_canvas():
+            """Clear the canvas"""
+            # Delete all drawn objects
+            for obj_id in drawing_data['canvas_objects']:
+                canvas.delete(obj_id)
+            drawing_data['canvas_objects'] = []
+            drawing_data['points'] = []
 
-    def add_buttons(self):
-        """Add control buttons."""
-        # Apply button
-        ax_apply = plt.axes([0.25, 0.94, 0.08, 0.04])
-        self.btn_apply = Button(ax_apply, 'Apply')
-        self.btn_apply.on_clicked(self.on_apply)
-
-        # Save button
-        ax_save = plt.axes([0.35, 0.94, 0.08, 0.04])
-        self.btn_save = Button(ax_save, 'Save')
-        self.btn_save.on_clicked(self.on_save)
-
-        # Reset button
-        ax_reset = plt.axes([0.45, 0.94, 0.08, 0.04])
-        self.btn_reset = Button(ax_reset, 'Reset')
-        self.btn_reset.on_clicked(self.on_reset)
-
-        # Quit button
-        ax_quit = plt.axes([0.55, 0.94, 0.08, 0.04])
-        self.btn_quit = Button(ax_quit, 'Quit')
-        self.btn_quit.on_clicked(self.on_quit)
-
-    def update_title(self):
-        """Update plot title."""
-        mode = "ERASE" if self.active_radius_mode == 'erase' else "ADD"
-        radius = self.erase_radius if self.active_radius_mode == 'erase' else self.add_radius
-        self.ax_trace.set_title(
-            f'Vectorized Trace ({len(self.x_coords)} points) | '
-            f'Mode: {mode} | Radius: {radius:.3f}'
-        )
-
-    def on_apply(self, event):
-        """Apply button: Update vectorization."""
-        self.threshold = int(self.slider_thresh.val)
-        self.epsilon_factor = float(self.slider_epsilon.val)
-        self.min_line_length = int(self.slider_minlen.val)
-        self.sharpen_strength = float(self.slider_sharpen.val)
-
-        # Get method from radio buttons
-        method_map = {'Simple': 'simple', 'Bilateral': 'bilateral', 'DoG': 'dog'}
-        self.method = method_map[self.radio_method.value_selected]
-
-        # Get checkbox states
-        check_states = self.check_options.get_status()
-        self.invert = check_states[0]
-        self.use_adaptive = check_states[1]
-
-        if self.update_vectorization():
-            # Update displays
-            self.preview_img.set_data(self.binary_img)
-            self.line.set_data(self.x_coords, self.y_coords)
-            self.update_title()
-            self.fig.canvas.draw_idle()
-
-    def on_save(self, event):
-        """Save coordinates."""
-        if len(self.x_coords) == 0:
-            print("Error: No points to save!")
-            return
-        save_coordinates(self.x_coords, self.y_coords, self.output_file)
-
-    def on_reset(self, event):
-        """Reset to original."""
-        self.x_coords = self.x_original.copy()
-        self.y_coords = self.y_original.copy()
-        self.line.set_data(self.x_coords, self.y_coords)
-        self.update_title()
-        self.fig.canvas.draw_idle()
-        print("Reset to original")
-
-    def on_quit(self, event):
-        """Close editor."""
-        plt.close(self.fig)
-
-    def on_press(self, event):
-        """Handle mouse press."""
-        if event.inaxes != self.ax_trace:
-            return
-        self.mouse_pressed = True
-        self.mouse_button = event.button
-
-        if event.button == 1:
-            self.erase_points(event.xdata, event.ydata)
-        elif event.button == 3:
-            self.add_point(event.xdata, event.ydata)
-
-    def on_release(self, event):
-        """Handle mouse release."""
-        self.mouse_pressed = False
-        self.mouse_button = None
-        self.preview_circle.set_visible(False)
-        self.fig.canvas.draw_idle()
-
-    def on_motion(self, event):
-        """Handle mouse motion."""
-        if event.inaxes != self.ax_trace:
-            self.preview_circle.set_visible(False)
-            self.fig.canvas.draw_idle()
-            return
-
-        if event.xdata is not None and event.ydata is not None:
-            radius = self.erase_radius if self.active_radius_mode == 'erase' else self.add_radius
-            color = 'red' if self.active_radius_mode == 'erase' else 'green'
-
-            self.preview_circle.set_center((event.xdata, event.ydata))
-            self.preview_circle.set_radius(radius)
-            self.preview_circle.set_color(color)
-            self.preview_circle.set_visible(True)
-
-            if self.mouse_pressed:
-                if self.mouse_button == 1:
-                    self.erase_points(event.xdata, event.ydata)
-                elif self.mouse_button == 3:
-                    self.add_point(event.xdata, event.ydata)
-
-            self.fig.canvas.draw_idle()
-
-    def on_scroll(self, event):
-        """Adjust radius with scroll."""
-        if self.active_radius_mode == 'erase':
-            self.erase_radius *= 1.2 if event.button == 'up' else 1/1.2
-            self.erase_radius = max(0.01, min(0.5, self.erase_radius))
-        else:
-            self.add_radius *= 1.2 if event.button == 'up' else 1/1.2
-            self.add_radius = max(0.005, min(0.3, self.add_radius))
-
-        self.update_title()
-        self.fig.canvas.draw_idle()
-
-    def on_key(self, event):
-        """Handle key presses."""
-        if event.key == 's':
-            self.on_save(None)
-        elif event.key == 'r':
-            self.on_reset(None)
-        elif event.key == 'q':
-            self.on_quit(None)
-        elif event.key == 'tab':
-            self.active_radius_mode = 'add' if self.active_radius_mode == 'erase' else 'erase'
-            self.update_title()
-            self.fig.canvas.draw_idle()
-            print(f"Switched to {self.active_radius_mode.upper()} mode")
-
-    def erase_points(self, x, y):
-        """Erase points within radius."""
-        if x is None or y is None or len(self.x_coords) == 0:
-            return
-
-        distances = np.sqrt((self.x_coords - x)**2 + (self.y_coords - y)**2)
-        mask = distances > self.erase_radius
-
-        removed = np.sum(~mask)
-        if removed > 0:
-            self.x_coords = self.x_coords[mask]
-            self.y_coords = self.y_coords[mask]
-            self.line.set_data(self.x_coords, self.y_coords)
-            self.update_title()
-            self.fig.canvas.draw_idle()
-
-    def add_point(self, x, y):
-        """Add a point."""
-        if x is None or y is None:
-            return
-
-        if len(self.x_coords) > 0:
-            distances = np.sqrt((self.x_coords - x)**2 + (self.y_coords - y)**2)
-            if np.min(distances) < self.add_radius * 0.5:
+        def apply_drawing():
+            """Convert drawn path to oscilloscope data"""
+            if len(drawing_data['points']) < 2:
+                messagebox.showwarning("No Drawing", "Please draw a pattern first!")
                 return
 
-            nearest_idx = np.argmin(distances)
-            self.x_coords = np.insert(self.x_coords, nearest_idx, x)
-            self.y_coords = np.insert(self.y_coords, nearest_idx, y)
-        else:
-            self.x_coords = np.array([x])
-            self.y_coords = np.array([y])
+            # Get canvas dimensions (square aspect ratio)
+            canvas_size = 500
 
-        self.line.set_data(self.x_coords, self.y_coords)
-        self.update_title()
-        self.fig.canvas.draw_idle()
+            # Convert canvas coordinates to normalized coordinates (-1 to 1)
+            points = np.array(drawing_data['points'])
+            x_canvas = points[:, 0]
+            y_canvas = points[:, 1]
 
-    def show(self):
-        """Display the editor."""
-        plt.show()
+            # Center and normalize (canvas is square, so same scaling for both axes)
+            # X: left=0 -> -1, center=250 -> 0, right=500 -> 1
+            x_norm = (x_canvas - canvas_size/2) / (canvas_size/2)
+
+            # Y: top=0 -> 1, center=250 -> 0, bottom=500 -> -1 (flip Y axis)
+            y_norm = -(y_canvas - canvas_size/2) / (canvas_size/2)
+
+            # Set as current data
+            self.x_data = x_norm
+            self.y_data = y_norm
+            self.data_info_label.config(text=f"Points: {len(x_norm)}")
+            self.update_display()
+            self.status_label.config(text=f"Loaded drawn pattern ({len(x_norm)} points)")
+            dialog.destroy()
+
+        # Bind mouse events
+        canvas.bind("<Button-1>", start_drawing)
+        canvas.bind("<B1-Motion>", draw)
+        canvas.bind("<ButtonRelease-1>", stop_drawing)
+
+        # Button frame
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Button(button_frame, text="Clear", command=clear_canvas).pack(
+            side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Apply Drawing", command=apply_drawing).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+            side=tk.LEFT, padx=5)
+
+    def draw_floating_pattern(self):
+        """Open a canvas for drawing a floating pattern"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Draw Floating Pattern")
+        dialog.geometry("550x650")
+
+        # Instructions
+        instruction_frame = ttk.Frame(dialog)
+        instruction_frame.pack(pady=10)
+        ttk.Label(instruction_frame, text="Draw a small pattern to float around the image:",
+                 font=('Arial', 10, 'bold')).pack()
+        ttk.Label(instruction_frame, text="Click and drag to draw • Keep it small and simple",
+                 font=('Arial', 8), foreground='gray').pack()
+
+        # Drawing canvas (square aspect ratio)
+        canvas_frame = ttk.Frame(dialog)
+        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        canvas = tk.Canvas(canvas_frame, width=500, height=500, bg='white',
+                          highlightthickness=1, highlightbackground='gray')
+        canvas.pack()
+
+        # Drawing state
+        drawing_data = {
+            'is_drawing': False,
+            'points': [],  # Store (x, y) tuples
+            'canvas_objects': []  # Store line IDs for clearing
+        }
+
+        def start_drawing(event):
+            """Start drawing when mouse button is pressed"""
+            drawing_data['is_drawing'] = True
+            drawing_data['points'].append((event.x, event.y))
+
+        def draw(event):
+            """Draw as mouse moves"""
+            if drawing_data['is_drawing']:
+                x, y = event.x, event.y
+                prev_x, prev_y = drawing_data['points'][-1]
+
+                # Draw line from previous point to current point
+                line_id = canvas.create_line(prev_x, prev_y, x, y,
+                                             fill='blue', width=2, capstyle=tk.ROUND)
+                drawing_data['canvas_objects'].append(line_id)
+                drawing_data['points'].append((x, y))
+
+        def stop_drawing(event):
+            """Stop drawing when mouse button is released"""
+            drawing_data['is_drawing'] = False
+
+        def clear_canvas():
+            """Clear the canvas"""
+            for obj_id in drawing_data['canvas_objects']:
+                canvas.delete(obj_id)
+            drawing_data['canvas_objects'] = []
+            drawing_data['points'] = []
+
+        def apply_drawing():
+            """Store drawn pattern for floating"""
+            if len(drawing_data['points']) < 2:
+                messagebox.showwarning("No Drawing", "Please draw a pattern first!")
+                return
+
+            # Get canvas dimensions
+            canvas_size = 500
+
+            # Convert canvas coordinates to normalized coordinates (-1 to 1)
+            points = np.array(drawing_data['points'])
+            x_canvas = points[:, 0]
+            y_canvas = points[:, 1]
+
+            # Center and normalize
+            x_norm = (x_canvas - canvas_size/2) / (canvas_size/2)
+            y_norm = -(y_canvas - canvas_size/2) / (canvas_size/2)
+
+            # Center the pattern around origin
+            x_centered = x_norm - np.mean(x_norm)
+            y_centered = y_norm - np.mean(y_norm)
+
+            # Store pattern
+            self.floating_pattern_x = x_centered
+            self.floating_pattern_y = y_centered
+
+            # Update status label
+            self.floating_pattern_status.config(
+                text=f"Pattern set ({len(x_centered)} points)",
+                foreground='blue'
+            )
+
+            # Trigger effect update if enabled
+            if self.floating_pattern_var.get():
+                self.effect_changed()
+
+            dialog.destroy()
+
+        # Bind mouse events
+        canvas.bind("<Button-1>", start_drawing)
+        canvas.bind("<B1-Motion>", draw)
+        canvas.bind("<ButtonRelease-1>", stop_drawing)
+
+        # Button frame
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Button(button_frame, text="Clear", command=clear_canvas).pack(
+            side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Apply Pattern", command=apply_drawing).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+            side=tk.LEFT, padx=5)
+
+    def open_harmonic_sum(self):
+        """Open dialog to create pattern from sum of harmonics"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Sum of Harmonics")
+        dialog.geometry("700x600")
+
+        # Instructions
+        instruction_frame = ttk.Frame(dialog)
+        instruction_frame.pack(pady=10, padx=10, fill=tk.X)
+        ttk.Label(instruction_frame, text="Create pattern from sum of sinusoidal terms",
+                 font=('Arial', 10, 'bold')).pack()
+        ttk.Label(instruction_frame, text="X(t) = Σ A_n·sin(ω_n·t + φ_n)  or  A_n·cos(ω_n·t + φ_n)",
+                 font=('Arial', 8), foreground='gray').pack()
+
+        # Main container with two columns
+        main_frame = ttk.Frame(dialog)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Storage for terms
+        x_terms = []  # List of dicts: {'type': 'sin'/'cos', 'amp': float, 'freq': float, 'phase': float}
+        y_terms = []
+
+        # X Channel (Left)
+        x_frame = ttk.LabelFrame(main_frame, text="X Channel (Left)", padding="10")
+        x_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        # X terms display
+        x_canvas = tk.Canvas(x_frame, height=300, highlightthickness=1, highlightbackground='gray')
+        x_scrollbar = ttk.Scrollbar(x_frame, orient="vertical", command=x_canvas.yview)
+        x_scrollable = ttk.Frame(x_canvas)
+
+        x_scrollable.bind("<Configure>", lambda e: x_canvas.configure(scrollregion=x_canvas.bbox("all")))
+        x_canvas.create_window((0, 0), window=x_scrollable, anchor="nw")
+        x_canvas.configure(yscrollcommand=x_scrollbar.set)
+
+        x_canvas.pack(side="left", fill="both", expand=True)
+        x_scrollbar.pack(side="right", fill="y")
+
+        # Y Channel (Right)
+        y_frame = ttk.LabelFrame(main_frame, text="Y Channel (Right)", padding="10")
+        y_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+
+        # Y terms display
+        y_canvas = tk.Canvas(y_frame, height=300, highlightthickness=1, highlightbackground='gray')
+        y_scrollbar = ttk.Scrollbar(y_frame, orient="vertical", command=y_canvas.yview)
+        y_scrollable = ttk.Frame(y_canvas)
+
+        y_scrollable.bind("<Configure>", lambda e: y_canvas.configure(scrollregion=y_canvas.bbox("all")))
+        y_canvas.create_window((0, 0), window=y_scrollable, anchor="nw")
+        y_canvas.configure(yscrollcommand=y_scrollbar.set)
+
+        y_canvas.pack(side="left", fill="both", expand=True)
+        y_scrollbar.pack(side="right", fill="y")
+
+        def update_preview():
+            """Update oscilloscope display with current harmonic sum"""
+            # Time array (0 to 2π with high resolution)
+            num_points = 1000
+            t = np.linspace(0, 2*np.pi, num_points)
+
+            # Calculate X channel
+            if x_terms:
+                x_data = np.zeros(num_points)
+                for term in x_terms:
+                    if term['type'] == 'sin':
+                        x_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
+                    else:  # cos
+                        x_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
+            else:
+                x_data = t * 0  # Zero array
+
+            # Calculate Y channel
+            if y_terms:
+                y_data = np.zeros(num_points)
+                for term in y_terms:
+                    if term['type'] == 'sin':
+                        y_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
+                    else:  # cos
+                        y_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
+            else:
+                y_data = t * 0  # Zero array
+
+            # Update display
+            self.x_data = x_data
+            self.y_data = y_data
+            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.update_display()
+            self.status_label.config(text=f"Preview: N={len(x_terms)} terms (X), M={len(y_terms)} terms (Y)")
+
+        def refresh_x_display():
+            """Refresh X channel term display"""
+            for widget in x_scrollable.winfo_children():
+                widget.destroy()
+
+            if not x_terms:
+                ttk.Label(x_scrollable, text="No terms added yet",
+                         font=('Arial', 8, 'italic'), foreground='gray').pack(pady=10)
+            else:
+                for i, term in enumerate(x_terms):
+                    term_frame = ttk.Frame(x_scrollable, relief='solid', borderwidth=1)
+                    term_frame.pack(fill=tk.X, pady=2, padx=2)
+
+                    # Term label
+                    term_text = f"{term['amp']:.2f}·{term['type']}({term['freq']:.1f}·t"
+                    if term['phase'] != 0:
+                        term_text += f" + {term['phase']:.2f}"
+                    term_text += ")"
+                    ttk.Label(term_frame, text=f"Term {i+1}: {term_text}",
+                             font=('Arial', 8)).pack(side=tk.LEFT, padx=5, pady=2)
+
+                    # Remove button
+                    def remove_x_term(idx=i):
+                        x_terms.pop(idx)
+                        refresh_x_display()
+                        update_preview()
+
+                    ttk.Button(term_frame, text="✕", width=3,
+                              command=remove_x_term).pack(side=tk.RIGHT, padx=2, pady=2)
+
+        def refresh_y_display():
+            """Refresh Y channel term display"""
+            for widget in y_scrollable.winfo_children():
+                widget.destroy()
+
+            if not y_terms:
+                ttk.Label(y_scrollable, text="No terms added yet",
+                         font=('Arial', 8, 'italic'), foreground='gray').pack(pady=10)
+            else:
+                for i, term in enumerate(y_terms):
+                    term_frame = ttk.Frame(y_scrollable, relief='solid', borderwidth=1)
+                    term_frame.pack(fill=tk.X, pady=2, padx=2)
+
+                    # Term label
+                    term_text = f"{term['amp']:.2f}·{term['type']}({term['freq']:.1f}·t"
+                    if term['phase'] != 0:
+                        term_text += f" + {term['phase']:.2f}"
+                    term_text += ")"
+                    ttk.Label(term_frame, text=f"Term {i+1}: {term_text}",
+                             font=('Arial', 8)).pack(side=tk.LEFT, padx=5, pady=2)
+
+                    # Remove button
+                    def remove_y_term(idx=i):
+                        y_terms.pop(idx)
+                        refresh_y_display()
+                        update_preview()
+
+                    ttk.Button(term_frame, text="✕", width=3,
+                              command=remove_y_term).pack(side=tk.RIGHT, padx=2, pady=2)
+
+        # Add term controls for X
+        x_add_frame = ttk.LabelFrame(x_frame, text="Add Term", padding="5")
+        x_add_frame.pack(fill=tk.X, pady=(10, 0))
+
+        # Row 1: Type selection
+        x_type_row = ttk.Frame(x_add_frame)
+        x_type_row.pack(fill=tk.X, pady=2)
+        x_type_var = tk.StringVar(value="sin")
+        ttk.Radiobutton(x_type_row, text="sin", variable=x_type_var, value="sin").pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(x_type_row, text="cos", variable=x_type_var, value="cos").pack(side=tk.LEFT, padx=5)
+
+        # Row 2: Parameters
+        x_param_row = ttk.Frame(x_add_frame)
+        x_param_row.pack(fill=tk.X, pady=2)
+        ttk.Label(x_param_row, text="A:").pack(side=tk.LEFT, padx=(5, 2))
+        x_amp_var = tk.DoubleVar(value=1.0)
+        ttk.Entry(x_param_row, textvariable=x_amp_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(x_param_row, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
+        x_freq_var = tk.DoubleVar(value=1.0)
+        ttk.Entry(x_param_row, textvariable=x_freq_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(x_param_row, text="φ:").pack(side=tk.LEFT, padx=(5, 2))
+        x_phase_var = tk.DoubleVar(value=0.0)
+        ttk.Entry(x_param_row, textvariable=x_phase_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        # Row 3: Add button
+        x_button_row = ttk.Frame(x_add_frame)
+        x_button_row.pack(fill=tk.X, pady=(5, 0))
+
+        def add_x_term():
+            x_terms.append({
+                'type': x_type_var.get(),
+                'amp': x_amp_var.get(),
+                'freq': x_freq_var.get(),
+                'phase': x_phase_var.get()
+            })
+            refresh_x_display()
+            update_preview()
+
+        ttk.Button(x_button_row, text="Add Term to X Channel", command=add_x_term).pack(fill=tk.X, padx=5)
+
+        # Add term controls for Y
+        y_add_frame = ttk.LabelFrame(y_frame, text="Add Term", padding="5")
+        y_add_frame.pack(fill=tk.X, pady=(10, 0))
+
+        # Row 1: Type selection
+        y_type_row = ttk.Frame(y_add_frame)
+        y_type_row.pack(fill=tk.X, pady=2)
+        y_type_var = tk.StringVar(value="sin")
+        ttk.Radiobutton(y_type_row, text="sin", variable=y_type_var, value="sin").pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(y_type_row, text="cos", variable=y_type_var, value="cos").pack(side=tk.LEFT, padx=5)
+
+        # Row 2: Parameters
+        y_param_row = ttk.Frame(y_add_frame)
+        y_param_row.pack(fill=tk.X, pady=2)
+        ttk.Label(y_param_row, text="A:").pack(side=tk.LEFT, padx=(5, 2))
+        y_amp_var = tk.DoubleVar(value=1.0)
+        ttk.Entry(y_param_row, textvariable=y_amp_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(y_param_row, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
+        y_freq_var = tk.DoubleVar(value=1.0)
+        ttk.Entry(y_param_row, textvariable=y_freq_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(y_param_row, text="φ:").pack(side=tk.LEFT, padx=(5, 2))
+        y_phase_var = tk.DoubleVar(value=0.0)
+        ttk.Entry(y_param_row, textvariable=y_phase_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        # Row 3: Add button
+        y_button_row = ttk.Frame(y_add_frame)
+        y_button_row.pack(fill=tk.X, pady=(5, 0))
+
+        def add_y_term():
+            y_terms.append({
+                'type': y_type_var.get(),
+                'amp': y_amp_var.get(),
+                'freq': y_freq_var.get(),
+                'phase': y_phase_var.get()
+            })
+            refresh_y_display()
+            update_preview()
+
+        ttk.Button(y_button_row, text="Add Term to Y Channel", command=add_y_term).pack(fill=tk.X, padx=5)
+
+        # Initialize displays
+        refresh_x_display()
+        refresh_y_display()
+
+        # Generate button
+        def apply_harmonic_sum():
+            """Generate pattern from harmonic sums"""
+            if not x_terms and not y_terms:
+                messagebox.showwarning("No Terms", "Please add at least one term to X or Y channel!")
+                return
+
+            # Time array (0 to 2π with high resolution)
+            num_points = 1000
+            t = np.linspace(0, 2*np.pi, num_points)
+
+            # Calculate X channel
+            if x_terms:
+                x_data = np.zeros(num_points)
+                for term in x_terms:
+                    if term['type'] == 'sin':
+                        x_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
+                    else:  # cos
+                        x_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
+            else:
+                x_data = np.zeros(num_points)
+
+            # Calculate Y channel
+            if y_terms:
+                y_data = np.zeros(num_points)
+                for term in y_terms:
+                    if term['type'] == 'sin':
+                        y_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
+                    else:  # cos
+                        y_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
+            else:
+                y_data = np.zeros(num_points)
+
+            # Set as current data
+            self.x_data = x_data
+            self.y_data = y_data
+            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.update_display()
+            self.status_label.config(text=f"Generated harmonic sum (N={len(x_terms)}, M={len(y_terms)})")
+            dialog.destroy()
+
+        # Button frame
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Button(button_frame, text="Generate Pattern", command=apply_harmonic_sum).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+            side=tk.LEFT, padx=5)
+
+    def open_archimedean_spiral(self):
+        """Open dialog to create Archimedean spiral pattern"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Archimedean Spiral")
+        dialog.geometry("600x400")
+
+        # Instructions
+        instruction_frame = ttk.Frame(dialog)
+        instruction_frame.pack(pady=10, padx=10, fill=tk.X)
+        ttk.Label(instruction_frame, text="Create Archimedean Spiral Pattern",
+                 font=('Arial', 10, 'bold')).pack()
+        ttk.Label(instruction_frame, text="X(t) = a·t·sin(b·t)    Y(t) = a·t·sin(b·t)",
+                 font=('Arial', 8), foreground='gray').pack()
+
+        # Main container with two columns
+        main_frame = ttk.Frame(dialog)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # X Channel (Left)
+        x_frame = ttk.LabelFrame(main_frame, text="X Channel (Left)", padding="10")
+        x_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        # X parameters
+        x_params_frame = ttk.Frame(x_frame)
+        x_params_frame.pack(fill=tk.X, pady=10)
+
+        ttk.Label(x_params_frame, text="Parameter 'a' (amplitude):").grid(row=0, column=0, sticky=tk.W, pady=5)
+        x_a_var = tk.DoubleVar(value=1.0)
+        x_a_scale = ttk.Scale(x_params_frame, from_=0.1, to=5.0, variable=x_a_var, orient=tk.HORIZONTAL)
+        x_a_scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
+        x_a_entry = ttk.Entry(x_params_frame, textvariable=x_a_var, width=10)
+        x_a_entry.grid(row=0, column=2, padx=5)
+
+        ttk.Label(x_params_frame, text="Parameter 'b' (frequency):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        x_b_var = tk.DoubleVar(value=1.0)
+        x_b_scale = ttk.Scale(x_params_frame, from_=0.1, to=10.0, variable=x_b_var, orient=tk.HORIZONTAL)
+        x_b_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
+        x_b_entry = ttk.Entry(x_params_frame, textvariable=x_b_var, width=10)
+        x_b_entry.grid(row=1, column=2, padx=5)
+
+        x_params_frame.columnconfigure(1, weight=1)
+
+        # X formula display
+        x_formula_label = ttk.Label(x_frame, text="", font=('Arial', 9, 'italic'), foreground='blue')
+        x_formula_label.pack(pady=10)
+
+        # Y Channel (Right)
+        y_frame = ttk.LabelFrame(main_frame, text="Y Channel (Right)", padding="10")
+        y_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+
+        # Y parameters
+        y_params_frame = ttk.Frame(y_frame)
+        y_params_frame.pack(fill=tk.X, pady=10)
+
+        ttk.Label(y_params_frame, text="Parameter 'a' (amplitude):").grid(row=0, column=0, sticky=tk.W, pady=5)
+        y_a_var = tk.DoubleVar(value=1.0)
+        y_a_scale = ttk.Scale(y_params_frame, from_=0.1, to=5.0, variable=y_a_var, orient=tk.HORIZONTAL)
+        y_a_scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
+        y_a_entry = ttk.Entry(y_params_frame, textvariable=y_a_var, width=10)
+        y_a_entry.grid(row=0, column=2, padx=5)
+
+        ttk.Label(y_params_frame, text="Parameter 'b' (frequency):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        y_b_var = tk.DoubleVar(value=1.0)
+        y_b_scale = ttk.Scale(y_params_frame, from_=0.1, to=10.0, variable=y_b_var, orient=tk.HORIZONTAL)
+        y_b_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
+        y_b_entry = ttk.Entry(y_params_frame, textvariable=y_b_var, width=10)
+        y_b_entry.grid(row=1, column=2, padx=5)
+
+        y_params_frame.columnconfigure(1, weight=1)
+
+        # Y formula display
+        y_formula_label = ttk.Label(y_frame, text="", font=('Arial', 9, 'italic'), foreground='blue')
+        y_formula_label.pack(pady=10)
+
+        def update_formula_labels():
+            """Update the formula display labels"""
+            x_a = x_a_var.get()
+            x_b = x_b_var.get()
+            y_a = y_a_var.get()
+            y_b = y_b_var.get()
+            x_formula_label.config(text=f"x(t) = {x_a:.2f}·t·sin({x_b:.2f}·t)")
+            y_formula_label.config(text=f"y(t) = {y_a:.2f}·t·sin({y_b:.2f}·t)")
+
+        def update_preview(*args):
+            """Update oscilloscope display with current spiral parameters"""
+            # Time array (0 to 4π with high resolution for nice spiral)
+            num_points = 2000
+            t = np.linspace(0, 4*np.pi, num_points)
+
+            # Calculate X channel: x = a*t*sin(b*t)
+            x_a = x_a_var.get()
+            x_b = x_b_var.get()
+            x_data = x_a * t * np.sin(x_b * t)
+
+            # Calculate Y channel: y = a*t*sin(b*t)
+            y_a = y_a_var.get()
+            y_b = y_b_var.get()
+            y_data = y_a * t * np.sin(y_b * t)
+
+            # Update display
+            self.x_data = x_data
+            self.y_data = y_data
+            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.update_display()
+            self.status_label.config(text=f"Preview: Archimedean Spiral (a_x={x_a:.2f}, b_x={x_b:.2f}, a_y={y_a:.2f}, b_y={y_b:.2f})")
+            update_formula_labels()
+
+        # Bind parameter changes to update preview
+        x_a_var.trace('w', update_preview)
+        x_b_var.trace('w', update_preview)
+        y_a_var.trace('w', update_preview)
+        y_b_var.trace('w', update_preview)
+
+        # Initial preview
+        update_preview()
+
+        def apply_spiral():
+            """Generate final spiral pattern"""
+            # Time array (0 to 4π with high resolution)
+            num_points = 2000
+            t = np.linspace(0, 4*np.pi, num_points)
+
+            # Calculate X channel
+            x_a = x_a_var.get()
+            x_b = x_b_var.get()
+            x_data = x_a * t * np.sin(x_b * t)
+
+            # Calculate Y channel
+            y_a = y_a_var.get()
+            y_b = y_b_var.get()
+            y_data = y_a * t * np.sin(y_b * t)
+
+            # Set as current data
+            self.x_data = x_data
+            self.y_data = y_data
+            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.update_display()
+            self.status_label.config(text=f"Generated Archimedean Spiral (a_x={x_a:.2f}, b_x={x_b:.2f}, a_y={y_a:.2f}, b_y={y_b:.2f})")
+            dialog.destroy()
+
+        # Button frame
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Button(button_frame, text="Generate Pattern", command=apply_spiral).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+            side=tk.LEFT, padx=5)
+
+    def save_to_wav(self):
+        """Save current audio to WAV file"""
+        if self.current_audio is None:
+            messagebox.showwarning("Warning", "No audio generated yet. Click 'Apply & Generate' first.")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            title="Save WAV File",
+            defaultextension=".wav",
+            filetypes=[("WAV Files", "*.wav"), ("All Files", "*.*")]
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            import soundfile as sf
+            sf.write(filename, self.current_audio, self.current_fs)
+            messagebox.showinfo("Success", f"Saved to {filename}")
+        except ImportError:
+            messagebox.showerror("Error", "soundfile library not installed.\nInstall with: pip install soundfile")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save file:\n{str(e)}")
 
 
 def main():
-    """Main CLI interface."""
-    if len(sys.argv) < 2:
-        print("=" * 75)
-        print("ADVANCED PHOTO-TO-LINE-DRAWING CONVERTER FOR OSCILLOSCOPE")
-        print("=" * 75)
-        print("\nUsage: python img2text.py <image_path> [num_points] [--edit]")
-        print("\nArguments:")
-        print("  <image_path>  Path to input image")
-        print("  [num_points]  Target number of points (default: 1500)")
-        print("  --edit        Launch interactive editor")
-        print("\nExamples:")
-        print("  python img2text.py photo.jpg 2000 --edit")
-        print("  python img2text.py drawing.png 1000")
-        print("\n" + "=" * 75)
-        print("ADVANCED FEATURES (Based on AI Line Drawing Techniques)")
-        print("=" * 75)
-        print("\n3 Processing Methods:")
-        print("  1. Simple      - Basic sharpening (fast)")
-        print("  2. Bilateral   - Noise reduction + edge preservation (recommended)")
-        print("  3. DoG         - Difference of Gaussians (artistic, cleanest)")
-        print("\n2 Thresholding Modes:")
-        print("  • Binary     - Simple threshold (adjustable 0-255)")
-        print("  • Adaptive   - Auto-adjusts for varying lighting (best for photos)")
-        print("\nKey Features:")
-        print("  • Bilateral filtering - reduces noise, preserves edges")
-        print("  • DoG (Difference of Gaussians) - artistic line drawings")
-        print("  • Adaptive thresholding - handles complex lighting")
-        print("  • Polygon vectorization - clean simplified lines")
-        print("  • Adjustable line simplification")
-        print("  • Artifact filtering")
-        print("\nInteractive Editor Controls:")
-        print("  Processing:")
-        print("    - METHOD: Simple/Bilateral/DoG (radio buttons)")
-        print("    - THRESHOLD: Adjust line detection (0-255)")
-        print("    - SIMPLIFICATION: Control line detail")
-        print("    - MIN LENGTH: Filter short lines/artifacts")
-        print("    - SHARPENING: Edge enhancement strength")
-        print("  Options:")
-        print("    - Invert: Dark objects on light background")
-        print("    - Adaptive Threshold: Auto-adjust for lighting")
-        print("  Editing:")
-        print("    - LEFT DRAG: Erase points")
-        print("    - RIGHT DRAG: Add points")
-        print("    - SCROLL: Adjust radius")
-        print("    - TAB: Toggle erase/add mode")
-        print("  Actions:")
-        print("    - APPLY: Update with new settings (prevents freezing)")
-        print("    - S: Save to coordinates.txt")
-        print("    - R: Reset to original")
-        print("    - Q: Quit")
-        print("\nRecommended Settings:")
-        print("  For Photos:    Method=Bilateral, Adaptive Threshold=ON")
-        print("  For Drawings:  Method=Simple, Binary Threshold")
-        print("  For Artistic:  Method=DoG, Simplification=High")
-        print("=" * 75)
-        sys.exit(1)
-
-    # Parse arguments
-    image_file = sys.argv[1]
-    use_editor = '--edit' in sys.argv
-
-    args_without_flags = [arg for arg in sys.argv[2:] if not arg.startswith('--')]
-    num_points = int(args_without_flags[0]) if len(args_without_flags) > 0 else 1500
-
-    print(f"\n{'='*75}")
-    print(f"Processing: {image_file}")
-    print(f"Target points: {num_points}")
-    print(f"Mode: {'Interactive Editor' if use_editor else 'Auto-process'}")
-    print(f"{'='*75}\n")
-
-    try:
-        if use_editor:
-            # Launch interactive editor
-            editor = InteractiveVectorEditor(
-                image_file,
-                num_points=num_points,
-                threshold=127,
-                invert=False,
-                epsilon_factor=0.001,
-                min_line_length=20
-            )
-            editor.show()
-        else:
-            # Auto-process with bilateral method (from article)
-            print("Vectorizing image with Bilateral method...")
-            contours, binary = vectorize_image(
-                image_file,
-                threshold=127,
-                invert=False,
-                method='bilateral',
-                use_adaptive=False
-            )
-
-            print(f"✓ Found {len(contours)} vectorized outlines")
-
-            x, y = contours_to_coordinates(contours, num_points)
-            print(f"✓ Generated {len(x)} coordinate points")
-            print(f"✓ Refresh rate at 100kHz: {100000/len(x):.1f} Hz")
-
-            # Visualize
-            fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-
-            axes[0].imshow(binary, cmap='gray')
-            axes[0].set_title('Vectorized Preview (Bilateral Method)')
-            axes[0].axis('off')
-
-            axes[1].plot(x, y, 'b-', linewidth=0.5)
-            axes[1].set_aspect('equal')
-            axes[1].set_title(f'Oscilloscope Preview ({len(x)} points)')
-            axes[1].grid(True, alpha=0.3)
-
-            plt.tight_layout()
-            plt.show()
-
-            # Save
-            save_coordinates(x, y, 'coordinates.txt')
-            print("\n✓ Done! Load 'coordinates.txt' in the oscilloscope GUI")
-
-    except Exception as e:
-        print(f"\n❌ Error: {e}")
-        print("\nTroubleshooting:")
-        print("  1. Check image path is correct")
-        print("  2. Try --edit mode to adjust parameters interactively")
-        print("  3. For photos: Use Bilateral method + Adaptive threshold")
-        print("  4. For line drawings: Use Simple method + Binary threshold")
-        print("  5. Install: pip install opencv-python numpy matplotlib")
-        sys.exit(1)
+    root = tk.Tk()
+    app = OscilloscopeGUI(root)
+    root.mainloop()
 
 
 if __name__ == "__main__":
