@@ -37,7 +37,14 @@ class OscilloscopeGUI:
         self.preview_position = 0
         self.preview_window_size = 500  # Number of samples to show at once
         self.preview_active = False
-        
+
+        # Floating pattern overlay state
+        self.floating_enabled = False
+        self.floating_rotation_angle = 0.0
+        self.floating_rotation_mode = "Static"  # "Static", "CW", "CCW"
+        self.floating_rotation_speed = 2.0
+        self.floating_last_update = 0
+
         # Create GUI
         self.create_widgets()
         self.update_display()
@@ -251,7 +258,59 @@ class OscilloscopeGUI:
         # Update rotation info when values change (set up after all variables are created)
         self.n_repeat_var.trace('w', self.update_rotation_info)
         self.rotation_speed.trace('w', self.update_rotation_info)
-        
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Floating Pattern Overlay
+        floating_frame = ttk.LabelFrame(effects_frame, text="Floating Pattern Overlay", padding="5")
+        floating_frame.pack(fill=tk.X, pady=5)
+
+        self.floating_enabled_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(floating_frame, text="Enable Floating Overlay",
+                       variable=self.floating_enabled_var,
+                       command=self.floating_overlay_changed).pack(anchor=tk.W)
+
+        ttk.Label(floating_frame, text="Overlay Color:", font=('Arial', 8)).pack(anchor=tk.W, pady=(5,0))
+        color_options = [("Magenta", "#ff00ff"), ("Cyan", "#00ffff"), ("Yellow", "#ffff00"), ("Red", "#ff0000")]
+        self.floating_color_var = tk.StringVar(value="#ff00ff")
+        color_selector = ttk.Frame(floating_frame)
+        color_selector.pack(anchor=tk.W, padx=10)
+        for label, color in color_options:
+            ttk.Radiobutton(color_selector, text=label, variable=self.floating_color_var,
+                           value=color, command=self.floating_overlay_changed).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(floating_frame, text="Overlay Opacity:", font=('Arial', 8)).pack(anchor=tk.W, pady=(5,0))
+        self.floating_alpha_var = tk.DoubleVar(value=0.6)
+        ttk.Scale(floating_frame, from_=0.1, to=1.0, orient=tk.HORIZONTAL,
+                 variable=self.floating_alpha_var,
+                 command=lambda v: self.floating_overlay_changed()).pack(fill=tk.X, padx=10)
+
+        ttk.Separator(floating_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        ttk.Label(floating_frame, text="Floating Pattern Rotation:", font=('Arial', 8, 'bold')).pack(anchor=tk.W)
+
+        self.floating_rotation_var = tk.StringVar(value="Off")
+        ttk.Radiobutton(floating_frame, text="Off", variable=self.floating_rotation_var,
+                       value="Off", command=self.floating_rotation_changed).pack(anchor=tk.W, padx=10)
+        ttk.Radiobutton(floating_frame, text="Static Angle", variable=self.floating_rotation_var,
+                       value="Static", command=self.floating_rotation_changed).pack(anchor=tk.W, padx=10)
+        ttk.Radiobutton(floating_frame, text="Rotate CW", variable=self.floating_rotation_var,
+                       value="CW", command=self.floating_rotation_changed).pack(anchor=tk.W, padx=10)
+        ttk.Radiobutton(floating_frame, text="Rotate CCW", variable=self.floating_rotation_var,
+                       value="CCW", command=self.floating_rotation_changed).pack(anchor=tk.W, padx=10)
+
+        ttk.Label(floating_frame, text="Static Angle (degrees):", font=('Arial', 8)).pack(anchor=tk.W, padx=10, pady=(5,0))
+        self.floating_static_angle = tk.DoubleVar(value=45.0)
+        ttk.Scale(floating_frame, from_=-180, to=180, orient=tk.HORIZONTAL,
+                 variable=self.floating_static_angle,
+                 command=lambda v: self.floating_overlay_changed()).pack(fill=tk.X, padx=10)
+
+        ttk.Label(floating_frame, text="Rotation Speed (deg/sec):", font=('Arial', 8)).pack(anchor=tk.W, padx=10, pady=(5,0))
+        self.floating_speed_var = tk.DoubleVar(value=30.0)
+        ttk.Scale(floating_frame, from_=5, to=180, orient=tk.HORIZONTAL,
+                 variable=self.floating_speed_var,
+                 command=lambda v: self.floating_rotation_changed()).pack(fill=tk.X, padx=10)
+
         # === ACTION BUTTONS ===
         button_frame = ttk.Frame(parent)
         button_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=10)
@@ -301,9 +360,12 @@ class OscilloscopeGUI:
         self.ax.set_ylabel('Y (Right Channel)', color='#00ff00')
         self.ax.tick_params(colors='#00ff00')
         
-        # Initial plot
+        # Initial plot - main pattern
         self.line, = self.ax.plot([], [], color='#00ff00', linewidth=1.5, alpha=0.8)
-        
+
+        # Floating pattern overlay - drawn on top with different color
+        self.floating_line, = self.ax.plot([], [], color='#ff00ff', linewidth=1.5, alpha=0.6)
+
         # Embed in tkinter
         self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
         self.canvas.draw()
@@ -368,6 +430,86 @@ class OscilloscopeGUI:
         self.update_display()
         if hasattr(self, 'auto_regenerate') and self.is_playing:
             self.apply_parameters()
+
+    def floating_overlay_changed(self):
+        """Handle floating overlay enable/disable and appearance changes"""
+        self.floating_enabled = self.floating_enabled_var.get()
+        if hasattr(self, 'floating_line'):
+            self.floating_line.set_color(self.floating_color_var.get())
+            self.floating_line.set_alpha(self.floating_alpha_var.get())
+        self.update_display()
+
+    def floating_rotation_changed(self):
+        """Handle floating pattern rotation changes"""
+        self.floating_rotation_mode = self.floating_rotation_var.get()
+        if self.floating_rotation_mode == "Static":
+            self.floating_rotation_angle = self.floating_static_angle.get()
+        # Start continuous rotation if CW or CCW selected
+        if self.floating_rotation_mode in ["CW", "CCW"] and self.floating_enabled:
+            import time
+            self.floating_last_update = time.time()
+            self.start_floating_rotation()
+        self.update_display()
+
+    def start_floating_rotation(self):
+        """Start continuous rotation of floating pattern"""
+        if self.floating_rotation_mode in ["CW", "CCW"] and self.floating_enabled:
+            import time
+            now = time.time()
+            if hasattr(self, 'floating_last_update'):
+                delta_time = now - self.floating_last_update
+            else:
+                delta_time = 0.05  # Default
+
+            # Update angle based on rotation speed and time
+            speed = self.floating_speed_var.get()
+            direction = -1 if self.floating_rotation_mode == "CW" else 1
+            self.floating_rotation_angle += direction * speed * delta_time
+
+            # Keep angle in reasonable range
+            if self.floating_rotation_angle > 360:
+                self.floating_rotation_angle -= 360
+            elif self.floating_rotation_angle < -360:
+                self.floating_rotation_angle += 360
+
+            self.floating_last_update = now
+            self.update_display()
+
+            # Schedule next update (20ms = 50 FPS)
+            self.root.after(20, self.start_floating_rotation)
+
+    def get_floating_pattern(self):
+        """Generate floating pattern with rotation applied"""
+        # Start with base normalized pattern
+        x_norm = self.normalize_data(self.x_data)
+        y_norm = self.normalize_data(self.y_data)
+
+        # Repeat pattern for better visibility
+        display_repeats = min(20, max(1, 100 // len(x_norm)))
+        x_float = np.tile(x_norm, display_repeats)
+        y_float = np.tile(y_norm, display_repeats)
+
+        # Apply rotation based on mode
+        if self.floating_rotation_mode == "Static":
+            angle_rad = np.radians(self.floating_static_angle.get())
+        elif self.floating_rotation_mode in ["CW", "CCW"]:
+            angle_rad = np.radians(self.floating_rotation_angle)
+        else:
+            # No rotation
+            return x_float, y_float
+
+        # Apply rotation transformation
+        cos_a = np.cos(angle_rad)
+        sin_a = np.sin(angle_rad)
+
+        x_rot = x_float * cos_a - y_float * sin_a
+        y_rot = x_float * sin_a + y_float * cos_a
+
+        # Normalize to prevent going out of bounds
+        x_rot = self.normalize_data(x_rot)
+        y_rot = self.normalize_data(y_rot)
+
+        return x_rot, y_rot
     
     def apply_effects(self, x, y):
         """Apply selected effects to the data - FOR DISPLAY PREVIEW ONLY"""
@@ -428,45 +570,53 @@ class OscilloscopeGUI:
                 if hasattr(self, 'playback_start_time'):
                     elapsed = time.time() - self.playback_start_time
                     sample_position = int(elapsed * self.current_fs)
-                    
+
                     # Wrap around if we exceed audio length
                     if sample_position >= len(self.current_audio):
                         sample_position = sample_position % len(self.current_audio)
-                    
+
                     # Extract window of samples to display (moving window)
                     window_half = self.preview_window_size // 2
                     window_start = max(0, sample_position - window_half)
                     window_end = min(len(self.current_audio), sample_position + window_half)
-                    
+
                     # Make sure we have enough samples
                     if window_end - window_start < 50:
                         window_end = min(len(self.current_audio), window_start + self.preview_window_size)
-                    
+
                     if window_end > window_start:
                         # Get the windowed data
                         x_preview = self.current_audio[window_start:window_end, 0]
                         y_preview = self.current_audio[window_start:window_end, 1]
-                        
-                        # Update plot
+
+                        # Update main plot
                         self.line.set_data(x_preview, y_preview)
-                        
+
+                        # Update floating pattern overlay (always on top)
+                        if self.floating_enabled and hasattr(self, 'floating_line'):
+                            x_floating, y_floating = self.get_floating_pattern()
+                            self.floating_line.set_data(x_floating, y_floating)
+                        else:
+                            if hasattr(self, 'floating_line'):
+                                self.floating_line.set_data([], [])
+
                         # Auto-scale to current window
                         if len(x_preview) > 0:
                             margin = 0.1
                             x_range = [x_preview.min() - margin, x_preview.max() + margin]
                             y_range = [y_preview.min() - margin, y_preview.max() + margin]
-                            
+
                             max_range = max(x_range[1] - x_range[0], y_range[1] - y_range[0])
                             center_x = (x_range[0] + x_range[1]) / 2
                             center_y = (y_range[0] + y_range[1]) / 2
-                            
+
                             self.ax.set_xlim(center_x - max_range/2, center_x + max_range/2)
                             self.ax.set_ylim(center_y - max_range/2, center_y + max_range/2)
-                        
+
                         self.canvas.draw_idle()
             except Exception as e:
                 pass  # Silently ignore preview errors
-        
+
         # Schedule next update
         self.root.after(20, self.update_live_preview)
     
@@ -475,30 +625,39 @@ class OscilloscopeGUI:
         # Normalize data
         x_norm = self.normalize_data(self.x_data)
         y_norm = self.normalize_data(self.y_data)
-        
+
         # Apply effects
         x_display, y_display = self.apply_effects(x_norm, y_norm)
-        
+
         # Repeat pattern for visibility
         display_repeats = min(20, max(1, 100 // len(x_norm)))
         x_display = np.tile(x_display, display_repeats)
         y_display = np.tile(y_display, display_repeats)
-        
-        # Update plot
+
+        # Update main plot
         self.line.set_data(x_display, y_display)
-        
+
+        # Update floating pattern overlay
+        if self.floating_enabled and hasattr(self, 'floating_line'):
+            x_floating, y_floating = self.get_floating_pattern()
+            self.floating_line.set_data(x_floating, y_floating)
+        else:
+            # Clear floating pattern if disabled
+            if hasattr(self, 'floating_line'):
+                self.floating_line.set_data([], [])
+
         # Update limits if needed
         margin = 0.1
         x_range = [x_display.min() - margin, x_display.max() + margin]
         y_range = [y_display.min() - margin, y_display.max() + margin]
-        
+
         max_range = max(x_range[1] - x_range[0], y_range[1] - y_range[0])
         center_x = (x_range[0] + x_range[1]) / 2
         center_y = (y_range[0] + y_range[1]) / 2
-        
+
         self.ax.set_xlim(center_x - max_range/2, center_x + max_range/2)
         self.ax.set_ylim(center_y - max_range/2, center_y + max_range/2)
-        
+
         self.canvas.draw_idle()
     
     def generate_audio(self):
