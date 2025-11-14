@@ -363,11 +363,9 @@ class OscilloscopeGUI:
             pass
     
     def rotation_mode_changed(self):
-        """Handle rotation mode changes - regenerate and play if needed"""
+        """Handle rotation mode changes - update display"""
         self.update_rotation_info()
         self.update_display()
-        if hasattr(self, 'auto_regenerate') and self.is_playing:
-            self.apply_parameters()
     
     def apply_effects(self, x, y):
         """Apply selected effects to the data - FOR DISPLAY PREVIEW ONLY"""
