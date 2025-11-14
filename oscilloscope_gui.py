@@ -144,6 +144,8 @@ class OscilloscopeGUI:
                   command=self.open_drawing_canvas).pack(fill=tk.X, pady=2)
         ttk.Button(file_frame, text="Sum of Harmonics",
                   command=self.open_harmonic_sum).pack(fill=tk.X, pady=2)
+        ttk.Button(file_frame, text="Archimedean Spiral",
+                  command=self.open_archimedean_spiral).pack(fill=tk.X, pady=2)
 
         # Data info
         self.data_info_label = ttk.Label(file_frame, text="Points: 3", 
@@ -2278,6 +2280,118 @@ class OscilloscopeGUI:
         button_frame.pack(fill=tk.X, padx=10, pady=10)
 
         ttk.Button(button_frame, text="Generate Pattern", command=apply_harmonic_sum).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+            side=tk.LEFT, padx=5)
+
+    def open_archimedean_spiral(self):
+        """Open dialog to create Archimedean spiral pattern"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Archimedean Spiral")
+        dialog.geometry("500x400")
+
+        # Instructions
+        instruction_frame = ttk.Frame(dialog)
+        instruction_frame.pack(pady=10, padx=10, fill=tk.X)
+        ttk.Label(instruction_frame, text="Create Archimedean Spiral Pattern",
+                 font=('Arial', 10, 'bold')).pack()
+        ttk.Label(instruction_frame, text="X(t) = a·t·cos(ω·t),  Y(t) = a·t·sin(ω·t)",
+                 font=('Arial', 9), foreground='gray').pack()
+
+        # Parameters frame
+        params_frame = ttk.LabelFrame(dialog, text="Spiral Parameters", padding="10")
+        params_frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+
+        # Parameter: a (growth factor)
+        ttk.Label(params_frame, text="Growth Factor (a):").grid(row=0, column=0, sticky='w', pady=5)
+        a_var = tk.StringVar(value="0.1")
+        a_entry = ttk.Entry(params_frame, textvariable=a_var, width=15)
+        a_entry.grid(row=0, column=1, sticky='w', pady=5, padx=5)
+        ttk.Label(params_frame, text="Controls spiral expansion rate",
+                 font=('Arial', 8), foreground='gray').grid(row=0, column=2, sticky='w', padx=5)
+
+        # Parameter: w (angular frequency)
+        ttk.Label(params_frame, text="Angular Frequency (ω):").grid(row=1, column=0, sticky='w', pady=5)
+        w_var = tk.StringVar(value="1.0")
+        w_entry = ttk.Entry(params_frame, textvariable=w_var, width=15)
+        w_entry.grid(row=1, column=1, sticky='w', pady=5, padx=5)
+        ttk.Label(params_frame, text="Controls rotation speed",
+                 font=('Arial', 8), foreground='gray').grid(row=1, column=2, sticky='w', padx=5)
+
+        # Parameter: time range
+        ttk.Label(params_frame, text="Time Range (0 to):").grid(row=2, column=0, sticky='w', pady=5)
+        t_max_var = tk.StringVar(value="12.566")  # 4π
+        t_max_entry = ttk.Entry(params_frame, textvariable=t_max_var, width=15)
+        t_max_entry.grid(row=2, column=1, sticky='w', pady=5, padx=5)
+        ttk.Label(params_frame, text="(4π ≈ 12.566 for 2 revolutions)",
+                 font=('Arial', 8), foreground='gray').grid(row=2, column=2, sticky='w', padx=5)
+
+        # Parameter: number of points
+        ttk.Label(params_frame, text="Number of Points:").grid(row=3, column=0, sticky='w', pady=5)
+        points_var = tk.StringVar(value="1000")
+        points_entry = ttk.Entry(params_frame, textvariable=points_var, width=15)
+        points_entry.grid(row=3, column=1, sticky='w', pady=5, padx=5)
+        ttk.Label(params_frame, text="Higher = smoother curve",
+                 font=('Arial', 8), foreground='gray').grid(row=3, column=2, sticky='w', padx=5)
+
+        # Preview area
+        preview_frame = ttk.Frame(dialog)
+        preview_frame.pack(pady=5, padx=10, fill=tk.X)
+
+        preview_status = ttk.Label(preview_frame, text="Adjust parameters and click Preview",
+                                  font=('Arial', 9, 'italic'), foreground='blue')
+        preview_status.pack()
+
+        def update_preview():
+            """Update oscilloscope display with current spiral parameters"""
+            try:
+                a = float(a_var.get())
+                w = float(w_var.get())
+                t_max = float(t_max_var.get())
+                num_points = int(points_var.get())
+
+                if num_points < 10:
+                    messagebox.showwarning("Warning", "Number of points must be at least 10")
+                    return
+                if num_points > 100000:
+                    messagebox.showwarning("Warning", "Number of points too large (max 100000)")
+                    return
+
+                # Generate time array
+                t = np.linspace(0, t_max, num_points)
+
+                # Calculate Archimedean spiral
+                # X channel: x = a*t*cos(w*t)
+                x_data = a * t * np.cos(w * t)
+
+                # Y channel: y = a*t*sin(w*t)
+                y_data = a * t * np.sin(w * t)
+
+                # Update display
+                self.x_data = x_data
+                self.y_data = y_data
+                self.data_info_label.config(text=f"Points: {len(x_data)}")
+                self.update_display()
+                preview_status.config(text=f"Preview: Spiral with a={a}, ω={w}, t∈[0,{t_max:.2f}]",
+                                     foreground='green')
+
+            except ValueError as e:
+                messagebox.showerror("Error", f"Invalid parameter values: {str(e)}")
+                preview_status.config(text="Error in parameters", foreground='red')
+
+        def apply_spiral():
+            """Finalize the spiral pattern"""
+            update_preview()
+            self.status_label.config(text=f"Archimedean Spiral: a={a_var.get()}, ω={w_var.get()}")
+            dialog.destroy()
+
+        # Buttons
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(pady=10, padx=10, fill=tk.X)
+
+        ttk.Button(button_frame, text="Preview", command=update_preview).pack(
+            side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Generate Pattern", command=apply_spiral).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
             side=tk.LEFT, padx=5)
