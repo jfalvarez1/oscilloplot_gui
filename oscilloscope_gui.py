@@ -479,7 +479,167 @@ class OscilloscopeGUI:
         ttk.Radiobutton(waveform_row, text="Sine", variable=self.tremolo_wave_var, value="sine").pack(side=tk.LEFT, padx=5)
         ttk.Radiobutton(waveform_row, text="Triangle", variable=self.tremolo_wave_var, value="triangle").pack(side=tk.LEFT, padx=5)
         ttk.Radiobutton(waveform_row, text="Square", variable=self.tremolo_wave_var, value="square").pack(side=tk.LEFT, padx=5)
-        
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Ring Modulation Effect
+        ring_frame = ttk.LabelFrame(effects_frame, text="Ring Modulation", padding="5")
+        ring_frame.pack(fill=tk.X, pady=5)
+
+        self.ring_mod_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(ring_frame, text="Enable Ring Modulation",
+                       variable=self.ring_mod_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        # Carrier Frequency control
+        carrier_frame = ttk.Frame(ring_frame)
+        carrier_frame.pack(fill=tk.X, padx=20, pady=(5,0))
+        ttk.Label(carrier_frame, text="Carrier Freq (Hz):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.ring_carrier_label = ttk.Label(carrier_frame, text="200",
+                 font=('Arial', 8, 'bold'))
+        self.ring_carrier_label.pack(side=tk.RIGHT)
+
+        self.ring_carrier_freq = tk.DoubleVar(value=200.0)
+        ttk.Scale(ring_frame, from_=10.0, to=2000.0, orient=tk.HORIZONTAL,
+                 variable=self.ring_carrier_freq,
+                 command=lambda v: self.ring_carrier_label.config(text=f"{self.ring_carrier_freq.get():.0f}")).pack(fill=tk.X, padx=20)
+
+        # Depth control
+        ring_depth_frame = ttk.Frame(ring_frame)
+        ring_depth_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(ring_depth_frame, text="Mix (%):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.ring_mix_label = ttk.Label(ring_depth_frame, text="50",
+                 font=('Arial', 8, 'bold'))
+        self.ring_mix_label.pack(side=tk.RIGHT)
+
+        self.ring_mix = tk.DoubleVar(value=50.0)
+        ttk.Scale(ring_frame, from_=0.0, to=100.0, orient=tk.HORIZONTAL,
+                 variable=self.ring_mix,
+                 command=lambda v: self.ring_mix_label.config(text=f"{self.ring_mix.get():.0f}")).pack(fill=tk.X, padx=20)
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Echo/Delay Effect
+        echo_frame = ttk.LabelFrame(effects_frame, text="Echo/Delay", padding="5")
+        echo_frame.pack(fill=tk.X, pady=5)
+
+        self.echo_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(echo_frame, text="Enable Echo",
+                       variable=self.echo_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        # Number of echoes
+        echoes_frame = ttk.Frame(echo_frame)
+        echoes_frame.pack(fill=tk.X, padx=20, pady=(5,0))
+        ttk.Label(echoes_frame, text="Number of Echoes:",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.echo_count_label = ttk.Label(echoes_frame, text="3",
+                 font=('Arial', 8, 'bold'))
+        self.echo_count_label.pack(side=tk.RIGHT)
+
+        self.echo_count = tk.IntVar(value=3)
+        ttk.Scale(echo_frame, from_=1, to=10, orient=tk.HORIZONTAL,
+                 variable=self.echo_count,
+                 command=lambda v: self.echo_count_label.config(text=f"{self.echo_count.get():.0f}")).pack(fill=tk.X, padx=20)
+
+        # Decay control
+        decay_frame = ttk.Frame(echo_frame)
+        decay_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(decay_frame, text="Decay Factor:",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.echo_decay_label = ttk.Label(decay_frame, text="0.70",
+                 font=('Arial', 8, 'bold'))
+        self.echo_decay_label.pack(side=tk.RIGHT)
+
+        self.echo_decay = tk.DoubleVar(value=0.7)
+        ttk.Scale(echo_frame, from_=0.1, to=0.95, orient=tk.HORIZONTAL,
+                 variable=self.echo_decay,
+                 command=lambda v: self.echo_decay_label.config(text=f"{self.echo_decay.get():.2f}")).pack(fill=tk.X, padx=20)
+
+        # Delay time (as percentage of pattern length)
+        delay_frame = ttk.Frame(echo_frame)
+        delay_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(delay_frame, text="Delay Time (%):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.echo_delay_label = ttk.Label(delay_frame, text="10",
+                 font=('Arial', 8, 'bold'))
+        self.echo_delay_label.pack(side=tk.RIGHT)
+
+        self.echo_delay = tk.DoubleVar(value=10.0)
+        ttk.Scale(echo_frame, from_=1.0, to=50.0, orient=tk.HORIZONTAL,
+                 variable=self.echo_delay,
+                 command=lambda v: self.echo_delay_label.config(text=f"{self.echo_delay.get():.0f}")).pack(fill=tk.X, padx=20)
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Kaleidoscope Effect
+        kaleido_frame = ttk.LabelFrame(effects_frame, text="Kaleidoscope", padding="5")
+        kaleido_frame.pack(fill=tk.X, pady=5)
+
+        self.kaleido_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(kaleido_frame, text="Enable Kaleidoscope",
+                       variable=self.kaleido_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        # Number of symmetry sections
+        sections_frame = ttk.Frame(kaleido_frame)
+        sections_frame.pack(fill=tk.X, padx=20, pady=(5,0))
+        ttk.Label(sections_frame, text="Symmetry Sections:",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.kaleido_sections_label = ttk.Label(sections_frame, text="6",
+                 font=('Arial', 8, 'bold'))
+        self.kaleido_sections_label.pack(side=tk.RIGHT)
+
+        self.kaleido_sections = tk.IntVar(value=6)
+        ttk.Scale(kaleido_frame, from_=2, to=12, orient=tk.HORIZONTAL,
+                 variable=self.kaleido_sections,
+                 command=lambda v: self.kaleido_sections_label.config(text=f"{self.kaleido_sections.get():.0f}")).pack(fill=tk.X, padx=20)
+
+        # Mirror option
+        self.kaleido_mirror_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(kaleido_frame, text="Mirror Reflections",
+                       variable=self.kaleido_mirror_var,
+                       command=self.effect_changed).pack(anchor=tk.W, padx=20)
+
+        ttk.Label(kaleido_frame, text="Creates symmetrical copies around center",
+                 font=('Arial', 7, 'italic'), foreground='gray').pack(anchor=tk.W, padx=20, pady=(5,0))
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
+        # Distortion/Clipping Effect
+        distortion_frame = ttk.LabelFrame(effects_frame, text="Distortion", padding="5")
+        distortion_frame.pack(fill=tk.X, pady=5)
+
+        self.distortion_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(distortion_frame, text="Enable Distortion",
+                       variable=self.distortion_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        # Distortion type
+        dist_type_row = ttk.Frame(distortion_frame)
+        dist_type_row.pack(fill=tk.X, padx=20, pady=5)
+        ttk.Label(dist_type_row, text="Type:", font=('Arial', 8)).pack(side=tk.LEFT, padx=(0, 10))
+        self.distortion_type_var = tk.StringVar(value="soft")
+        ttk.Radiobutton(dist_type_row, text="Soft Clip", variable=self.distortion_type_var, value="soft").pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(dist_type_row, text="Hard Clip", variable=self.distortion_type_var, value="hard").pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(dist_type_row, text="Fold", variable=self.distortion_type_var, value="fold").pack(side=tk.LEFT, padx=5)
+
+        # Threshold control
+        threshold_frame = ttk.Frame(distortion_frame)
+        threshold_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(threshold_frame, text="Threshold:",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.distortion_threshold_label = ttk.Label(threshold_frame, text="0.50",
+                 font=('Arial', 8, 'bold'))
+        self.distortion_threshold_label.pack(side=tk.RIGHT)
+
+        self.distortion_threshold = tk.DoubleVar(value=0.5)
+        ttk.Scale(distortion_frame, from_=0.1, to=2.0, orient=tk.HORIZONTAL,
+                 variable=self.distortion_threshold,
+                 command=lambda v: self.distortion_threshold_label.config(text=f"{self.distortion_threshold.get():.2f}")).pack(fill=tk.X, padx=20)
+
         # === ACTION BUTTONS ===
         button_frame = ttk.Frame(parent)
         button_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=10)
@@ -712,6 +872,10 @@ class OscilloscopeGUI:
         self.y_wavy_var.set(False)
         self.rotation_mode_var.set("Off")
         self.tremolo_var.set(False)
+        self.ring_mod_var.set(False)
+        self.echo_var.set(False)
+        self.kaleido_var.set(False)
+        self.distortion_var.set(False)
 
         # Reset values to defaults
         self.y_fade_steps.set(10)
@@ -730,6 +894,15 @@ class OscilloscopeGUI:
         self.rotation_speed.set(5.0)
         self.tremolo_depth.set(50.0)
         self.tremolo_rate.set(2.0)
+        self.ring_carrier_freq.set(200.0)
+        self.ring_mix.set(50.0)
+        self.echo_count.set(3)
+        self.echo_decay.set(0.7)
+        self.echo_delay.set(10.0)
+        self.kaleido_sections.set(6)
+        self.kaleido_mirror_var.set(True)
+        self.distortion_threshold.set(0.5)
+        self.distortion_type_var.set("soft")
 
         # Update wavy labels to reflect reset values
         self.update_wavy_labels_only()
@@ -899,6 +1072,102 @@ class OscilloscopeGUI:
                 K_y = self.y_wavy_amp.get()
                 w_y = self.y_wavy_freq.get()
                 y = y + K_y * np.sin(w_y * t)
+
+        # Ring Modulation Effect
+        if self.ring_mod_var.get():
+            t = np.linspace(0, 2*np.pi, len(x))
+            carrier_freq = self.ring_carrier_freq.get()
+            mix = self.ring_mix.get() / 100.0
+
+            # Generate carrier wave
+            carrier = np.sin(carrier_freq * t)
+
+            # Ring modulation: multiply signal by carrier
+            x_mod = x * carrier
+            y_mod = y * carrier
+
+            # Mix dry and modulated signals
+            x = (1 - mix) * x + mix * x_mod
+            y = (1 - mix) * y + mix * y_mod
+
+        # Distortion Effect
+        if self.distortion_var.get():
+            threshold = self.distortion_threshold.get()
+            dist_type = self.distortion_type_var.get()
+
+            if dist_type == "soft":
+                # Soft clipping (tanh-like curve)
+                x = np.tanh(x / threshold) * threshold
+                y = np.tanh(y / threshold) * threshold
+            elif dist_type == "hard":
+                # Hard clipping
+                x = np.clip(x, -threshold, threshold)
+                y = np.clip(y, -threshold, threshold)
+            else:  # fold
+                # Wave folding
+                x = np.where(np.abs(x) > threshold,
+                           threshold - (np.abs(x) - threshold), x)
+                y = np.where(np.abs(y) > threshold,
+                           threshold - (np.abs(y) - threshold), y)
+
+        # Echo/Delay Effect
+        if self.echo_var.get():
+            num_echoes = self.echo_count.get()
+            decay = self.echo_decay.get()
+            delay_pct = self.echo_delay.get() / 100.0
+
+            delay_samples = int(len(x) * delay_pct)
+
+            # Create arrays to hold echo sum
+            x_with_echo = np.copy(x)
+            y_with_echo = np.copy(y)
+
+            # Add delayed copies with decay
+            for i in range(1, num_echoes + 1):
+                offset = i * delay_samples
+                amplitude = decay ** i
+
+                # Pad with zeros and add delayed signal
+                if offset < len(x):
+                    x_delayed = np.concatenate([np.zeros(offset), x[:-offset]]) * amplitude
+                    y_delayed = np.concatenate([np.zeros(offset), y[:-offset]]) * amplitude
+                    x_with_echo += x_delayed
+                    y_with_echo += y_delayed
+
+            x = x_with_echo
+            y = y_with_echo
+
+        # Kaleidoscope Effect
+        if self.kaleido_var.get():
+            sections = self.kaleido_sections.get()
+            mirror = self.kaleido_mirror_var.get()
+
+            # Create rotated copies of the pattern
+            all_x = []
+            all_y = []
+
+            for i in range(sections):
+                angle = (2 * np.pi * i) / sections
+
+                # Rotate the pattern
+                cos_a = np.cos(angle)
+                sin_a = np.sin(angle)
+                x_rot = x * cos_a - y * sin_a
+                y_rot = x * sin_a + y * cos_a
+
+                all_x.append(x_rot)
+                all_y.append(y_rot)
+
+                # Add mirrored copy if enabled
+                if mirror:
+                    x_mir = x * cos_a + y * sin_a
+                    y_mir = -x * sin_a + y * cos_a
+                    all_x.append(x_mir)
+                    all_y.append(y_mir)
+
+            # Concatenate all sections
+            x = np.concatenate(all_x)
+            y = np.concatenate(all_y)
 
         return x, y
     
