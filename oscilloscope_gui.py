@@ -2070,6 +2070,41 @@ class OscilloscopeGUI:
         y_canvas.pack(side="left", fill="both", expand=True)
         y_scrollbar.pack(side="right", fill="y")
 
+        def update_preview():
+            """Update oscilloscope display with current harmonic sum"""
+            # Time array (0 to 2π with high resolution)
+            num_points = 1000
+            t = np.linspace(0, 2*np.pi, num_points)
+
+            # Calculate X channel
+            if x_terms:
+                x_data = np.zeros(num_points)
+                for term in x_terms:
+                    if term['type'] == 'sin':
+                        x_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
+                    else:  # cos
+                        x_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
+            else:
+                x_data = t * 0  # Zero array
+
+            # Calculate Y channel
+            if y_terms:
+                y_data = np.zeros(num_points)
+                for term in y_terms:
+                    if term['type'] == 'sin':
+                        y_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
+                    else:  # cos
+                        y_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
+            else:
+                y_data = t * 0  # Zero array
+
+            # Update display
+            self.x_data = x_data
+            self.y_data = y_data
+            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.update_display()
+            self.status_label.config(text=f"Preview: N={len(x_terms)} terms (X), M={len(y_terms)} terms (Y)")
+
         def refresh_x_display():
             """Refresh X channel term display"""
             for widget in x_scrollable.winfo_children():
@@ -2095,6 +2130,7 @@ class OscilloscopeGUI:
                     def remove_x_term(idx=i):
                         x_terms.pop(idx)
                         refresh_x_display()
+                        update_preview()
 
                     ttk.Button(term_frame, text="✕", width=3,
                               command=remove_x_term).pack(side=tk.RIGHT, padx=2, pady=2)
@@ -2124,6 +2160,7 @@ class OscilloscopeGUI:
                     def remove_y_term(idx=i):
                         y_terms.pop(idx)
                         refresh_y_display()
+                        update_preview()
 
                     ttk.Button(term_frame, text="✕", width=3,
                               command=remove_y_term).pack(side=tk.RIGHT, padx=2, pady=2)
@@ -2166,6 +2203,7 @@ class OscilloscopeGUI:
                 'phase': x_phase_var.get()
             })
             refresh_x_display()
+            update_preview()
 
         ttk.Button(x_button_row, text="Add Term to X Channel", command=add_x_term).pack(fill=tk.X, padx=5)
 
@@ -2207,6 +2245,7 @@ class OscilloscopeGUI:
                 'phase': y_phase_var.get()
             })
             refresh_y_display()
+            update_preview()
 
         ttk.Button(y_button_row, text="Add Term to Y Channel", command=add_y_term).pack(fill=tk.X, padx=5)
 
