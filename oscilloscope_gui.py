@@ -2401,7 +2401,7 @@ class OscilloscopeGUI:
         update_preview()
 
         def apply_spiral():
-            """Generate final spiral pattern"""
+            """Generate final spiral pattern and apply audio"""
             # Time array (0 to 4π with high resolution)
             num_points = 2000
             t = np.linspace(0, 4*np.pi, num_points)
@@ -2422,13 +2422,15 @@ class OscilloscopeGUI:
             self.data_info_label.config(text=f"Points: {len(x_data)}")
             self.update_display()
             self.status_label.config(text=f"Generated Archimedean Spiral (a_x={x_a:.2f}, b_x={x_b:.2f}, a_y={y_a:.2f}, b_y={y_b:.2f})")
-            dialog.destroy()
+
+            # Apply parameters and generate audio
+            self.apply_parameters()
 
         # Button frame
         button_frame = ttk.Frame(dialog)
         button_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        ttk.Button(button_frame, text="Generate Pattern", command=apply_spiral).pack(
+        ttk.Button(button_frame, text="Apply & Generate", command=apply_spiral).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
             side=tk.LEFT, padx=5)
