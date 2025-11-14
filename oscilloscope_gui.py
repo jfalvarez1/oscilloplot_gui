@@ -1526,6 +1526,105 @@ class OscilloscopeGUI:
             x_full = x_full * modulation
             y_full = y_full * modulation
 
+        # Apply ring modulation effect if enabled
+        if self.ring_mod_var.get():
+            # Create time array if not already created
+            if not (self.x_wavy_var.get() or self.y_wavy_var.get() or self.tremolo_var.get()):
+                t = np.arange(len(x_full)) / actual_fs
+
+            carrier_freq = self.ring_carrier_freq.get()
+            mix = self.ring_mix.get() / 100.0
+
+            # Generate carrier wave
+            carrier = np.sin(2 * np.pi * carrier_freq * t)
+
+            # Ring modulation: multiply signal by carrier
+            x_mod = x_full * carrier
+            y_mod = y_full * carrier
+
+            # Mix dry and modulated signals
+            x_full = (1 - mix) * x_full + mix * x_mod
+            y_full = (1 - mix) * y_full + mix * y_mod
+
+        # Apply distortion effect if enabled
+        if self.distortion_var.get():
+            threshold = self.distortion_threshold.get()
+            dist_type = self.distortion_type_var.get()
+
+            if dist_type == "soft":
+                # Soft clipping (tanh-like curve)
+                x_full = np.tanh(x_full / threshold) * threshold
+                y_full = np.tanh(y_full / threshold) * threshold
+            elif dist_type == "hard":
+                # Hard clipping
+                x_full = np.clip(x_full, -threshold, threshold)
+                y_full = np.clip(y_full, -threshold, threshold)
+            else:  # fold
+                # Wave folding
+                x_full = np.where(np.abs(x_full) > threshold,
+                           threshold - (np.abs(x_full) - threshold), x_full)
+                y_full = np.where(np.abs(y_full) > threshold,
+                           threshold - (np.abs(y_full) - threshold), y_full)
+
+        # Apply echo/delay effect if enabled
+        if self.echo_var.get():
+            num_echoes = self.echo_count.get()
+            decay = self.echo_decay.get()
+            delay_pct = self.echo_delay.get() / 100.0
+
+            delay_samples = int(len(x_full) * delay_pct)
+
+            # Create arrays to hold echo sum
+            x_with_echo = np.copy(x_full)
+            y_with_echo = np.copy(y_full)
+
+            # Add delayed copies with decay
+            for i in range(1, num_echoes + 1):
+                offset = i * delay_samples
+                amplitude = decay ** i
+
+                # Pad with zeros and add delayed signal
+                if offset < len(x_full):
+                    x_delayed = np.concatenate([np.zeros(offset), x_full[:-offset]]) * amplitude
+                    y_delayed = np.concatenate([np.zeros(offset), y_full[:-offset]]) * amplitude
+                    x_with_echo += x_delayed
+                    y_with_echo += y_delayed
+
+            x_full = x_with_echo
+            y_full = y_with_echo
+
+        # Apply kaleidoscope effect if enabled
+        if self.kaleido_var.get():
+            sections = self.kaleido_sections.get()
+            mirror = self.kaleido_mirror_var.get()
+
+            # Create rotated copies of the pattern
+            all_x = []
+            all_y = []
+
+            for i in range(sections):
+                angle = (2 * np.pi * i) / sections
+
+                # Rotate the pattern
+                cos_a = np.cos(angle)
+                sin_a = np.sin(angle)
+                x_rot = x_full * cos_a - y_full * sin_a
+                y_rot = x_full * sin_a + y_full * cos_a
+
+                all_x.append(x_rot)
+                all_y.append(y_rot)
+
+                # Add mirrored copy if enabled
+                if mirror:
+                    x_mir = x_full * cos_a + y_full * sin_a
+                    y_mir = -x_full * sin_a + y_full * cos_a
+                    all_x.append(x_mir)
+                    all_y.append(y_mir)
+
+            # Concatenate all sections
+            x_full = np.concatenate(all_x)
+            y_full = np.concatenate(all_y)
+
         # Create stereo
         stereo = np.column_stack([x_full, y_full]).astype(np.float32)
 
