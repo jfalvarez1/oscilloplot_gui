@@ -2295,7 +2295,7 @@ class OscilloscopeGUI:
         instruction_frame.pack(pady=10, padx=10, fill=tk.X)
         ttk.Label(instruction_frame, text="Create Archimedean Spiral Pattern",
                  font=('Arial', 10, 'bold')).pack()
-        ttk.Label(instruction_frame, text="X(t) = a·t·sin(b·t)    Y(t) = a·t·sin(b·t)",
+        ttk.Label(instruction_frame, text="X(t) = a·t·sin(b·t)    Y(t) = a·t·cos(b·t)",
                  font=('Arial', 8), foreground='gray').pack()
 
         # Main container with two columns
@@ -2365,7 +2365,7 @@ class OscilloscopeGUI:
             y_a = y_a_var.get()
             y_b = y_b_var.get()
             x_formula_label.config(text=f"x(t) = {x_a:.2f}·t·sin({x_b:.2f}·t)")
-            y_formula_label.config(text=f"y(t) = {y_a:.2f}·t·sin({y_b:.2f}·t)")
+            y_formula_label.config(text=f"y(t) = {y_a:.2f}·t·cos({y_b:.2f}·t)")
 
         def update_preview(*args):
             """Update oscilloscope display with current spiral parameters"""
@@ -2378,10 +2378,10 @@ class OscilloscopeGUI:
             x_b = x_b_var.get()
             x_data = x_a * t * np.sin(x_b * t)
 
-            # Calculate Y channel: y = a*t*sin(b*t)
+            # Calculate Y channel: y = a*t*cos(b*t)
             y_a = y_a_var.get()
             y_b = y_b_var.get()
-            y_data = y_a * t * np.sin(y_b * t)
+            y_data = y_a * t * np.cos(y_b * t)
 
             # Update display
             self.x_data = x_data
@@ -2414,7 +2414,7 @@ class OscilloscopeGUI:
             # Calculate Y channel
             y_a = y_a_var.get()
             y_b = y_b_var.get()
-            y_data = y_a * t * np.sin(y_b * t)
+            y_data = y_a * t * np.cos(y_b * t)
 
             # Set as current data
             self.x_data = x_data
