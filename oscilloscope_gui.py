@@ -2288,7 +2288,7 @@ class OscilloscopeGUI:
         """Open dialog to create Archimedean spiral pattern"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Archimedean Spiral")
-        dialog.geometry("600x400")
+        dialog.geometry("600x600")
 
         # Instructions
         instruction_frame = ttk.Frame(dialog)
@@ -2358,6 +2358,44 @@ class OscilloscopeGUI:
         y_formula_label = ttk.Label(y_frame, text="", font=('Arial', 9, 'italic'), foreground='blue')
         y_formula_label.pack(pady=10)
 
+        # Chaser Effect Options
+        chaser_frame = ttk.LabelFrame(dialog, text="Chaser Effect (Optional)", padding="10")
+        chaser_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        # Enable chaser checkbox
+        chaser_enabled_var = tk.BooleanVar(value=False)
+        chaser_check = ttk.Checkbutton(chaser_frame, text="Enable Chaser Effect",
+                                       variable=chaser_enabled_var)
+        chaser_check.pack(anchor=tk.W, pady=5)
+
+        # Chaser parameters frame
+        chaser_params_frame = ttk.Frame(chaser_frame)
+        chaser_params_frame.pack(fill=tk.X, pady=5)
+
+        # Trail length parameter
+        ttk.Label(chaser_params_frame, text="Trail Length (%):").grid(row=0, column=0, sticky=tk.W, pady=5, padx=5)
+        trail_length_var = tk.DoubleVar(value=20.0)
+        trail_scale = ttk.Scale(chaser_params_frame, from_=5.0, to=100.0, variable=trail_length_var, orient=tk.HORIZONTAL)
+        trail_scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
+        trail_entry = ttk.Entry(chaser_params_frame, textvariable=trail_length_var, width=10)
+        trail_entry.grid(row=0, column=2, padx=5)
+
+        # Number of chase steps
+        ttk.Label(chaser_params_frame, text="Chase Steps:").grid(row=1, column=0, sticky=tk.W, pady=5, padx=5)
+        chase_steps_var = tk.IntVar(value=50)
+        steps_scale = ttk.Scale(chaser_params_frame, from_=10, to=200, variable=chase_steps_var, orient=tk.HORIZONTAL)
+        steps_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
+        steps_entry = ttk.Entry(chaser_params_frame, textvariable=chase_steps_var, width=10)
+        steps_entry.grid(row=1, column=2, padx=5)
+
+        chaser_params_frame.columnconfigure(1, weight=1)
+
+        # Info label
+        chaser_info = ttk.Label(chaser_frame,
+                               text="Chaser effect displays only a segment of the spiral at a time, creating an animation",
+                               font=('Arial', 8, 'italic'), foreground='gray')
+        chaser_info.pack(pady=5)
+
         def update_formula_labels():
             """Update the formula display labels"""
             x_a = x_a_var.get()
@@ -2409,19 +2447,58 @@ class OscilloscopeGUI:
             # Calculate X channel
             x_a = x_a_var.get()
             x_b = x_b_var.get()
-            x_data = x_a * t * np.sin(x_b * t)
+            x_full = x_a * t * np.sin(x_b * t)
 
             # Calculate Y channel
             y_a = y_a_var.get()
             y_b = y_b_var.get()
-            y_data = y_a * t * np.cos(y_b * t)
+            y_full = y_a * t * np.cos(y_b * t)
+
+            # Check if chaser effect is enabled
+            if chaser_enabled_var.get():
+                # Chaser effect: create segments
+                trail_pct = trail_length_var.get() / 100.0  # Convert percentage to fraction
+                num_steps = int(chase_steps_var.get())
+
+                # Calculate how many points to show in each segment
+                segment_length = int(num_points * trail_pct)
+                if segment_length < 2:
+                    segment_length = 2  # Minimum segment size
+
+                # Create segments that move along the spiral
+                x_segments = []
+                y_segments = []
+
+                for step in range(num_steps):
+                    # Calculate the start position for this segment
+                    # Move the segment along the spiral progressively
+                    start_idx = int((num_points - segment_length) * step / max(num_steps - 1, 1))
+                    end_idx = start_idx + segment_length
+
+                    # Extract the segment
+                    x_seg = x_full[start_idx:end_idx]
+                    y_seg = y_full[start_idx:end_idx]
+
+                    x_segments.append(x_seg)
+                    y_segments.append(y_seg)
+
+                # Concatenate all segments to create the chase animation
+                x_data = np.concatenate(x_segments)
+                y_data = np.concatenate(y_segments)
+
+                status_msg = f"Generated Archimedean Spiral with Chaser (trail={trail_pct*100:.0f}%, steps={num_steps})"
+            else:
+                # No chaser effect: use full spiral
+                x_data = x_full
+                y_data = y_full
+                status_msg = f"Generated Archimedean Spiral (a_x={x_a:.2f}, b_x={x_b:.2f}, a_y={y_a:.2f}, b_y={y_b:.2f})"
 
             # Set as current data
             self.x_data = x_data
             self.y_data = y_data
             self.data_info_label.config(text=f"Points: {len(x_data)}")
             self.update_display()
-            self.status_label.config(text=f"Generated Archimedean Spiral (a_x={x_a:.2f}, b_x={x_b:.2f}, a_y={y_a:.2f}, b_y={y_b:.2f})")
+            self.status_label.config(text=status_msg)
 
             # Apply parameters and generate audio
             self.apply_parameters()
