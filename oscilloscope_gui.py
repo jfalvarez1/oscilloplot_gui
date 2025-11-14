@@ -1916,7 +1916,7 @@ class OscilloscopeGUI:
         """Open a canvas for drawing custom patterns"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Draw Pattern")
-        dialog.geometry("600x650")
+        dialog.geometry("550x650")
 
         # Instructions
         instruction_frame = ttk.Frame(dialog)
@@ -1926,11 +1926,11 @@ class OscilloscopeGUI:
         ttk.Label(instruction_frame, text="Click and drag to draw • The path will be traced in order",
                  font=('Arial', 8), foreground='gray').pack()
 
-        # Drawing canvas
+        # Drawing canvas (square aspect ratio to match oscilloscope display)
         canvas_frame = ttk.Frame(dialog)
         canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        canvas = tk.Canvas(canvas_frame, width=580, height=480, bg='white',
+        canvas = tk.Canvas(canvas_frame, width=500, height=500, bg='white',
                           highlightthickness=1, highlightbackground='gray')
         canvas.pack()
 
@@ -1976,21 +1976,20 @@ class OscilloscopeGUI:
                 messagebox.showwarning("No Drawing", "Please draw a pattern first!")
                 return
 
-            # Get canvas dimensions
-            canvas_width = 580
-            canvas_height = 480
+            # Get canvas dimensions (square aspect ratio)
+            canvas_size = 500
 
             # Convert canvas coordinates to normalized coordinates (-1 to 1)
             points = np.array(drawing_data['points'])
             x_canvas = points[:, 0]
             y_canvas = points[:, 1]
 
-            # Center and normalize
-            # X: left=0 -> -1, right=canvas_width -> 1
-            x_norm = (x_canvas - canvas_width/2) / (canvas_width/2)
+            # Center and normalize (canvas is square, so same scaling for both axes)
+            # X: left=0 -> -1, center=250 -> 0, right=500 -> 1
+            x_norm = (x_canvas - canvas_size/2) / (canvas_size/2)
 
-            # Y: top=0 -> 1, bottom=canvas_height -> -1 (flip Y axis)
-            y_norm = -(y_canvas - canvas_height/2) / (canvas_height/2)
+            # Y: top=0 -> 1, center=250 -> 0, bottom=500 -> -1 (flip Y axis)
+            y_norm = -(y_canvas - canvas_size/2) / (canvas_size/2)
 
             # Set as current data
             self.x_data = x_norm
