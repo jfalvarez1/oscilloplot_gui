@@ -43,14 +43,18 @@ class OscilloscopeGUI:
         # Effect change debouncing
         self.effect_change_timer = None
         self.is_regenerating = False  # Flag to prevent simultaneous regenerations
-        
+
+        # Floating pattern data
+        self.floating_pattern_x = None
+        self.floating_pattern_y = None
+
         # Create GUI
         self.create_widgets()
         self.update_display()
 
-        # Initialize wavy and lightning labels with default values
+        # Initialize wavy and floating pattern labels with default values
         self.update_wavy_labels_only()
-        self.update_lightning_labels_only()
+        self.update_floating_labels_only()
 
         # Start update loops
         self.root.after(50, self.check_updates)
@@ -428,62 +432,66 @@ class OscilloscopeGUI:
 
         ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
 
-        # Lightning Bolts Effect
-        lightning_frame = ttk.LabelFrame(effects_frame, text="Lightning Bolts", padding="5")
-        lightning_frame.pack(fill=tk.X, pady=5)
+        # Floating Pattern Effect
+        floating_frame = ttk.LabelFrame(effects_frame, text="Floating Pattern", padding="5")
+        floating_frame.pack(fill=tk.X, pady=5)
 
-        self.lightning_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(lightning_frame, text="Add Lightning Bolts",
-                       variable=self.lightning_var,
+        self.floating_pattern_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(floating_frame, text="Add Floating Pattern",
+                       variable=self.floating_pattern_var,
                        command=self.effect_changed).pack(anchor=tk.W)
 
-        self.lightning_mode_var = tk.StringVar(value="Static")
-        ttk.Radiobutton(lightning_frame, text="Static", variable=self.lightning_mode_var,
-                       value="Static", command=self.effect_changed).pack(anchor=tk.W, padx=20)
-        ttk.Radiobutton(lightning_frame, text="Dynamic (Animated)", variable=self.lightning_mode_var,
-                       value="Dynamic", command=self.effect_changed).pack(anchor=tk.W, padx=20)
+        # Button to draw/set floating pattern
+        ttk.Button(floating_frame, text="Draw Floating Pattern",
+                  command=self.draw_floating_pattern).pack(fill=tk.X, padx=20, pady=5)
 
-        # Number of bolts with value label
-        bolt_count_frame = ttk.Frame(lightning_frame)
-        bolt_count_frame.pack(fill=tk.X, padx=20, pady=(5,0))
-        ttk.Label(bolt_count_frame, text="Number of Bolts:",
+        self.floating_pattern_status = ttk.Label(floating_frame,
+                                                 text="No pattern set",
+                                                 font=('Arial', 8, 'italic'),
+                                                 foreground='gray')
+        self.floating_pattern_status.pack(padx=20, pady=2)
+
+        # Number of instances with value label
+        instance_count_frame = ttk.Frame(floating_frame)
+        instance_count_frame.pack(fill=tk.X, padx=20, pady=(5,0))
+        ttk.Label(instance_count_frame, text="Number of Instances:",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.lightning_count_label = ttk.Label(bolt_count_frame, text="4",
+        self.floating_count_label = ttk.Label(instance_count_frame, text="4",
                  font=('Arial', 8, 'bold'))
-        self.lightning_count_label.pack(side=tk.RIGHT)
+        self.floating_count_label.pack(side=tk.RIGHT)
 
-        self.lightning_count = tk.IntVar(value=4)
-        ttk.Scale(lightning_frame, from_=1, to=12, orient=tk.HORIZONTAL,
-                 variable=self.lightning_count,
-                 command=lambda v: self.update_lightning_labels()).pack(fill=tk.X, padx=20)
+        self.floating_count = tk.IntVar(value=4)
+        ttk.Scale(floating_frame, from_=1, to=12, orient=tk.HORIZONTAL,
+                 variable=self.floating_count,
+                 command=lambda v: self.update_floating_labels()).pack(fill=tk.X, padx=20)
 
-        # Jaggedness with value label
-        jagged_frame = ttk.Frame(lightning_frame)
-        jagged_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(jagged_frame, text="Jaggedness (Detail):",
+        # Scale with value label
+        scale_frame = ttk.Frame(floating_frame)
+        scale_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(scale_frame, text="Pattern Scale:",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.lightning_jaggedness_label = ttk.Label(jagged_frame, text="3",
+        self.floating_scale_label = ttk.Label(scale_frame, text="0.30",
                  font=('Arial', 8, 'bold'))
-        self.lightning_jaggedness_label.pack(side=tk.RIGHT)
+        self.floating_scale_label.pack(side=tk.RIGHT)
 
-        self.lightning_jaggedness = tk.IntVar(value=3)
-        ttk.Scale(lightning_frame, from_=2, to=6, orient=tk.HORIZONTAL,
-                 variable=self.lightning_jaggedness,
-                 command=lambda v: self.update_lightning_labels()).pack(fill=tk.X, padx=20)
+        self.floating_scale = tk.DoubleVar(value=0.3)
+        ttk.Scale(floating_frame, from_=0.1, to=1.0, orient=tk.HORIZONTAL,
+                 variable=self.floating_scale,
+                 command=lambda v: self.update_floating_labels()).pack(fill=tk.X, padx=20)
 
-        # Bolt length with value label
-        length_frame = ttk.Frame(lightning_frame)
-        length_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(length_frame, text="Bolt Length:",
+        # Offset distance with value label
+        offset_frame = ttk.Frame(floating_frame)
+        offset_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(offset_frame, text="Distance from Center:",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.lightning_length_label = ttk.Label(length_frame, text="0.30",
+        self.floating_offset_label = ttk.Label(offset_frame, text="1.50",
                  font=('Arial', 8, 'bold'))
-        self.lightning_length_label.pack(side=tk.RIGHT)
+        self.floating_offset_label.pack(side=tk.RIGHT)
 
-        self.lightning_length = tk.DoubleVar(value=0.3)
-        ttk.Scale(lightning_frame, from_=0.1, to=0.8, orient=tk.HORIZONTAL,
-                 variable=self.lightning_length,
-                 command=lambda v: self.update_lightning_labels()).pack(fill=tk.X, padx=20)
+        self.floating_offset = tk.DoubleVar(value=1.5)
+        ttk.Scale(floating_frame, from_=0.5, to=3.0, orient=tk.HORIZONTAL,
+                 variable=self.floating_offset,
+                 command=lambda v: self.update_floating_labels()).pack(fill=tk.X, padx=20)
         
         # === ACTION BUTTONS ===
         button_frame = ttk.Frame(parent)
@@ -703,19 +711,19 @@ class OscilloscopeGUI:
         # Trigger effect changed for preview update
         self.effect_changed()
 
-    def update_lightning_labels_only(self):
-        """Update lightning effect value labels without triggering effect_changed"""
-        count = self.lightning_count.get()
-        jaggedness = self.lightning_jaggedness.get()
-        length = self.lightning_length.get()
+    def update_floating_labels_only(self):
+        """Update floating pattern value labels without triggering effect_changed"""
+        count = self.floating_count.get()
+        scale = self.floating_scale.get()
+        offset = self.floating_offset.get()
 
-        self.lightning_count_label.config(text=f"{count}")
-        self.lightning_jaggedness_label.config(text=f"{jaggedness}")
-        self.lightning_length_label.config(text=f"{length:.2f}")
+        self.floating_count_label.config(text=f"{count}")
+        self.floating_scale_label.config(text=f"{scale:.2f}")
+        self.floating_offset_label.config(text=f"{offset:.2f}")
 
-    def update_lightning_labels(self):
-        """Update lightning effect value labels and trigger effect preview"""
-        self.update_lightning_labels_only()
+    def update_floating_labels(self):
+        """Update floating pattern value labels and trigger effect preview"""
+        self.update_floating_labels_only()
         # Trigger effect changed for preview update
         self.effect_changed()
 
@@ -732,7 +740,7 @@ class OscilloscopeGUI:
         self.x_wavy_var.set(False)
         self.y_wavy_var.set(False)
         self.rotation_mode_var.set("Off")
-        self.lightning_var.set(False)
+        self.floating_pattern_var.set(False)
 
         # Reset values to defaults
         self.y_fade_steps.set(10)
@@ -749,14 +757,13 @@ class OscilloscopeGUI:
         self.y_wavy_freq.set(10.0)
         self.rotation_angle.set(0.0)
         self.rotation_speed.set(5.0)
-        self.lightning_mode_var.set("Static")
-        self.lightning_count.set(4)
-        self.lightning_jaggedness.set(3)
-        self.lightning_length.set(0.3)
+        self.floating_count.set(4)
+        self.floating_scale.set(0.3)
+        self.floating_offset.set(1.5)
 
-        # Update wavy and lightning labels to reflect reset values
+        # Update wavy and floating pattern labels to reflect reset values
         self.update_wavy_labels_only()
-        self.update_lightning_labels_only()
+        self.update_floating_labels_only()
 
         # Update display
         self.update_display()
@@ -924,28 +931,37 @@ class OscilloscopeGUI:
                 w_y = self.y_wavy_freq.get()
                 y = y + K_y * np.sin(w_y * t)
 
-        # Apply lightning bolts if enabled
-        if self.lightning_var.get():
-            num_bolts = self.lightning_count.get()
-            jaggedness = self.lightning_jaggedness.get()
-            length = self.lightning_length.get()
-            is_dynamic = self.lightning_mode_var.get() == "Dynamic"
+        # Apply floating pattern if enabled
+        if self.floating_pattern_var.get() and self.floating_pattern_x is not None:
+            num_instances = self.floating_count.get()
+            pattern_scale = self.floating_scale.get()
+            distance = self.floating_offset.get()
 
-            # For static preview, use frame 0; for dynamic, use time-based index
-            import time
-            frame_idx = int(time.time() * 5) if is_dynamic else 0
+            # Create instances of the pattern around the center
+            all_pattern_x = []
+            all_pattern_y = []
 
-            # Use current x, y (after effects) for bounding box calculation
-            x_lightning, y_lightning = self.generate_lightning_bolts(
-                x, y, num_bolts, jaggedness, length,
-                dynamic=is_dynamic, frame_idx=frame_idx
-            )
+            for i in range(num_instances):
+                # Distribute instances evenly in a circle
+                angle = (2 * np.pi * i) / num_instances
+                offset_x = distance * np.cos(angle)
+                offset_y = distance * np.sin(angle)
 
-            # Don't normalize lightning separately - keep it in same coordinate space
-            if len(x_lightning) > 0:
-                # Prepend lightning (so it's drawn first as background)
-                x = np.concatenate([x_lightning, x])
-                y = np.concatenate([y_lightning, y])
+                # Scale and position the pattern
+                scaled_x = self.floating_pattern_x * pattern_scale + offset_x
+                scaled_y = self.floating_pattern_y * pattern_scale + offset_y
+
+                all_pattern_x.append(scaled_x)
+                all_pattern_y.append(scaled_y)
+
+            # Combine all pattern instances
+            if all_pattern_x:
+                pattern_x = np.concatenate(all_pattern_x)
+                pattern_y = np.concatenate(all_pattern_y)
+
+                # Prepend pattern (so it's drawn first as background)
+                x = np.concatenate([pattern_x, x])
+                y = np.concatenate([pattern_y, y])
 
         return x, y
     
@@ -1238,54 +1254,37 @@ class OscilloscopeGUI:
             x_repeated = self.normalize_data(x_rot)
             y_repeated = self.normalize_data(y_rot)
 
-        # Add lightning bolts if enabled (before tiling)
-        if self.lightning_var.get():
-            num_bolts = self.lightning_count.get()
-            jaggedness = self.lightning_jaggedness.get()
-            length = self.lightning_length.get()
-            is_dynamic = self.lightning_mode_var.get() == "Dynamic"
+        # Add floating pattern if enabled (before tiling)
+        if self.floating_pattern_var.get() and self.floating_pattern_x is not None:
+            num_instances = self.floating_count.get()
+            pattern_scale = self.floating_scale.get()
+            distance = self.floating_offset.get()
 
-            if is_dynamic:
-                # For dynamic mode, generate multiple variations
-                num_variations = 5
-                lightning_variations_x = []
-                lightning_variations_y = []
+            # Create instances of the pattern around the center
+            all_pattern_x = []
+            all_pattern_y = []
 
-                for variation_idx in range(num_variations):
-                    x_lightning, y_lightning = self.generate_lightning_bolts(
-                        x_repeated, y_repeated, num_bolts, jaggedness, length,
-                        dynamic=True, frame_idx=variation_idx
-                    )
-                    if len(x_lightning) > 0:
-                        # Keep lightning in same coordinate space as pattern
-                        lightning_variations_x.append(x_lightning)
-                        lightning_variations_y.append(y_lightning)
+            for i in range(num_instances):
+                # Distribute instances evenly in a circle
+                angle = (2 * np.pi * i) / num_instances
+                offset_x = distance * np.cos(angle)
+                offset_y = distance * np.sin(angle)
 
-                # Combine pattern with lightning for each variation
-                if lightning_variations_x:
-                    # Prepend lightning to pattern (so pattern draws on top)
-                    combined_x = []
-                    combined_y = []
-                    for i in range(num_variations):
-                        combined_x.append(lightning_variations_x[i])
-                        combined_x.append(x_repeated)
-                        combined_y.append(lightning_variations_y[i])
-                        combined_y.append(y_repeated)
+                # Scale and position the pattern
+                scaled_x = self.floating_pattern_x * pattern_scale + offset_x
+                scaled_y = self.floating_pattern_y * pattern_scale + offset_y
 
-                    x_repeated = np.concatenate(combined_x)
-                    y_repeated = np.concatenate(combined_y)
-            else:
-                # For static mode, generate once and prepend
-                x_lightning, y_lightning = self.generate_lightning_bolts(
-                    x_repeated, y_repeated, num_bolts, jaggedness, length,
-                    dynamic=False, frame_idx=0
-                )
+                all_pattern_x.append(scaled_x)
+                all_pattern_y.append(scaled_y)
 
-                if len(x_lightning) > 0:
-                    # Keep lightning in same coordinate space as pattern
-                    # Prepend lightning to pattern (so pattern draws on top)
-                    x_repeated = np.concatenate([x_lightning, x_repeated])
-                    y_repeated = np.concatenate([y_lightning, y_repeated])
+            # Combine all pattern instances
+            if all_pattern_x:
+                pattern_x = np.concatenate(all_pattern_x)
+                pattern_y = np.concatenate(all_pattern_y)
+
+                # Prepend pattern (so main image draws on top)
+                x_repeated = np.concatenate([pattern_x, x_repeated])
+                y_repeated = np.concatenate([pattern_y, y_repeated])
 
         # Calculate playback rate and target length
         fs = self.sample_rate_var.get()
@@ -1373,137 +1372,6 @@ class OscilloscopeGUI:
         y_reflected = np.concatenate([y, y_stage2, y_stage3, y_stage4])
         
         return x_reflected, y_reflected
-
-    def generate_lightning_bolt(self, x_start, y_start, x_end, y_end, jaggedness, seed=None):
-        """
-        Generate a single lightning bolt using recursive midpoint displacement
-        """
-        if seed is not None:
-            np.random.seed(seed)
-
-        # Create initial line from start to end
-        points = [(x_start, y_start), (x_end, y_end)]
-
-        # Recursively subdivide the line with random displacement
-        for iteration in range(jaggedness):
-            new_points = [points[0]]
-            for i in range(len(points) - 1):
-                x1, y1 = points[i]
-                x2, y2 = points[i + 1]
-
-                # Calculate midpoint
-                mid_x = (x1 + x2) / 2
-                mid_y = (y1 + y2) / 2
-
-                # Calculate displacement perpendicular to the line
-                dx = x2 - x1
-                dy = y2 - y1
-                length = np.sqrt(dx**2 + dy**2)
-
-                # Perpendicular vector (normalized)
-                if length > 0:
-                    perp_x = -dy / length
-                    perp_y = dx / length
-                else:
-                    perp_x, perp_y = 0, 0
-
-                # Random displacement (decreases with each iteration)
-                displacement = (np.random.random() - 0.5) * length * 0.5 / (2 ** iteration)
-
-                # Apply displacement
-                mid_x += perp_x * displacement
-                mid_y += perp_y * displacement
-
-                new_points.append((mid_x, mid_y))
-                new_points.append(points[i + 1])
-
-            points = new_points
-
-        # Convert to arrays
-        x_bolt = np.array([p[0] for p in points])
-        y_bolt = np.array([p[1] for p in points])
-
-        return x_bolt, y_bolt
-
-    def generate_lightning_bolts(self, x_data, y_data, num_bolts, jaggedness, length, dynamic=False, frame_idx=0):
-        """
-        Generate multiple lightning bolts emanating from the outer edges of the image
-        """
-        # Find bounding box of current data
-        x_min, x_max = np.min(x_data), np.max(x_data)
-        y_min, y_max = np.min(y_data), np.max(y_data)
-
-        # Expand bounding box slightly
-        x_range = x_max - x_min
-        y_range = y_max - y_min
-        margin = 0.05
-
-        x_min -= x_range * margin
-        x_max += x_range * margin
-        y_min -= y_range * margin
-        y_max += y_range * margin
-
-        all_x_bolts = []
-        all_y_bolts = []
-
-        # Generate bolts from different edge positions
-        for i in range(num_bolts):
-            # Seed for deterministic static bolts or random for dynamic
-            if dynamic:
-                # Add frame index to seed for animation
-                seed = i * 1000 + frame_idx
-            else:
-                seed = i + 42  # Fixed seed for static mode
-
-            # Set seed before any random operations
-            if seed is not None:
-                np.random.seed(seed)
-
-            # Choose which edge (top, bottom, left, right)
-            edge = i % 4
-            position = (i / num_bolts) + (frame_idx * 0.1 if dynamic else 0)
-
-            # Random offset for endpoint (now uses seeded random)
-            rand_offset = (np.random.random() - 0.5) * 2
-
-            if edge == 0:  # Top edge
-                x_start = x_min + (x_max - x_min) * (position % 1)
-                y_start = y_max
-                x_end = x_start + rand_offset * length * x_range
-                y_end = y_max + length * y_range
-            elif edge == 1:  # Bottom edge
-                x_start = x_min + (x_max - x_min) * (position % 1)
-                y_start = y_min
-                x_end = x_start + rand_offset * length * x_range
-                y_end = y_min - length * y_range
-            elif edge == 2:  # Left edge
-                x_start = x_min
-                y_start = y_min + (y_max - y_min) * (position % 1)
-                x_end = x_min - length * x_range
-                y_end = y_start + rand_offset * length * y_range
-            else:  # Right edge
-                x_start = x_max
-                y_start = y_min + (y_max - y_min) * (position % 1)
-                x_end = x_max + length * x_range
-                y_end = y_start + rand_offset * length * y_range
-
-            # Generate the bolt (seed already set above)
-            x_bolt, y_bolt = self.generate_lightning_bolt(
-                x_start, y_start, x_end, y_end, jaggedness, seed
-            )
-
-            all_x_bolts.append(x_bolt)
-            all_y_bolts.append(y_bolt)
-
-        # Combine all bolts
-        if all_x_bolts:
-            x_lightning = np.concatenate(all_x_bolts)
-            y_lightning = np.concatenate(all_y_bolts)
-        else:
-            x_lightning = np.array([])
-            y_lightning = np.array([])
-
-        return x_lightning, y_lightning
 
     def create_fade_sequence(self, x_norm, y_norm, n_fade, enable_reflections=False):
         """
@@ -2012,6 +1880,117 @@ class OscilloscopeGUI:
         ttk.Button(button_frame, text="Clear", command=clear_canvas).pack(
             side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Apply Drawing", command=apply_drawing).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+            side=tk.LEFT, padx=5)
+
+    def draw_floating_pattern(self):
+        """Open a canvas for drawing a floating pattern"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Draw Floating Pattern")
+        dialog.geometry("550x650")
+
+        # Instructions
+        instruction_frame = ttk.Frame(dialog)
+        instruction_frame.pack(pady=10)
+        ttk.Label(instruction_frame, text="Draw a small pattern to float around the image:",
+                 font=('Arial', 10, 'bold')).pack()
+        ttk.Label(instruction_frame, text="Click and drag to draw • Keep it small and simple",
+                 font=('Arial', 8), foreground='gray').pack()
+
+        # Drawing canvas (square aspect ratio)
+        canvas_frame = ttk.Frame(dialog)
+        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        canvas = tk.Canvas(canvas_frame, width=500, height=500, bg='white',
+                          highlightthickness=1, highlightbackground='gray')
+        canvas.pack()
+
+        # Drawing state
+        drawing_data = {
+            'is_drawing': False,
+            'points': [],  # Store (x, y) tuples
+            'canvas_objects': []  # Store line IDs for clearing
+        }
+
+        def start_drawing(event):
+            """Start drawing when mouse button is pressed"""
+            drawing_data['is_drawing'] = True
+            drawing_data['points'].append((event.x, event.y))
+
+        def draw(event):
+            """Draw as mouse moves"""
+            if drawing_data['is_drawing']:
+                x, y = event.x, event.y
+                prev_x, prev_y = drawing_data['points'][-1]
+
+                # Draw line from previous point to current point
+                line_id = canvas.create_line(prev_x, prev_y, x, y,
+                                             fill='blue', width=2, capstyle=tk.ROUND)
+                drawing_data['canvas_objects'].append(line_id)
+                drawing_data['points'].append((x, y))
+
+        def stop_drawing(event):
+            """Stop drawing when mouse button is released"""
+            drawing_data['is_drawing'] = False
+
+        def clear_canvas():
+            """Clear the canvas"""
+            for obj_id in drawing_data['canvas_objects']:
+                canvas.delete(obj_id)
+            drawing_data['canvas_objects'] = []
+            drawing_data['points'] = []
+
+        def apply_drawing():
+            """Store drawn pattern for floating"""
+            if len(drawing_data['points']) < 2:
+                messagebox.showwarning("No Drawing", "Please draw a pattern first!")
+                return
+
+            # Get canvas dimensions
+            canvas_size = 500
+
+            # Convert canvas coordinates to normalized coordinates (-1 to 1)
+            points = np.array(drawing_data['points'])
+            x_canvas = points[:, 0]
+            y_canvas = points[:, 1]
+
+            # Center and normalize
+            x_norm = (x_canvas - canvas_size/2) / (canvas_size/2)
+            y_norm = -(y_canvas - canvas_size/2) / (canvas_size/2)
+
+            # Center the pattern around origin
+            x_centered = x_norm - np.mean(x_norm)
+            y_centered = y_norm - np.mean(y_norm)
+
+            # Store pattern
+            self.floating_pattern_x = x_centered
+            self.floating_pattern_y = y_centered
+
+            # Update status label
+            self.floating_pattern_status.config(
+                text=f"Pattern set ({len(x_centered)} points)",
+                foreground='blue'
+            )
+
+            # Trigger effect update if enabled
+            if self.floating_pattern_var.get():
+                self.effect_changed()
+
+            dialog.destroy()
+
+        # Bind mouse events
+        canvas.bind("<Button-1>", start_drawing)
+        canvas.bind("<B1-Motion>", draw)
+        canvas.bind("<ButtonRelease-1>", stop_drawing)
+
+        # Button frame
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Button(button_frame, text="Clear", command=clear_canvas).pack(
+            side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Apply Pattern", command=apply_drawing).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
             side=tk.LEFT, padx=5)
