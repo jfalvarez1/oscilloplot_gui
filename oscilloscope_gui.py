@@ -2495,11 +2495,19 @@ class OscilloscopeGUI:
         trail_entry = ttk.Entry(chaser_params_frame, textvariable=trail_length_var, width=10)
         trail_entry.grid(row=0, column=2, padx=5)
 
+        # Point repetitions parameter (controls speed)
+        ttk.Label(chaser_params_frame, text="Point Repetitions (speed):").grid(row=1, column=0, sticky=tk.W, pady=5, padx=5)
+        point_reps_var = tk.IntVar(value=10)
+        reps_scale = ttk.Scale(chaser_params_frame, from_=1, to=100, variable=point_reps_var, orient=tk.HORIZONTAL)
+        reps_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
+        reps_entry = ttk.Entry(chaser_params_frame, textvariable=point_reps_var, width=10)
+        reps_entry.grid(row=1, column=2, padx=5)
+
         chaser_params_frame.columnconfigure(1, weight=1)
 
         # Info label
         chaser_info = ttk.Label(chaser_frame,
-                               text="Each segment repeats for full duration, then moves to next segment",
+                               text="Higher repetitions = slower movement. Each point repeated N times.",
                                font=('Arial', 8, 'italic'), foreground='gray')
         chaser_info.pack(pady=5)
 
@@ -2563,22 +2571,23 @@ class OscilloscopeGUI:
 
             # Check if chaser effect is enabled
             if chaser_enabled_var.get():
-                # Chaser effect: Each segment is repeated for the full duration
-                # Segment 1: x[0:n] repeated for full duration
-                # Segment 2: x[n:2n] repeated for full duration
-                # etc.
+                # Chaser effect: Each point is repeated N times, then segment is tiled
+                # This creates: x[0], x[0], x[0], x[1], x[1], x[1], x[2], x[2], x[2], ...
                 trail_length = int(trail_length_var.get())
+                point_reps = int(point_reps_var.get())
 
                 # Ensure trail length is valid
                 if trail_length < 1:
                     trail_length = 1
                 if trail_length > num_points:
                     trail_length = num_points
+                if point_reps < 1:
+                    point_reps = 1
 
                 # Calculate number of complete chunks
                 num_chunks = num_points // trail_length
 
-                # Create segments where each segment is tiled to fill the base pattern length
+                # Create segments where each point is repeated, then tiled
                 x_segments = []
                 y_segments = []
 
@@ -2590,11 +2599,17 @@ class OscilloscopeGUI:
                     x_seg = x_full[start_idx:end_idx]
                     y_seg = y_full[start_idx:end_idx]
 
-                    # Tile/repeat the segment to fill num_points
+                    # Repeat each individual point N times
+                    # This creates: [x0, x0, x0, x1, x1, x1, x2, x2, x2, ...]
+                    x_repeated = np.repeat(x_seg, point_reps)
+                    y_repeated = np.repeat(y_seg, point_reps)
+
+                    # Tile/repeat the expanded segment to fill num_points
                     # This makes each segment play for the full duration
-                    num_repeats = int(np.ceil(num_points / trail_length))
-                    x_tiled = np.tile(x_seg, num_repeats)[:num_points]
-                    y_tiled = np.tile(y_seg, num_repeats)[:num_points]
+                    segment_len = len(x_repeated)
+                    num_repeats = int(np.ceil(num_points / segment_len))
+                    x_tiled = np.tile(x_repeated, num_repeats)[:num_points]
+                    y_tiled = np.tile(y_repeated, num_repeats)[:num_points]
 
                     x_segments.append(x_tiled)
                     y_segments.append(y_tiled)
@@ -2605,10 +2620,15 @@ class OscilloscopeGUI:
                     x_seg = x_full[num_chunks * trail_length:]
                     y_seg = y_full[num_chunks * trail_length:]
 
-                    # Tile the remainder segment
-                    num_repeats = int(np.ceil(num_points / len(x_seg)))
-                    x_tiled = np.tile(x_seg, num_repeats)[:num_points]
-                    y_tiled = np.tile(y_seg, num_repeats)[:num_points]
+                    # Repeat each point
+                    x_repeated = np.repeat(x_seg, point_reps)
+                    y_repeated = np.repeat(y_seg, point_reps)
+
+                    # Tile the expanded remainder segment
+                    segment_len = len(x_repeated)
+                    num_repeats = int(np.ceil(num_points / segment_len))
+                    x_tiled = np.tile(x_repeated, num_repeats)[:num_points]
+                    y_tiled = np.tile(y_repeated, num_repeats)[:num_points]
 
                     x_segments.append(x_tiled)
                     y_segments.append(y_tiled)
@@ -2618,7 +2638,7 @@ class OscilloscopeGUI:
                 x_data = np.concatenate(x_segments)
                 y_data = np.concatenate(y_segments)
 
-                status_msg = f"Generated Archimedean Spiral with Chaser (trail={trail_length} points, {len(x_segments)} segments)"
+                status_msg = f"Generated Archimedean Spiral with Chaser (trail={trail_length} pts, reps={point_reps}, {len(x_segments)} segs)"
             else:
                 # No chaser effect: use full spiral
                 x_data = x_full
