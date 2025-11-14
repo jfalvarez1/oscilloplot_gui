@@ -282,7 +282,37 @@ class OscilloscopeGUI:
         self.shrink_speed_spin.pack(anchor=tk.W, padx=20)
 
         ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
-        
+
+        # Noise Effects
+        noise_frame = ttk.LabelFrame(effects_frame, text="Noise", padding="5")
+        noise_frame.pack(fill=tk.X, pady=5)
+
+        self.x_noise_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(noise_frame, text="Add X-Channel Noise",
+                       variable=self.x_noise_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        ttk.Label(noise_frame, text="X Noise Amplitude:",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.x_noise_amp = tk.DoubleVar(value=0.05)
+        ttk.Scale(noise_frame, from_=0.001, to=0.3, orient=tk.HORIZONTAL,
+                 variable=self.x_noise_amp,
+                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+
+        self.y_noise_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(noise_frame, text="Add Y-Channel Noise",
+                       variable=self.y_noise_var,
+                       command=self.effect_changed).pack(anchor=tk.W, pady=(10,0))
+
+        ttk.Label(noise_frame, text="Y Noise Amplitude:",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.y_noise_amp = tk.DoubleVar(value=0.05)
+        ttk.Scale(noise_frame, from_=0.001, to=0.3, orient=tk.HORIZONTAL,
+                 variable=self.y_noise_amp,
+                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
         # Rotation
         rotation_frame = ttk.LabelFrame(effects_frame, text="Rotation", padding="5")
         rotation_frame.pack(fill=tk.X, pady=5)
@@ -512,6 +542,8 @@ class OscilloscopeGUI:
         self.x_fade_var.set(False)
         self.alternate_xy_fade_var.set(False)
         self.shrink_var.set(False)
+        self.x_noise_var.set(False)
+        self.y_noise_var.set(False)
         self.rotation_mode_var.set("Off")
 
         # Reset values to defaults
@@ -521,6 +553,8 @@ class OscilloscopeGUI:
         self.x_fade_speed.set(1)
         self.shrink_steps.set(10)
         self.shrink_speed.set(1)
+        self.x_noise_amp.set(0.05)
+        self.y_noise_amp.set(0.05)
         self.rotation_angle.set(0.0)
         self.rotation_speed.set(5.0)
 
@@ -980,6 +1014,17 @@ class OscilloscopeGUI:
         x_full = np.tile(x_repeated, num_tiles)[:target_length]
         y_full = np.tile(y_repeated, num_tiles)[:target_length]
 
+        # Apply noise if enabled (independent on each channel)
+        if self.x_noise_var.get():
+            x_noise_amp = self.x_noise_amp.get()
+            x_noise = np.random.uniform(-x_noise_amp, x_noise_amp, len(x_full))
+            x_full = x_full + x_noise
+
+        if self.y_noise_var.get():
+            y_noise_amp = self.y_noise_amp.get()
+            y_noise = np.random.uniform(-y_noise_amp, y_noise_amp, len(y_full))
+            y_full = y_full + y_noise
+
         # Create stereo
         stereo = np.column_stack([x_full, y_full]).astype(np.float32)
 
@@ -1311,39 +1356,119 @@ class OscilloscopeGUI:
             messagebox.showerror("Error", f"Failed to load NumPy file:\n{str(e)}")
     
     def generate_test_pattern(self):
-        """Generate a test pattern"""
+        """Generate a test pattern with parametric equations"""
         patterns = {
+            # Basic shapes
             "Circle": lambda t: (np.cos(t), np.sin(t)),
+            "Ellipse": lambda t: (1.5*np.cos(t), np.sin(t)),
+
+            # Lissajous curves with different phase shifts
             "Lissajous 3:2": lambda t: (np.sin(3*t), np.sin(2*t)),
-            "Star": lambda t: (np.cos(t) * (1 + 0.5*np.sin(5*t)), 
-                              np.sin(t) * (1 + 0.5*np.sin(5*t))),
-            "Spiral": lambda t: (t/10*np.cos(t), t/10*np.sin(t)),
+            "Lissajous 3:2 (π/2 phase)": lambda t: (np.sin(3*t), np.sin(2*t + np.pi/2)),
+            "Lissajous 5:4": lambda t: (np.sin(5*t), np.sin(4*t)),
+            "Lissajous 5:4 (π/4 phase)": lambda t: (np.sin(5*t), np.sin(4*t + np.pi/4)),
+            "Lissajous 7:5 (π/3 phase)": lambda t: (np.sin(7*t), np.sin(5*t + np.pi/3)),
+
+            # Stars and flowers
+            "Star (5-point)": lambda t: (np.cos(t) * (1 + 0.5*np.sin(5*t)),
+                                         np.sin(t) * (1 + 0.5*np.sin(5*t))),
+            "Flower (6-petal)": lambda t: (np.cos(t) * (1 + 0.3*np.cos(6*t)),
+                                          np.sin(t) * (1 + 0.3*np.cos(6*t))),
+            "Rose Curve (4-petal)": lambda t: (np.cos(4*t) * np.cos(t),
+                                               np.cos(4*t) * np.sin(t)),
+
+            # Spirals
+            "Spiral (Archimedean)": lambda t: (t/10*np.cos(t), t/10*np.sin(t)),
+            "Spiral (Logarithmic)": lambda t: (np.exp(t/10)*np.cos(t), np.exp(t/10)*np.sin(t)),
+
+            # Complex parametric curves
+            "Hypotrochoid": lambda t: ((3)*np.cos(t) + (1)*np.cos((3)/(1)*t),
+                                       (3)*np.sin(t) - (1)*np.sin((3)/(1)*t)),
+            "Epitrochoid": lambda t: ((5)*np.cos(t) - (2)*np.cos((5)/(2)*t),
+                                      (5)*np.sin(t) - (2)*np.sin((5)/(2)*t)),
+            "Butterfly Curve": lambda t: (np.sin(t)*(np.exp(np.cos(t)) - 2*np.cos(4*t) - np.sin(t/12)**5),
+                                         np.cos(t)*(np.exp(np.cos(t)) - 2*np.cos(4*t) - np.sin(t/12)**5)),
+
+            # Figure-8 and infinity
+            "Figure-8": lambda t: (np.sin(t), np.sin(2*t)),
+            "Infinity (∞)": lambda t: (np.cos(t), np.sin(2*t)),
+
+            # Cardioid and epicycloid
+            "Cardioid": lambda t: ((1-np.cos(t))*np.cos(t), (1-np.cos(t))*np.sin(t)),
+            "Deltoid": lambda t: (2*np.cos(t) + np.cos(2*t), 2*np.sin(t) - np.sin(2*t)),
         }
-        
-        # Simple dialog
+
+        # Create scrollable dialog
         dialog = tk.Toplevel(self.root)
         dialog.title("Select Test Pattern")
-        dialog.geometry("250x200")
-        
-        ttk.Label(dialog, text="Choose a pattern:").pack(pady=10)
-        
+        dialog.geometry("350x500")
+
+        ttk.Label(dialog, text="Choose a parametric pattern:",
+                 font=('Arial', 10, 'bold')).pack(pady=10)
+
+        # Create canvas with scrollbar
+        canvas = tk.Canvas(dialog, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(dialog, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
         selected = tk.StringVar(value="Circle")
-        
-        for name in patterns.keys():
-            ttk.Radiobutton(dialog, text=name, variable=selected, 
-                           value=name).pack(anchor=tk.W, padx=20)
-        
+
+        # Group patterns by category
+        categories = {
+            "Basic Shapes": ["Circle", "Ellipse"],
+            "Lissajous Curves": [k for k in patterns.keys() if "Lissajous" in k],
+            "Stars & Flowers": ["Star (5-point)", "Flower (6-petal)", "Rose Curve (4-petal)"],
+            "Spirals": ["Spiral (Archimedean)", "Spiral (Logarithmic)"],
+            "Complex Curves": ["Hypotrochoid", "Epitrochoid", "Butterfly Curve",
+                              "Cardioid", "Deltoid"],
+            "Special": ["Figure-8", "Infinity (∞)"]
+        }
+
+        for category, pattern_names in categories.items():
+            ttk.Label(scrollable_frame, text=category,
+                     font=('Arial', 9, 'bold')).pack(anchor=tk.W, padx=10, pady=(10, 5))
+            for name in pattern_names:
+                ttk.Radiobutton(scrollable_frame, text=name, variable=selected,
+                               value=name).pack(anchor=tk.W, padx=30)
+
+        canvas.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=(0, 10))
+        scrollbar.pack(side="right", fill="y", pady=(0, 10))
+
+        # Mouse wheel scrolling
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", on_mousewheel)
+
         def apply():
-            t = np.linspace(0, 4*np.pi, 500)
-            x, y = patterns[selected.get()](t)
+            pattern_name = selected.get()
+
+            # Different time ranges for different patterns
+            if "Spiral" in pattern_name:
+                t = np.linspace(0, 6*np.pi, 800)
+            elif "Butterfly" in pattern_name:
+                t = np.linspace(0, 12*np.pi, 1000)
+            elif "Lissajous" in pattern_name or "Figure" in pattern_name or "Infinity" in pattern_name:
+                t = np.linspace(0, 2*np.pi, 500)
+            else:
+                t = np.linspace(0, 2*np.pi, 600)
+
+            x, y = patterns[pattern_name](t)
             self.x_data = x
             self.y_data = y
             self.data_info_label.config(text=f"Points: {len(x)}")
             self.update_display()
-            self.status_label.config(text=f"Generated {selected.get()} pattern")
+            self.status_label.config(text=f"Generated {pattern_name} pattern")
             dialog.destroy()
-        
-        ttk.Button(dialog, text="Generate", command=apply).pack(pady=20)
+
+        ttk.Button(dialog, text="Generate", command=apply).pack(pady=10)
     
     def save_to_wav(self):
         """Save current audio to WAV file"""
