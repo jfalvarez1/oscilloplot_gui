@@ -900,38 +900,6 @@ class OscilloscopeGUI:
                 w_y = self.y_wavy_freq.get()
                 y = y + K_y * np.sin(w_y * t)
 
-        # Apply floating pattern if enabled
-        if self.floating_pattern_var.get() and self.floating_pattern_x is not None:
-            num_instances = self.floating_count.get()
-            pattern_scale = self.floating_scale.get()
-            distance = self.floating_offset.get()
-
-            # Create instances of the pattern around the center
-            all_pattern_x = []
-            all_pattern_y = []
-
-            for i in range(num_instances):
-                # Distribute instances evenly in a circle
-                angle = (2 * np.pi * i) / num_instances
-                offset_x = distance * np.cos(angle)
-                offset_y = distance * np.sin(angle)
-
-                # Scale and position the pattern
-                scaled_x = self.floating_pattern_x * pattern_scale + offset_x
-                scaled_y = self.floating_pattern_y * pattern_scale + offset_y
-
-                all_pattern_x.append(scaled_x)
-                all_pattern_y.append(scaled_y)
-
-            # Combine all pattern instances
-            if all_pattern_x:
-                pattern_x = np.concatenate(all_pattern_x)
-                pattern_y = np.concatenate(all_pattern_y)
-
-                # Prepend pattern (so it's drawn first as background)
-                x = np.concatenate([pattern_x, x])
-                y = np.concatenate([pattern_y, y])
-
         return x, y
     
     def toggle_live_preview(self):
