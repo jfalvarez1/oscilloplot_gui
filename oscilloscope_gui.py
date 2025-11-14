@@ -2028,7 +2028,7 @@ class OscilloscopeGUI:
         x_freq_var = tk.DoubleVar(value=1.0)
         ttk.Entry(x_param_row, textvariable=x_freq_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        # Row 3: Phase options
+        # Row 3: Phase sweep options
         x_phase_sweep_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(x_add_frame, text="Phase Sweep",
                        variable=x_phase_sweep_var).pack(anchor=tk.W, pady=2)
@@ -2047,6 +2047,21 @@ class OscilloscopeGUI:
         x_sweep_steps_var = tk.IntVar(value=20)
         ttk.Entry(x_phase_row, textvariable=x_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
 
+        # Frequency sweep options
+        x_freq_sweep_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(x_add_frame, text="Frequency Sweep",
+                       variable=x_freq_sweep_var).pack(anchor=tk.W, pady=2)
+
+        x_freq_sweep_row = ttk.Frame(x_add_frame)
+        x_freq_sweep_row.pack(fill=tk.X, pady=2)
+        ttk.Label(x_freq_sweep_row, text="ω start:").pack(side=tk.LEFT, padx=(5, 2))
+        x_freq_start_var = tk.DoubleVar(value=1.0)
+        ttk.Entry(x_freq_sweep_row, textvariable=x_freq_start_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(x_freq_sweep_row, text="ω end:").pack(side=tk.LEFT, padx=(5, 2))
+        x_freq_end_var = tk.DoubleVar(value=5.0)
+        ttk.Entry(x_freq_sweep_row, textvariable=x_freq_end_var, width=8).pack(side=tk.LEFT, padx=2)
+
         # Row 4: Add button
         x_button_row = ttk.Frame(x_add_frame)
         x_button_row.pack(fill=tk.X, pady=(5, 0))
@@ -2059,6 +2074,9 @@ class OscilloscopeGUI:
                 'phase_sweep': x_phase_sweep_var.get(),
                 'phase_start': x_phase_start_var.get(),
                 'phase_end': x_phase_end_var.get(),
+                'freq_sweep': x_freq_sweep_var.get(),
+                'freq_start': x_freq_start_var.get(),
+                'freq_end': x_freq_end_var.get(),
                 'sweep_steps': x_sweep_steps_var.get()
             })
             refresh_x_display()
@@ -2088,7 +2106,7 @@ class OscilloscopeGUI:
         y_freq_var = tk.DoubleVar(value=1.0)
         ttk.Entry(y_param_row, textvariable=y_freq_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        # Row 3: Phase options
+        # Row 3: Phase sweep options
         y_phase_sweep_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(y_add_frame, text="Phase Sweep",
                        variable=y_phase_sweep_var).pack(anchor=tk.W, pady=2)
@@ -2107,6 +2125,21 @@ class OscilloscopeGUI:
         y_sweep_steps_var = tk.IntVar(value=20)
         ttk.Entry(y_phase_row, textvariable=y_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
 
+        # Frequency sweep options
+        y_freq_sweep_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(y_add_frame, text="Frequency Sweep",
+                       variable=y_freq_sweep_var).pack(anchor=tk.W, pady=2)
+
+        y_freq_sweep_row = ttk.Frame(y_add_frame)
+        y_freq_sweep_row.pack(fill=tk.X, pady=2)
+        ttk.Label(y_freq_sweep_row, text="ω start:").pack(side=tk.LEFT, padx=(5, 2))
+        y_freq_start_var = tk.DoubleVar(value=1.0)
+        ttk.Entry(y_freq_sweep_row, textvariable=y_freq_start_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(y_freq_sweep_row, text="ω end:").pack(side=tk.LEFT, padx=(5, 2))
+        y_freq_end_var = tk.DoubleVar(value=5.0)
+        ttk.Entry(y_freq_sweep_row, textvariable=y_freq_end_var, width=8).pack(side=tk.LEFT, padx=2)
+
         # Row 4: Add button
         y_button_row = ttk.Frame(y_add_frame)
         y_button_row.pack(fill=tk.X, pady=(5, 0))
@@ -2119,6 +2152,9 @@ class OscilloscopeGUI:
                 'phase_sweep': y_phase_sweep_var.get(),
                 'phase_start': y_phase_start_var.get(),
                 'phase_end': y_phase_end_var.get(),
+                'freq_sweep': y_freq_sweep_var.get(),
+                'freq_start': y_freq_start_var.get(),
+                'freq_end': y_freq_end_var.get(),
                 'sweep_steps': y_sweep_steps_var.get()
             })
             refresh_y_display()
@@ -2141,14 +2177,15 @@ class OscilloscopeGUI:
             num_points = 1000
             t = np.linspace(0, 2*np.pi, num_points)
 
-            # Check if any term has phase sweep enabled
+            # Check if any term has phase or frequency sweep enabled
             has_phase_sweep = any(term.get('phase_sweep', False) for term in x_terms + y_terms)
+            has_freq_sweep = any(term.get('freq_sweep', False) for term in x_terms + y_terms)
 
-            if has_phase_sweep:
+            if has_phase_sweep or has_freq_sweep:
                 # Find maximum sweep steps among all terms
                 max_steps = 1
                 for term in x_terms + y_terms:
-                    if term.get('phase_sweep', False):
+                    if term.get('phase_sweep', False) or term.get('freq_sweep', False):
                         max_steps = max(max_steps, term.get('sweep_steps', 1))
 
                 # Generate frames with phase sweeping
@@ -2160,6 +2197,7 @@ class OscilloscopeGUI:
                     if x_terms:
                         x_frame = np.zeros(num_points)
                         for term in x_terms:
+                            # Handle phase sweep
                             if term.get('phase_sweep', False):
                                 # Interpolate phase from start to end
                                 steps = term['sweep_steps']
@@ -2168,10 +2206,19 @@ class OscilloscopeGUI:
                             else:
                                 phase = term.get('phase_start', 0)
 
+                            # Handle frequency sweep
+                            if term.get('freq_sweep', False):
+                                # Interpolate frequency from start to end
+                                steps = term['sweep_steps']
+                                freq_range = term['freq_end'] - term['freq_start']
+                                freq = term['freq_start'] + (freq_range * step_idx / max(steps - 1, 1))
+                            else:
+                                freq = term.get('freq', 1.0)
+
                             if term['type'] == 'sin':
-                                x_frame += term['amp'] * np.sin(term['freq'] * t + phase)
+                                x_frame += term['amp'] * np.sin(freq * t + phase)
                             else:  # cos
-                                x_frame += term['amp'] * np.cos(term['freq'] * t + phase)
+                                x_frame += term['amp'] * np.cos(freq * t + phase)
                         x_frames.append(x_frame)
                     else:
                         x_frames.append(np.zeros(num_points))
@@ -2180,6 +2227,7 @@ class OscilloscopeGUI:
                     if y_terms:
                         y_frame = np.zeros(num_points)
                         for term in y_terms:
+                            # Handle phase sweep
                             if term.get('phase_sweep', False):
                                 # Interpolate phase from start to end
                                 steps = term['sweep_steps']
@@ -2188,10 +2236,19 @@ class OscilloscopeGUI:
                             else:
                                 phase = term.get('phase_start', 0)
 
+                            # Handle frequency sweep
+                            if term.get('freq_sweep', False):
+                                # Interpolate frequency from start to end
+                                steps = term['sweep_steps']
+                                freq_range = term['freq_end'] - term['freq_start']
+                                freq = term['freq_start'] + (freq_range * step_idx / max(steps - 1, 1))
+                            else:
+                                freq = term.get('freq', 1.0)
+
                             if term['type'] == 'sin':
-                                y_frame += term['amp'] * np.sin(term['freq'] * t + phase)
+                                y_frame += term['amp'] * np.sin(freq * t + phase)
                             else:  # cos
-                                y_frame += term['amp'] * np.cos(term['freq'] * t + phase)
+                                y_frame += term['amp'] * np.cos(freq * t + phase)
                         y_frames.append(y_frame)
                     else:
                         y_frames.append(np.zeros(num_points))
@@ -2199,7 +2256,15 @@ class OscilloscopeGUI:
                 # Concatenate all frames
                 x_data = np.concatenate(x_frames)
                 y_data = np.concatenate(y_frames)
-                status_msg = f"Generated harmonic sum with phase sweep ({max_steps} frames)"
+
+                # Build status message
+                sweep_types = []
+                if has_phase_sweep:
+                    sweep_types.append("phase")
+                if has_freq_sweep:
+                    sweep_types.append("frequency")
+                sweep_str = " and ".join(sweep_types)
+                status_msg = f"Generated harmonic sum with {sweep_str} sweep ({max_steps} frames)"
             else:
                 # No phase sweep - generate single frame
                 # Calculate X channel
@@ -2417,8 +2482,8 @@ class OscilloscopeGUI:
 
             # Check if chaser effect is enabled
             if chaser_enabled_var.get():
-                # Chaser effect: Each point is repeated N times, then segment is tiled
-                # This creates: x[0], x[0], x[0], x[1], x[1], x[1], x[2], x[2], x[2], ...
+                # Chaser effect: Create smooth sliding window that moves along the spiral
+                # Each position shows a continuous segment of the path
                 trail_length = int(trail_length_var.get())
                 point_reps = int(point_reps_var.get())
 
@@ -2430,61 +2495,32 @@ class OscilloscopeGUI:
                 if point_reps < 1:
                     point_reps = 1
 
-                # Calculate number of complete chunks
-                num_chunks = num_points // trail_length
-
-                # Create segments where each point is repeated, then tiled
+                # Create sliding windows that move along the spiral
+                # Each window is a continuous segment of trail_length points
                 x_segments = []
                 y_segments = []
 
-                for i in range(num_chunks):
-                    start_idx = i * trail_length
-                    end_idx = (i + 1) * trail_length
+                # Calculate step size for smooth movement (advance 1 point at a time)
+                max_start = num_points - trail_length
 
-                    # Extract the segment
+                for start_idx in range(0, max_start + 1):
+                    end_idx = start_idx + trail_length
+
+                    # Extract continuous segment
                     x_seg = x_full[start_idx:end_idx]
                     y_seg = y_full[start_idx:end_idx]
 
-                    # Repeat each individual point N times
-                    # This creates: [x0, x0, x0, x1, x1, x1, x2, x2, x2, ...]
-                    x_repeated = np.repeat(x_seg, point_reps)
-                    y_repeated = np.repeat(y_seg, point_reps)
+                    # Repeat this segment position point_reps times (controls speed)
+                    for _ in range(point_reps):
+                        x_segments.append(x_seg)
+                        y_segments.append(y_seg)
 
-                    # Tile/repeat the expanded segment to fill num_points
-                    # This makes each segment play for the full duration
-                    segment_len = len(x_repeated)
-                    num_repeats = int(np.ceil(num_points / segment_len))
-                    x_tiled = np.tile(x_repeated, num_repeats)[:num_points]
-                    y_tiled = np.tile(y_repeated, num_repeats)[:num_points]
-
-                    x_segments.append(x_tiled)
-                    y_segments.append(y_tiled)
-
-                # Handle any remaining points if num_points is not evenly divisible
-                remainder = num_points % trail_length
-                if remainder > 0:
-                    x_seg = x_full[num_chunks * trail_length:]
-                    y_seg = y_full[num_chunks * trail_length:]
-
-                    # Repeat each point
-                    x_repeated = np.repeat(x_seg, point_reps)
-                    y_repeated = np.repeat(y_seg, point_reps)
-
-                    # Tile the expanded remainder segment
-                    segment_len = len(x_repeated)
-                    num_repeats = int(np.ceil(num_points / segment_len))
-                    x_tiled = np.tile(x_repeated, num_repeats)[:num_points]
-                    y_tiled = np.tile(y_repeated, num_repeats)[:num_points]
-
-                    x_segments.append(x_tiled)
-                    y_segments.append(y_tiled)
-
-                # Concatenate all tiled segments to create the chase animation
-                # Each segment now has num_points length and will play for the full duration
+                # Concatenate all segments to create smooth chase animation
                 x_data = np.concatenate(x_segments)
                 y_data = np.concatenate(y_segments)
 
-                status_msg = f"Generated Archimedean Spiral with Chaser (trail={trail_length} pts, reps={point_reps}, {len(x_segments)} segs)"
+                num_positions = max_start + 1
+                status_msg = f"Generated Archimedean Spiral with Chaser (trail={trail_length} pts, reps={point_reps}, {num_positions} positions)"
             else:
                 # No chaser effect: use full spiral
                 x_data = x_full
