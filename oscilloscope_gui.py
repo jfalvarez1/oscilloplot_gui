@@ -2020,7 +2020,9 @@ class OscilloscopeGUI:
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Storage for terms
-        x_terms = []  # List of dicts: {'type': 'sin'/'cos', 'amp': float, 'freq': float, 'phase': float}
+        # Each term: {'type': 'sin'/'cos', 'amp': float, 'freq': float, 'phase': float,
+        #             'phase_sweep': bool, 'phase_start': float, 'phase_end': float, 'sweep_steps': int}
+        x_terms = []
         y_terms = []
 
         # X Channel (Left)
@@ -2061,25 +2063,27 @@ class OscilloscopeGUI:
             num_points = 1000
             t = np.linspace(0, 2*np.pi, num_points)
 
-            # Calculate X channel
+            # Calculate X channel (use phase_start for preview)
             if x_terms:
                 x_data = np.zeros(num_points)
                 for term in x_terms:
+                    phase = term.get('phase_start', 0)
                     if term['type'] == 'sin':
-                        x_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
+                        x_data += term['amp'] * np.sin(term['freq'] * t + phase)
                     else:  # cos
-                        x_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
+                        x_data += term['amp'] * np.cos(term['freq'] * t + phase)
             else:
                 x_data = t * 0  # Zero array
 
-            # Calculate Y channel
+            # Calculate Y channel (use phase_start for preview)
             if y_terms:
                 y_data = np.zeros(num_points)
                 for term in y_terms:
+                    phase = term.get('phase_start', 0)
                     if term['type'] == 'sin':
-                        y_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
+                        y_data += term['amp'] * np.sin(term['freq'] * t + phase)
                     else:  # cos
-                        y_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
+                        y_data += term['amp'] * np.cos(term['freq'] * t + phase)
             else:
                 y_data = t * 0  # Zero array
 
@@ -2105,8 +2109,11 @@ class OscilloscopeGUI:
 
                     # Term label
                     term_text = f"{term['amp']:.2f}·{term['type']}({term['freq']:.1f}·t"
-                    if term['phase'] != 0:
-                        term_text += f" + {term['phase']:.2f}"
+                    if term.get('phase_sweep', False):
+                        term_text += f", φ sweep: {term['phase_start']:.2f}→{term['phase_end']:.2f}"
+                    else:
+                        if term.get('phase_start', 0) != 0:
+                            term_text += f" + {term['phase_start']:.2f}"
                     term_text += ")"
                     ttk.Label(term_frame, text=f"Term {i+1}: {term_text}",
                              font=('Arial', 8)).pack(side=tk.LEFT, padx=5, pady=2)
@@ -2135,8 +2142,11 @@ class OscilloscopeGUI:
 
                     # Term label
                     term_text = f"{term['amp']:.2f}·{term['type']}({term['freq']:.1f}·t"
-                    if term['phase'] != 0:
-                        term_text += f" + {term['phase']:.2f}"
+                    if term.get('phase_sweep', False):
+                        term_text += f", φ sweep: {term['phase_start']:.2f}→{term['phase_end']:.2f}"
+                    else:
+                        if term.get('phase_start', 0) != 0:
+                            term_text += f" + {term['phase_start']:.2f}"
                     term_text += ")"
                     ttk.Label(term_frame, text=f"Term {i+1}: {term_text}",
                              font=('Arial', 8)).pack(side=tk.LEFT, padx=5, pady=2)
@@ -2172,11 +2182,26 @@ class OscilloscopeGUI:
         x_freq_var = tk.DoubleVar(value=1.0)
         ttk.Entry(x_param_row, textvariable=x_freq_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(x_param_row, text="φ:").pack(side=tk.LEFT, padx=(5, 2))
-        x_phase_var = tk.DoubleVar(value=0.0)
-        ttk.Entry(x_param_row, textvariable=x_phase_var, width=8).pack(side=tk.LEFT, padx=2)
+        # Row 3: Phase options
+        x_phase_sweep_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(x_add_frame, text="Phase Sweep",
+                       variable=x_phase_sweep_var).pack(anchor=tk.W, pady=2)
 
-        # Row 3: Add button
+        x_phase_row = ttk.Frame(x_add_frame)
+        x_phase_row.pack(fill=tk.X, pady=2)
+        ttk.Label(x_phase_row, text="φ start:").pack(side=tk.LEFT, padx=(5, 2))
+        x_phase_start_var = tk.DoubleVar(value=0.0)
+        ttk.Entry(x_phase_row, textvariable=x_phase_start_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(x_phase_row, text="φ end:").pack(side=tk.LEFT, padx=(5, 2))
+        x_phase_end_var = tk.DoubleVar(value=6.28)  # 2π
+        ttk.Entry(x_phase_row, textvariable=x_phase_end_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(x_phase_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
+        x_sweep_steps_var = tk.IntVar(value=20)
+        ttk.Entry(x_phase_row, textvariable=x_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
+
+        # Row 4: Add button
         x_button_row = ttk.Frame(x_add_frame)
         x_button_row.pack(fill=tk.X, pady=(5, 0))
 
@@ -2185,7 +2210,10 @@ class OscilloscopeGUI:
                 'type': x_type_var.get(),
                 'amp': x_amp_var.get(),
                 'freq': x_freq_var.get(),
-                'phase': x_phase_var.get()
+                'phase_sweep': x_phase_sweep_var.get(),
+                'phase_start': x_phase_start_var.get(),
+                'phase_end': x_phase_end_var.get(),
+                'sweep_steps': x_sweep_steps_var.get()
             })
             refresh_x_display()
             update_preview()
@@ -2214,11 +2242,26 @@ class OscilloscopeGUI:
         y_freq_var = tk.DoubleVar(value=1.0)
         ttk.Entry(y_param_row, textvariable=y_freq_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(y_param_row, text="φ:").pack(side=tk.LEFT, padx=(5, 2))
-        y_phase_var = tk.DoubleVar(value=0.0)
-        ttk.Entry(y_param_row, textvariable=y_phase_var, width=8).pack(side=tk.LEFT, padx=2)
+        # Row 3: Phase options
+        y_phase_sweep_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(y_add_frame, text="Phase Sweep",
+                       variable=y_phase_sweep_var).pack(anchor=tk.W, pady=2)
 
-        # Row 3: Add button
+        y_phase_row = ttk.Frame(y_add_frame)
+        y_phase_row.pack(fill=tk.X, pady=2)
+        ttk.Label(y_phase_row, text="φ start:").pack(side=tk.LEFT, padx=(5, 2))
+        y_phase_start_var = tk.DoubleVar(value=0.0)
+        ttk.Entry(y_phase_row, textvariable=y_phase_start_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(y_phase_row, text="φ end:").pack(side=tk.LEFT, padx=(5, 2))
+        y_phase_end_var = tk.DoubleVar(value=6.28)  # 2π
+        ttk.Entry(y_phase_row, textvariable=y_phase_end_var, width=8).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(y_phase_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
+        y_sweep_steps_var = tk.IntVar(value=20)
+        ttk.Entry(y_phase_row, textvariable=y_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
+
+        # Row 4: Add button
         y_button_row = ttk.Frame(y_add_frame)
         y_button_row.pack(fill=tk.X, pady=(5, 0))
 
@@ -2227,7 +2270,10 @@ class OscilloscopeGUI:
                 'type': y_type_var.get(),
                 'amp': y_amp_var.get(),
                 'freq': y_freq_var.get(),
-                'phase': y_phase_var.get()
+                'phase_sweep': y_phase_sweep_var.get(),
+                'phase_start': y_phase_start_var.get(),
+                'phase_end': y_phase_end_var.get(),
+                'sweep_steps': y_sweep_steps_var.get()
             })
             refresh_y_display()
             update_preview()
@@ -2249,34 +2295,99 @@ class OscilloscopeGUI:
             num_points = 1000
             t = np.linspace(0, 2*np.pi, num_points)
 
-            # Calculate X channel
-            if x_terms:
-                x_data = np.zeros(num_points)
-                for term in x_terms:
-                    if term['type'] == 'sin':
-                        x_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
-                    else:  # cos
-                        x_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
-            else:
-                x_data = np.zeros(num_points)
+            # Check if any term has phase sweep enabled
+            has_phase_sweep = any(term.get('phase_sweep', False) for term in x_terms + y_terms)
 
-            # Calculate Y channel
-            if y_terms:
-                y_data = np.zeros(num_points)
-                for term in y_terms:
-                    if term['type'] == 'sin':
-                        y_data += term['amp'] * np.sin(term['freq'] * t + term['phase'])
-                    else:  # cos
-                        y_data += term['amp'] * np.cos(term['freq'] * t + term['phase'])
+            if has_phase_sweep:
+                # Find maximum sweep steps among all terms
+                max_steps = 1
+                for term in x_terms + y_terms:
+                    if term.get('phase_sweep', False):
+                        max_steps = max(max_steps, term.get('sweep_steps', 1))
+
+                # Generate frames with phase sweeping
+                x_frames = []
+                y_frames = []
+
+                for step_idx in range(max_steps):
+                    # Calculate X channel for this frame
+                    if x_terms:
+                        x_frame = np.zeros(num_points)
+                        for term in x_terms:
+                            if term.get('phase_sweep', False):
+                                # Interpolate phase from start to end
+                                steps = term['sweep_steps']
+                                phase_range = term['phase_end'] - term['phase_start']
+                                phase = term['phase_start'] + (phase_range * step_idx / max(steps - 1, 1))
+                            else:
+                                phase = term.get('phase_start', 0)
+
+                            if term['type'] == 'sin':
+                                x_frame += term['amp'] * np.sin(term['freq'] * t + phase)
+                            else:  # cos
+                                x_frame += term['amp'] * np.cos(term['freq'] * t + phase)
+                        x_frames.append(x_frame)
+                    else:
+                        x_frames.append(np.zeros(num_points))
+
+                    # Calculate Y channel for this frame
+                    if y_terms:
+                        y_frame = np.zeros(num_points)
+                        for term in y_terms:
+                            if term.get('phase_sweep', False):
+                                # Interpolate phase from start to end
+                                steps = term['sweep_steps']
+                                phase_range = term['phase_end'] - term['phase_start']
+                                phase = term['phase_start'] + (phase_range * step_idx / max(steps - 1, 1))
+                            else:
+                                phase = term.get('phase_start', 0)
+
+                            if term['type'] == 'sin':
+                                y_frame += term['amp'] * np.sin(term['freq'] * t + phase)
+                            else:  # cos
+                                y_frame += term['amp'] * np.cos(term['freq'] * t + phase)
+                        y_frames.append(y_frame)
+                    else:
+                        y_frames.append(np.zeros(num_points))
+
+                # Concatenate all frames
+                x_data = np.concatenate(x_frames)
+                y_data = np.concatenate(y_frames)
+                status_msg = f"Generated harmonic sum with phase sweep ({max_steps} frames)"
             else:
-                y_data = np.zeros(num_points)
+                # No phase sweep - generate single frame
+                # Calculate X channel
+                if x_terms:
+                    x_data = np.zeros(num_points)
+                    for term in x_terms:
+                        phase = term.get('phase_start', 0)
+                        if term['type'] == 'sin':
+                            x_data += term['amp'] * np.sin(term['freq'] * t + phase)
+                        else:  # cos
+                            x_data += term['amp'] * np.cos(term['freq'] * t + phase)
+                else:
+                    x_data = np.zeros(num_points)
+
+                # Calculate Y channel
+                if y_terms:
+                    y_data = np.zeros(num_points)
+                    for term in y_terms:
+                        phase = term.get('phase_start', 0)
+                        if term['type'] == 'sin':
+                            y_data += term['amp'] * np.sin(term['freq'] * t + phase)
+                        else:  # cos
+                            y_data += term['amp'] * np.cos(term['freq'] * t + phase)
+                else:
+                    y_data = np.zeros(num_points)
+
+                status_msg = f"Generated harmonic sum (N={len(x_terms)}, M={len(y_terms)})"
 
             # Set as current data
             self.x_data = x_data
             self.y_data = y_data
             self.data_info_label.config(text=f"Points: {len(x_data)}")
             self.update_display()
-            self.status_label.config(text=f"Generated harmonic sum (N={len(x_terms)}, M={len(y_terms)})")
+            self.status_label.config(text=status_msg)
             dialog.destroy()
 
         # Button frame
