@@ -48,8 +48,9 @@ class OscilloscopeGUI:
         self.create_widgets()
         self.update_display()
 
-        # Initialize wavy labels with default values
+        # Initialize wavy and lightning labels with default values
         self.update_wavy_labels_only()
+        self.update_lightning_labels_only()
 
         # Start update loops
         self.root.after(50, self.check_updates)
@@ -438,26 +439,47 @@ class OscilloscopeGUI:
         ttk.Radiobutton(lightning_frame, text="Dynamic (Animated)", variable=self.lightning_mode_var,
                        value="Dynamic", command=self.effect_changed).pack(anchor=tk.W, padx=20)
 
-        ttk.Label(lightning_frame, text="Number of Bolts:",
-                 font=('Arial', 8)).pack(anchor=tk.W, padx=20, pady=(5,0))
+        # Number of bolts with value label
+        bolt_count_frame = ttk.Frame(lightning_frame)
+        bolt_count_frame.pack(fill=tk.X, padx=20, pady=(5,0))
+        ttk.Label(bolt_count_frame, text="Number of Bolts:",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.lightning_count_label = ttk.Label(bolt_count_frame, text="4",
+                 font=('Arial', 8, 'bold'))
+        self.lightning_count_label.pack(side=tk.RIGHT)
+
         self.lightning_count = tk.IntVar(value=4)
         ttk.Scale(lightning_frame, from_=1, to=12, orient=tk.HORIZONTAL,
                  variable=self.lightning_count,
-                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.update_lightning_labels()).pack(fill=tk.X, padx=20)
 
-        ttk.Label(lightning_frame, text="Jaggedness (Detail):",
-                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        # Jaggedness with value label
+        jagged_frame = ttk.Frame(lightning_frame)
+        jagged_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(jagged_frame, text="Jaggedness (Detail):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.lightning_jaggedness_label = ttk.Label(jagged_frame, text="3",
+                 font=('Arial', 8, 'bold'))
+        self.lightning_jaggedness_label.pack(side=tk.RIGHT)
+
         self.lightning_jaggedness = tk.IntVar(value=3)
         ttk.Scale(lightning_frame, from_=2, to=6, orient=tk.HORIZONTAL,
                  variable=self.lightning_jaggedness,
-                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.update_lightning_labels()).pack(fill=tk.X, padx=20)
 
-        ttk.Label(lightning_frame, text="Bolt Length:",
-                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        # Bolt length with value label
+        length_frame = ttk.Frame(lightning_frame)
+        length_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(length_frame, text="Bolt Length:",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.lightning_length_label = ttk.Label(length_frame, text="0.30",
+                 font=('Arial', 8, 'bold'))
+        self.lightning_length_label.pack(side=tk.RIGHT)
+
         self.lightning_length = tk.DoubleVar(value=0.3)
         ttk.Scale(lightning_frame, from_=0.1, to=0.8, orient=tk.HORIZONTAL,
                  variable=self.lightning_length,
-                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.update_lightning_labels()).pack(fill=tk.X, padx=20)
         
         # === ACTION BUTTONS ===
         button_frame = ttk.Frame(parent)
@@ -677,6 +699,22 @@ class OscilloscopeGUI:
         # Trigger effect changed for preview update
         self.effect_changed()
 
+    def update_lightning_labels_only(self):
+        """Update lightning effect value labels without triggering effect_changed"""
+        count = self.lightning_count.get()
+        jaggedness = self.lightning_jaggedness.get()
+        length = self.lightning_length.get()
+
+        self.lightning_count_label.config(text=f"{count}")
+        self.lightning_jaggedness_label.config(text=f"{jaggedness}")
+        self.lightning_length_label.config(text=f"{length:.2f}")
+
+    def update_lightning_labels(self):
+        """Update lightning effect value labels and trigger effect preview"""
+        self.update_lightning_labels_only()
+        # Trigger effect changed for preview update
+        self.effect_changed()
+
     def reset_effects(self):
         """Reset all effects to their default values"""
         # Turn off all effects
@@ -712,8 +750,9 @@ class OscilloscopeGUI:
         self.lightning_jaggedness.set(3)
         self.lightning_length.set(0.3)
 
-        # Update wavy labels to reflect reset values
+        # Update wavy and lightning labels to reflect reset values
         self.update_wavy_labels_only()
+        self.update_lightning_labels_only()
 
         # Update display
         self.update_display()
@@ -892,17 +931,15 @@ class OscilloscopeGUI:
             import time
             frame_idx = int(time.time() * 5) if is_dynamic else 0
 
+            # Use current x, y (after effects) for bounding box calculation
             x_lightning, y_lightning = self.generate_lightning_bolts(
-                self.x_data, self.y_data, num_bolts, jaggedness, length,
+                x, y, num_bolts, jaggedness, length,
                 dynamic=is_dynamic, frame_idx=frame_idx
             )
 
-            # Normalize lightning to same range as data
+            # Don't normalize lightning separately - keep it in same coordinate space
             if len(x_lightning) > 0:
-                x_lightning = self.normalize_data(x_lightning)
-                y_lightning = self.normalize_data(y_lightning)
-
-                # Append lightning to the end (drawn as background)
+                # Prepend lightning (so it's drawn first as background)
                 x = np.concatenate([x_lightning, x])
                 y = np.concatenate([y_lightning, y])
 
@@ -1216,8 +1253,7 @@ class OscilloscopeGUI:
                         dynamic=True, frame_idx=variation_idx
                     )
                     if len(x_lightning) > 0:
-                        x_lightning = self.normalize_data(x_lightning)
-                        y_lightning = self.normalize_data(y_lightning)
+                        # Keep lightning in same coordinate space as pattern
                         lightning_variations_x.append(x_lightning)
                         lightning_variations_y.append(y_lightning)
 
@@ -1242,9 +1278,7 @@ class OscilloscopeGUI:
                 )
 
                 if len(x_lightning) > 0:
-                    x_lightning = self.normalize_data(x_lightning)
-                    y_lightning = self.normalize_data(y_lightning)
-
+                    # Keep lightning in same coordinate space as pattern
                     # Prepend lightning to pattern (so pattern draws on top)
                     x_repeated = np.concatenate([x_lightning, x_repeated])
                     y_repeated = np.concatenate([y_lightning, y_repeated])
@@ -1411,37 +1445,45 @@ class OscilloscopeGUI:
         # Generate bolts from different edge positions
         for i in range(num_bolts):
             # Seed for deterministic static bolts or random for dynamic
-            seed = None if dynamic else i
             if dynamic:
                 # Add frame index to seed for animation
                 seed = i * 1000 + frame_idx
+            else:
+                seed = i + 42  # Fixed seed for static mode
+
+            # Set seed before any random operations
+            if seed is not None:
+                np.random.seed(seed)
 
             # Choose which edge (top, bottom, left, right)
             edge = i % 4
             position = (i / num_bolts) + (frame_idx * 0.1 if dynamic else 0)
 
+            # Random offset for endpoint (now uses seeded random)
+            rand_offset = (np.random.random() - 0.5) * 2
+
             if edge == 0:  # Top edge
                 x_start = x_min + (x_max - x_min) * (position % 1)
                 y_start = y_max
-                x_end = x_start + (np.random.random() - 0.5) * length * 2
+                x_end = x_start + rand_offset * length * x_range
                 y_end = y_max + length * y_range
             elif edge == 1:  # Bottom edge
                 x_start = x_min + (x_max - x_min) * (position % 1)
                 y_start = y_min
-                x_end = x_start + (np.random.random() - 0.5) * length * 2
+                x_end = x_start + rand_offset * length * x_range
                 y_end = y_min - length * y_range
             elif edge == 2:  # Left edge
                 x_start = x_min
                 y_start = y_min + (y_max - y_min) * (position % 1)
                 x_end = x_min - length * x_range
-                y_end = y_start + (np.random.random() - 0.5) * length * 2
+                y_end = y_start + rand_offset * length * y_range
             else:  # Right edge
                 x_start = x_max
                 y_start = y_min + (y_max - y_min) * (position % 1)
                 x_end = x_max + length * x_range
-                y_end = y_start + (np.random.random() - 0.5) * length * 2
+                y_end = y_start + rand_offset * length * y_range
 
-            # Generate the bolt
+            # Generate the bolt (seed already set above)
             x_bolt, y_bolt = self.generate_lightning_bolt(
                 x_start, y_start, x_end, y_end, jaggedness, seed
             )
