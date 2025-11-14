@@ -132,11 +132,13 @@ class OscilloscopeGUI:
                   command=self.load_matlab_file).pack(fill=tk.X, pady=2)
         ttk.Button(file_frame, text="Load Text File (.txt)", 
                   command=self.load_txt_file).pack(fill=tk.X, pady=2)
-        ttk.Button(file_frame, text="Load NumPy File (.npz)", 
+        ttk.Button(file_frame, text="Load NumPy File (.npz)",
                   command=self.load_numpy_file).pack(fill=tk.X, pady=2)
-        ttk.Button(file_frame, text="Generate Test Pattern", 
+        ttk.Button(file_frame, text="Generate Test Pattern",
                   command=self.generate_test_pattern).pack(fill=tk.X, pady=2)
-        
+        ttk.Button(file_frame, text="Draw Pattern",
+                  command=self.open_drawing_canvas).pack(fill=tk.X, pady=2)
+
         # Data info
         self.data_info_label = ttk.Label(file_frame, text="Points: 3", 
                                          font=('Arial', 9, 'italic'))
@@ -1907,7 +1909,111 @@ class OscilloscopeGUI:
 
         ttk.Button(button_frame, text="Generate Pattern", command=apply).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-    
+
+    def open_drawing_canvas(self):
+        """Open a canvas for drawing custom patterns"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Draw Pattern")
+        dialog.geometry("600x650")
+
+        # Instructions
+        instruction_frame = ttk.Frame(dialog)
+        instruction_frame.pack(pady=10)
+        ttk.Label(instruction_frame, text="Draw your pattern below:",
+                 font=('Arial', 10, 'bold')).pack()
+        ttk.Label(instruction_frame, text="Click and drag to draw • The path will be traced in order",
+                 font=('Arial', 8), foreground='gray').pack()
+
+        # Drawing canvas
+        canvas_frame = ttk.Frame(dialog)
+        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        canvas = tk.Canvas(canvas_frame, width=580, height=480, bg='white',
+                          highlightthickness=1, highlightbackground='gray')
+        canvas.pack()
+
+        # Drawing state
+        drawing_data = {
+            'is_drawing': False,
+            'points': [],  # Store (x, y) tuples
+            'canvas_objects': []  # Store line IDs for clearing
+        }
+
+        def start_drawing(event):
+            """Start drawing when mouse button is pressed"""
+            drawing_data['is_drawing'] = True
+            drawing_data['points'] = [(event.x, event.y)]
+
+        def draw(event):
+            """Draw as mouse moves"""
+            if drawing_data['is_drawing']:
+                x, y = event.x, event.y
+                prev_x, prev_y = drawing_data['points'][-1]
+
+                # Draw line from previous point to current point
+                line_id = canvas.create_line(prev_x, prev_y, x, y,
+                                             fill='blue', width=2, capstyle=tk.ROUND)
+                drawing_data['canvas_objects'].append(line_id)
+                drawing_data['points'].append((x, y))
+
+        def stop_drawing(event):
+            """Stop drawing when mouse button is released"""
+            drawing_data['is_drawing'] = False
+
+        def clear_canvas():
+            """Clear the canvas"""
+            # Delete all drawn objects
+            for obj_id in drawing_data['canvas_objects']:
+                canvas.delete(obj_id)
+            drawing_data['canvas_objects'] = []
+            drawing_data['points'] = []
+
+        def apply_drawing():
+            """Convert drawn path to oscilloscope data"""
+            if len(drawing_data['points']) < 2:
+                messagebox.showwarning("No Drawing", "Please draw a pattern first!")
+                return
+
+            # Get canvas dimensions
+            canvas_width = 580
+            canvas_height = 480
+
+            # Convert canvas coordinates to normalized coordinates (-1 to 1)
+            points = np.array(drawing_data['points'])
+            x_canvas = points[:, 0]
+            y_canvas = points[:, 1]
+
+            # Center and normalize
+            # X: left=0 -> -1, right=canvas_width -> 1
+            x_norm = (x_canvas - canvas_width/2) / (canvas_width/2)
+
+            # Y: top=0 -> 1, bottom=canvas_height -> -1 (flip Y axis)
+            y_norm = -(y_canvas - canvas_height/2) / (canvas_height/2)
+
+            # Set as current data
+            self.x_data = x_norm
+            self.y_data = y_norm
+            self.data_info_label.config(text=f"Points: {len(x_norm)}")
+            self.update_display()
+            self.status_label.config(text=f"Loaded drawn pattern ({len(x_norm)} points)")
+            dialog.destroy()
+
+        # Bind mouse events
+        canvas.bind("<Button-1>", start_drawing)
+        canvas.bind("<B1-Motion>", draw)
+        canvas.bind("<ButtonRelease-1>", stop_drawing)
+
+        # Button frame
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Button(button_frame, text="Clear", command=clear_canvas).pack(
+            side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Apply Drawing", command=apply_drawing).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+            side=tk.LEFT, padx=5)
+
     def save_to_wav(self):
         """Save current audio to WAV file"""
         if self.current_audio is None:
