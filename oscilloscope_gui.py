@@ -2499,7 +2499,7 @@ class OscilloscopeGUI:
 
         # Info label
         chaser_info = ttk.Label(chaser_frame,
-                               text="Displays consecutive non-overlapping segments (e.g., [0:5], [5:10], [10:15]...)",
+                               text="Each segment repeats for full duration, then moves to next segment",
                                font=('Arial', 8, 'italic'), foreground='gray')
         chaser_info.pack(pady=5)
 
@@ -2563,8 +2563,10 @@ class OscilloscopeGUI:
 
             # Check if chaser effect is enabled
             if chaser_enabled_var.get():
-                # Chaser effect: create consecutive non-overlapping segments
-                # Display x[0:n], then x[n:2n], then x[2n:3n], etc.
+                # Chaser effect: Each segment is repeated for the full duration
+                # Segment 1: x[0:n] repeated for full duration
+                # Segment 2: x[n:2n] repeated for full duration
+                # etc.
                 trail_length = int(trail_length_var.get())
 
                 # Ensure trail length is valid
@@ -2576,7 +2578,7 @@ class OscilloscopeGUI:
                 # Calculate number of complete chunks
                 num_chunks = num_points // trail_length
 
-                # Create consecutive non-overlapping segments
+                # Create segments where each segment is tiled to fill the base pattern length
                 x_segments = []
                 y_segments = []
 
@@ -2584,20 +2586,39 @@ class OscilloscopeGUI:
                     start_idx = i * trail_length
                     end_idx = (i + 1) * trail_length
 
-                    x_segments.append(x_full[start_idx:end_idx])
-                    y_segments.append(y_full[start_idx:end_idx])
+                    # Extract the segment
+                    x_seg = x_full[start_idx:end_idx]
+                    y_seg = y_full[start_idx:end_idx]
+
+                    # Tile/repeat the segment to fill num_points
+                    # This makes each segment play for the full duration
+                    num_repeats = int(np.ceil(num_points / trail_length))
+                    x_tiled = np.tile(x_seg, num_repeats)[:num_points]
+                    y_tiled = np.tile(y_seg, num_repeats)[:num_points]
+
+                    x_segments.append(x_tiled)
+                    y_segments.append(y_tiled)
 
                 # Handle any remaining points if num_points is not evenly divisible
                 remainder = num_points % trail_length
                 if remainder > 0:
-                    x_segments.append(x_full[num_chunks * trail_length:])
-                    y_segments.append(y_full[num_chunks * trail_length:])
+                    x_seg = x_full[num_chunks * trail_length:]
+                    y_seg = y_full[num_chunks * trail_length:]
 
-                # Concatenate all segments to create the chase animation
+                    # Tile the remainder segment
+                    num_repeats = int(np.ceil(num_points / len(x_seg)))
+                    x_tiled = np.tile(x_seg, num_repeats)[:num_points]
+                    y_tiled = np.tile(y_seg, num_repeats)[:num_points]
+
+                    x_segments.append(x_tiled)
+                    y_segments.append(y_tiled)
+
+                # Concatenate all tiled segments to create the chase animation
+                # Each segment now has num_points length and will play for the full duration
                 x_data = np.concatenate(x_segments)
                 y_data = np.concatenate(y_segments)
 
-                status_msg = f"Generated Archimedean Spiral with Chaser (trail={trail_length} points, {num_chunks} segments)"
+                status_msg = f"Generated Archimedean Spiral with Chaser (trail={trail_length} points, {len(x_segments)} segments)"
             else:
                 # No chaser effect: use full spiral
                 x_data = x_full
