@@ -47,7 +47,10 @@ class OscilloscopeGUI:
         # Create GUI
         self.create_widgets()
         self.update_display()
-        
+
+        # Initialize wavy labels with default values
+        self.update_wavy_labels_only()
+
         # Start update loops
         self.root.after(50, self.check_updates)
         self.root.after(20, self.update_live_preview)  # 50 FPS preview update
@@ -322,38 +325,66 @@ class OscilloscopeGUI:
                        variable=self.x_wavy_var,
                        command=self.effect_changed).pack(anchor=tk.W)
 
-        ttk.Label(wavy_frame, text="X Amplitude (K):",
-                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        # X Amplitude with value label
+        x_amp_frame = ttk.Frame(wavy_frame)
+        x_amp_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(x_amp_frame, text="X Amplitude (K):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.x_wavy_amp_label = ttk.Label(x_amp_frame, text="0.200",
+                 font=('Arial', 8, 'bold'))
+        self.x_wavy_amp_label.pack(side=tk.RIGHT)
+
         self.x_wavy_amp = tk.DoubleVar(value=0.2)
         ttk.Scale(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
                  variable=self.x_wavy_amp,
-                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
-        ttk.Label(wavy_frame, text="X Angular Frequency (ω):",
-                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        # X Frequency with value label
+        x_freq_frame = ttk.Frame(wavy_frame)
+        x_freq_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(x_freq_frame, text="X Angular Frequency (ω):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.x_wavy_freq_label = ttk.Label(x_freq_frame, text="10.0",
+                 font=('Arial', 8, 'bold'))
+        self.x_wavy_freq_label.pack(side=tk.RIGHT)
+
         self.x_wavy_freq = tk.DoubleVar(value=10.0)
-        ttk.Scale(wavy_frame, from_=0.1, to=50.0, orient=tk.HORIZONTAL,
+        ttk.Scale(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
                  variable=self.x_wavy_freq,
-                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
         self.y_wavy_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(wavy_frame, text="Add Y-Channel Wavy",
                        variable=self.y_wavy_var,
                        command=self.effect_changed).pack(anchor=tk.W, pady=(10,0))
 
-        ttk.Label(wavy_frame, text="Y Amplitude (K):",
-                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        # Y Amplitude with value label
+        y_amp_frame = ttk.Frame(wavy_frame)
+        y_amp_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(y_amp_frame, text="Y Amplitude (K):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.y_wavy_amp_label = ttk.Label(y_amp_frame, text="0.200",
+                 font=('Arial', 8, 'bold'))
+        self.y_wavy_amp_label.pack(side=tk.RIGHT)
+
         self.y_wavy_amp = tk.DoubleVar(value=0.2)
         ttk.Scale(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
                  variable=self.y_wavy_amp,
-                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
-        ttk.Label(wavy_frame, text="Y Angular Frequency (ω):",
-                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        # Y Frequency with value label
+        y_freq_frame = ttk.Frame(wavy_frame)
+        y_freq_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(y_freq_frame, text="Y Angular Frequency (ω):",
+                 font=('Arial', 8)).pack(side=tk.LEFT)
+        self.y_wavy_freq_label = ttk.Label(y_freq_frame, text="10.0",
+                 font=('Arial', 8, 'bold'))
+        self.y_wavy_freq_label.pack(side=tk.RIGHT)
+
         self.y_wavy_freq = tk.DoubleVar(value=10.0)
-        ttk.Scale(wavy_frame, from_=0.1, to=50.0, orient=tk.HORIZONTAL,
+        ttk.Scale(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
                  variable=self.y_wavy_freq,
-                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
         ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
 
@@ -616,6 +647,36 @@ class OscilloscopeGUI:
             # Schedule regeneration after 600ms delay
             self.effect_change_timer = self.root.after(600, self.delayed_regenerate)
 
+    def update_wavy_labels_only(self):
+        """Update wavy effect value labels without triggering effect_changed"""
+        # Update amplitude labels (3 decimal places)
+        x_amp = self.x_wavy_amp.get()
+        y_amp = self.y_wavy_amp.get()
+        self.x_wavy_amp_label.config(text=f"{x_amp:.3f}")
+        self.y_wavy_amp_label.config(text=f"{y_amp:.3f}")
+
+        # Update frequency labels (formatted for readability)
+        x_freq = self.x_wavy_freq.get()
+        y_freq = self.y_wavy_freq.get()
+
+        # Format frequency based on magnitude
+        def format_freq(freq):
+            if freq >= 1000:
+                return f"{freq:.0f}"
+            elif freq >= 100:
+                return f"{freq:.1f}"
+            else:
+                return f"{freq:.2f}"
+
+        self.x_wavy_freq_label.config(text=format_freq(x_freq))
+        self.y_wavy_freq_label.config(text=format_freq(y_freq))
+
+    def update_wavy_labels(self):
+        """Update wavy effect value labels and trigger effect preview"""
+        self.update_wavy_labels_only()
+        # Trigger effect changed for preview update
+        self.effect_changed()
+
     def reset_effects(self):
         """Reset all effects to their default values"""
         # Turn off all effects
@@ -650,6 +711,9 @@ class OscilloscopeGUI:
         self.lightning_count.set(4)
         self.lightning_jaggedness.set(3)
         self.lightning_length.set(0.3)
+
+        # Update wavy labels to reflect reset values
+        self.update_wavy_labels_only()
 
         # Update display
         self.update_display()
