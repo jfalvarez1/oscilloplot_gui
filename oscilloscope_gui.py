@@ -2030,6 +2030,10 @@ class OscilloscopeGUI:
         x_freq_end_var = tk.DoubleVar(value=5.0)
         ttk.Entry(x_freq_sweep_row, textvariable=x_freq_end_var, width=8).pack(side=tk.LEFT, padx=2)
 
+        ttk.Label(x_freq_sweep_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
+        x_freq_sweep_steps_var = tk.IntVar(value=20)
+        ttk.Entry(x_freq_sweep_row, textvariable=x_freq_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
+
         # Row 4: Add button
         x_button_row = ttk.Frame(x_add_frame)
         x_button_row.pack(fill=tk.X, pady=(5, 0))
@@ -2042,10 +2046,11 @@ class OscilloscopeGUI:
                 'phase_sweep': x_phase_sweep_var.get(),
                 'phase_start': x_phase_start_var.get(),
                 'phase_end': x_phase_end_var.get(),
+                'sweep_steps': x_sweep_steps_var.get(),
                 'freq_sweep': x_freq_sweep_var.get(),
                 'freq_start': x_freq_start_var.get(),
                 'freq_end': x_freq_end_var.get(),
-                'sweep_steps': x_sweep_steps_var.get()
+                'freq_sweep_steps': x_freq_sweep_steps_var.get()
             })
             refresh_x_display()
             update_preview()
@@ -2108,6 +2113,10 @@ class OscilloscopeGUI:
         y_freq_end_var = tk.DoubleVar(value=5.0)
         ttk.Entry(y_freq_sweep_row, textvariable=y_freq_end_var, width=8).pack(side=tk.LEFT, padx=2)
 
+        ttk.Label(y_freq_sweep_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
+        y_freq_sweep_steps_var = tk.IntVar(value=20)
+        ttk.Entry(y_freq_sweep_row, textvariable=y_freq_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
+
         # Row 4: Add button
         y_button_row = ttk.Frame(y_add_frame)
         y_button_row.pack(fill=tk.X, pady=(5, 0))
@@ -2120,10 +2129,11 @@ class OscilloscopeGUI:
                 'phase_sweep': y_phase_sweep_var.get(),
                 'phase_start': y_phase_start_var.get(),
                 'phase_end': y_phase_end_var.get(),
+                'sweep_steps': y_sweep_steps_var.get(),
                 'freq_sweep': y_freq_sweep_var.get(),
                 'freq_start': y_freq_start_var.get(),
                 'freq_end': y_freq_end_var.get(),
-                'sweep_steps': y_sweep_steps_var.get()
+                'freq_sweep_steps': y_freq_sweep_steps_var.get()
             })
             refresh_y_display()
             update_preview()
@@ -2153,8 +2163,10 @@ class OscilloscopeGUI:
                 # Find maximum sweep steps among all terms
                 max_steps = 1
                 for term in x_terms + y_terms:
-                    if term.get('phase_sweep', False) or term.get('freq_sweep', False):
+                    if term.get('phase_sweep', False):
                         max_steps = max(max_steps, term.get('sweep_steps', 1))
+                    if term.get('freq_sweep', False):
+                        max_steps = max(max_steps, term.get('freq_sweep_steps', 1))
 
                 # Generate frames with phase sweeping
                 x_frames = []
@@ -2177,7 +2189,7 @@ class OscilloscopeGUI:
                             # Handle frequency sweep
                             if term.get('freq_sweep', False):
                                 # Interpolate frequency from start to end
-                                steps = term['sweep_steps']
+                                steps = term.get('freq_sweep_steps', 20)
                                 freq_range = term['freq_end'] - term['freq_start']
                                 freq = term['freq_start'] + (freq_range * step_idx / max(steps - 1, 1))
                             else:
@@ -2207,7 +2219,7 @@ class OscilloscopeGUI:
                             # Handle frequency sweep
                             if term.get('freq_sweep', False):
                                 # Interpolate frequency from start to end
-                                steps = term['sweep_steps']
+                                steps = term.get('freq_sweep_steps', 20)
                                 freq_range = term['freq_end'] - term['freq_start']
                                 freq = term['freq_start'] + (freq_range * step_idx / max(steps - 1, 1))
                             else:
