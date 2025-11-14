@@ -532,188 +532,149 @@ class OscilloscopeGUI:
             self.apply_parameters()
     
     def apply_effects(self, x, y):
-        """Apply selected effects to the data - FOR DISPLAY PREVIEW ONLY"""
-        x = x.copy()
-        y = y.copy()
-        
-        # Y-Axis Fade Sequence
-        if self.y_fade_var.get():
-            n_fade = self.y_fade_steps.get()
-            fade_speed = self.y_fade_speed.get()
-            # Create one complete fade cycle: 1 → 0 → -1 → 0 → 1
-            # Decrease from 1 to 0
-            fade_down = np.linspace(1, 0, n_fade, dtype=np.float32)
-            # Go negative from 0 to -1
-            fade_negative_down = np.linspace(0, -1, n_fade, dtype=np.float32)[1:]
-            # Increase from -1 to 0
-            fade_negative_up = np.linspace(-1, 0, n_fade, dtype=np.float32)[1:]
-            # Return to positive from 0 to 1
-            fade_up = np.linspace(0, 1, n_fade, dtype=np.float32)[1:]
-            one_cycle = np.concatenate([fade_down, fade_negative_down, fade_negative_up, fade_up])
+        """Apply selected effects to the data - FOR DISPLAY PREVIEW ONLY - ALL EFFECTS BLEND"""
+        x_norm = x.copy()
+        y_norm = y.copy()
 
-            # For static preview, adapt number of cycles based on fade steps
-            # Fewer preview cycles for larger fade steps to avoid rendering issues
-            if n_fade <= 10:
-                num_preview_cycles = 3
-            elif n_fade <= 30:
-                num_preview_cycles = 2
-            else:
-                num_preview_cycles = 1
+        # Determine which effects are enabled
+        has_y_fade = self.y_fade_var.get()
+        has_x_fade = self.x_fade_var.get()
+        has_shrink = self.shrink_var.get()
+        rotation_mode = self.rotation_mode_var.get()
 
-            x_faded = []
-            y_faded = []
+        # Build effect factor arrays
+        y_fade_factors = None
+        x_fade_factors = None
+        shrink_factors = None
 
-            for cycle_idx in range(num_preview_cycles):
-                for fade_factor in one_cycle:
-                    # Repeat each fade step 'fade_speed' times for speed control
-                    for _ in range(fade_speed):
-                        x_faded.append(x)
-                        y_faded.append(y * fade_factor)
+        # Build Y-Fade factors
+        if has_y_fade:
+            n_fade_y = self.y_fade_steps.get()
+            y_fade_speed = self.y_fade_speed.get()
+            fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
+            fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
+            fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
+            fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
+            one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
+            y_fade_factors = np.repeat(one_cycle_y, y_fade_speed)
 
-            x = np.concatenate(x_faded)
-            y = np.concatenate(y_faded)
-        
-        # X-Axis Fade Sequence
-        if self.x_fade_var.get():
+        # Build X-Fade factors
+        if has_x_fade:
             n_fade_x = self.x_fade_steps.get()
             x_fade_speed = self.x_fade_speed.get()
-            # Create one complete X fade cycle: 1 → 0 → -1 → 0 → 1
             fade_down_x = np.linspace(1, 0, n_fade_x, dtype=np.float32)
             fade_negative_down_x = np.linspace(0, -1, n_fade_x, dtype=np.float32)[1:]
             fade_negative_up_x = np.linspace(-1, 0, n_fade_x, dtype=np.float32)[1:]
             fade_up_x = np.linspace(0, 1, n_fade_x, dtype=np.float32)[1:]
-            fade_factors_x = np.concatenate([fade_down_x, fade_negative_down_x, fade_negative_up_x, fade_up_x])
+            one_cycle_x = np.concatenate([fade_down_x, fade_negative_down_x, fade_negative_up_x, fade_up_x])
+            x_fade_factors = np.repeat(one_cycle_x, x_fade_speed)
 
-            # Check if Y-fade was already applied
-            if self.y_fade_var.get():
-                # Both fades enabled - check if alternating mode is enabled
-                original_x = self.normalize_data(self.x_data)
-                original_y = self.normalize_data(self.y_data)
-
-                # Get Y-fade parameters
-                n_fade_y = self.y_fade_steps.get()
-                y_fade_speed = self.y_fade_speed.get()
-                fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
-                fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
-                fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
-                fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
-                one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
-
-                # Only apply alternate mode if BOTH X and Y fades are explicitly enabled
-                if self.alternate_xy_fade_var.get() and self.x_fade_var.get() and self.y_fade_var.get():
-                    # ALTERNATE MODE: X fade first, then Y fade, repeat
-                    x_combined = []
-                    y_combined = []
-
-                    # Simpler complexity calculation for alternating mode
-                    total_fade_length = (len(fade_factors_x) * x_fade_speed) + (len(one_cycle_y) * y_fade_speed)
-                    if total_fade_length > 500:
-                        num_preview_cycles = 1
-                    elif total_fade_length > 200:
-                        num_preview_cycles = 2
-                    else:
-                        num_preview_cycles = 3
-
-                    for cycle_idx in range(num_preview_cycles):
-                        # First: Do X fade sequence
-                        for x_fade_factor in fade_factors_x:
-                            for _ in range(x_fade_speed):
-                                x_combined.append(original_x * x_fade_factor)
-                                y_combined.append(original_y)
-
-                        # Then: Do Y fade sequence
-                        for y_fade_factor in one_cycle_y:
-                            for _ in range(y_fade_speed):
-                                x_combined.append(original_x)
-                                y_combined.append(original_y * y_fade_factor)
-
-                    x = np.concatenate(x_combined)
-                    y = np.concatenate(y_combined)
-                else:
-                    # COMBINED MODE: Apply both X and Y fades simultaneously
-                    x_combined = []
-                    y_combined = []
-
-                    # Adapt number of cycles for combined fades based on total complexity
-                    # Use fewer cycles when both fades have large step counts
-                    total_complexity = len(fade_factors_x) * len(one_cycle_y) * x_fade_speed * y_fade_speed
-                    if total_complexity > 5000:
-                        num_preview_cycles = 1
-                    elif total_complexity > 1000:
-                        num_preview_cycles = 2
-                    else:
-                        num_preview_cycles = 3
-
-                    for cycle_idx in range(num_preview_cycles):
-                        for x_fade_factor in fade_factors_x:
-                            for y_fade_factor in one_cycle_y:
-                                # Apply speed multipliers for both fades
-                                for _ in range(x_fade_speed * y_fade_speed):
-                                    x_combined.append(original_x * x_fade_factor)
-                                    y_combined.append(original_y * y_fade_factor)
-
-                    x = np.concatenate(x_combined)
-                    y = np.concatenate(y_combined)
-            else:
-                # Only X-fade enabled
-                x_faded_list = []
-                y_faded_list = []
-                for x_fade_factor in fade_factors_x:
-                    for _ in range(x_fade_speed):
-                        x_faded_list.append(x * x_fade_factor)
-                        y_faded_list.append(y)
-                x = np.concatenate(x_faded_list)
-                y = np.concatenate(y_faded_list)
-
-        # Shrink/Unshrink (scale both X and Y together)
-        if self.shrink_var.get():
+        # Build Shrink factors
+        if has_shrink:
             n_shrink = self.shrink_steps.get()
             shrink_speed = self.shrink_speed.get()
-            # Create one complete shrink cycle: 1 → 0 → 1 (shrink and expand, no inversion)
-            # Shrink from 1 to near 0
             shrink_down = np.linspace(1, 0, n_shrink, dtype=np.float32)
-            # Expand from near 0 back to 1 (skip first value to avoid duplicate 0)
             shrink_up = np.linspace(0, 1, n_shrink, dtype=np.float32)[1:]
-            one_cycle = np.concatenate([shrink_down, shrink_up])
+            one_cycle_shrink = np.concatenate([shrink_down, shrink_up])
+            shrink_factors = np.repeat(one_cycle_shrink, shrink_speed)
 
-            # Adapt number of cycles based on shrink steps
-            if n_shrink <= 10:
-                num_preview_cycles = 3
-            elif n_shrink <= 30:
+        # Determine if any effects are enabled
+        any_effect_enabled = has_y_fade or has_x_fade or has_shrink
+
+        if not any_effect_enabled:
+            # No effects - return as is
+            pass
+        else:
+            # Calculate number of preview cycles based on complexity
+            max_length = 0
+            if y_fade_factors is not None:
+                max_length = max(max_length, len(y_fade_factors))
+            if x_fade_factors is not None:
+                max_length = max(max_length, len(x_fade_factors))
+            if shrink_factors is not None:
+                max_length = max(max_length, len(shrink_factors))
+
+            # Adapt preview cycles based on total complexity
+            if max_length > 500:
+                num_preview_cycles = 1
+            elif max_length > 200:
                 num_preview_cycles = 2
             else:
-                num_preview_cycles = 1
+                num_preview_cycles = 3
 
-            x_shrunk = []
-            y_shrunk = []
+            # Check for alternate X/Y fade mode
+            use_alternate = (self.alternate_xy_fade_var.get() and
+                           has_x_fade and has_y_fade and
+                           not has_shrink)
 
-            for cycle_idx in range(num_preview_cycles):
-                for scale_factor in one_cycle:
-                    # Repeat each shrink step 'shrink_speed' times for speed control
-                    for _ in range(shrink_speed):
-                        x_shrunk.append(x * scale_factor)
-                        y_shrunk.append(y * scale_factor)
+            x_frames = []
+            y_frames = []
 
-            x = np.concatenate(x_shrunk)
-            y = np.concatenate(y_shrunk)
+            if use_alternate:
+                # ALTERNATE MODE: X fade first, then Y fade, repeat
+                for cycle_idx in range(num_preview_cycles):
+                    # First: Do X fade sequence
+                    for x_fade_idx in range(len(x_fade_factors)):
+                        x_factor = x_fade_factors[x_fade_idx]
+                        x_frames.append(x_norm * x_factor)
+                        y_frames.append(y_norm)
+
+                    # Then: Do Y fade sequence
+                    for y_fade_idx in range(len(y_fade_factors)):
+                        y_factor = y_fade_factors[y_fade_idx]
+                        x_frames.append(x_norm)
+                        y_frames.append(y_norm * y_factor)
+
+                x = np.concatenate(x_frames)
+                y = np.concatenate(y_frames)
+
+            else:
+                # BLENDED MODE: All effects apply simultaneously
+                # Determine total frames for preview
+                total_frames = max_length * num_preview_cycles
+
+                for frame_idx in range(total_frames):
+                    # Get current effect factors (cycling through each effect's sequence)
+                    y_factor = 1.0
+                    x_factor = 1.0
+                    scale_factor = 1.0
+
+                    if y_fade_factors is not None:
+                        y_factor = y_fade_factors[frame_idx % len(y_fade_factors)]
+
+                    if x_fade_factors is not None:
+                        x_factor = x_fade_factors[frame_idx % len(x_fade_factors)]
+
+                    if shrink_factors is not None:
+                        scale_factor = shrink_factors[frame_idx % len(shrink_factors)]
+
+                    # Apply ALL effects to this frame
+                    x_current = x_norm * x_factor * scale_factor
+                    y_current = y_norm * y_factor * scale_factor
+
+                    x_frames.append(x_current)
+                    y_frames.append(y_current)
+
+                x = np.concatenate(x_frames)
+                y = np.concatenate(y_frames)
 
         # Mirror Reflections
         if self.reflections_var.get():
             x, y = self.apply_reflections(x, y)
-        
+
         # Rotation - static angle only for display
-        if self.rotation_mode_var.get() == "Static":
+        if rotation_mode == "Static":
             angle_rad = np.radians(self.rotation_angle.get())
             cos_a = np.cos(angle_rad)
             sin_a = np.sin(angle_rad)
-            
+
             x_rot = x * cos_a - y * sin_a
             y_rot = x * sin_a + y * cos_a
-            
+
             # Renormalize after rotation to prevent clipping
             x = self.normalize_data(x_rot)
             y = self.normalize_data(y_rot)
-        
+
         return x, y
     
     def toggle_live_preview(self):
@@ -828,350 +789,210 @@ class OscilloscopeGUI:
         self.canvas.draw_idle()
     
     def generate_audio(self):
-        """Generate audio with current parameters and effects"""
-        
+        """Generate audio with current parameters and effects - ALL EFFECTS BLEND TOGETHER"""
+
         self.status_label.config(text="Generating audio...")
         self.root.update()
-        
-        # Normalize
+
+        # Normalize base pattern
         x_norm = self.normalize_data(self.x_data)
         y_norm = self.normalize_data(self.y_data)
-        
-        # Get parameters early
+
+        # Get parameters
         n_repeat = self.n_repeat_var.get()
-
-        # Start with base pattern
-        x_base = x_norm.copy()
-        y_base = y_norm.copy()
-
-        # Track if we've applied repeats in effects
-        repeats_applied_in_effects = False
-
-        # Check if we should synchronize fades with rotation
         rotation_mode = self.rotation_mode_var.get()
-        has_rotation = rotation_mode in ["CW", "CCW"]
+
+        # ===================================================================
+        # NEW APPROACH: Build effect factor arrays, then apply all together
+        # ===================================================================
+
+        # Step 1: Determine which effects are enabled
         has_y_fade = self.y_fade_var.get()
         has_x_fade = self.x_fade_var.get()
+        has_shrink = self.shrink_var.get()
+        has_rotation = rotation_mode in ["CW", "CCW"]
 
-        # SYNCHRONIZED MODE: Fades progress with rotation (one fade step per rotation step)
-        if has_rotation and (has_y_fade or has_x_fade):
-            # Build fade factor arrays
-            y_fade_factors = None
-            x_fade_factors = None
+        # Step 2: Build effect factor arrays
+        y_fade_factors = None
+        x_fade_factors = None
+        shrink_factors = None
+        rotation_angles = None
 
-            if has_y_fade:
-                n_fade_y = self.y_fade_steps.get()
-                y_fade_speed = self.y_fade_speed.get()
-                # Create one complete fade cycle
-                fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
-                fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
-                fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
-                fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
-                one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
-                # Apply speed by repeating each step
-                y_fade_factors = np.repeat(one_cycle_y, y_fade_speed)
+        # Build Y-Fade factors
+        if has_y_fade:
+            n_fade_y = self.y_fade_steps.get()
+            y_fade_speed = self.y_fade_speed.get()
+            # Create one complete fade cycle: 1 → 0 → -1 → 0 → 1
+            fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
+            fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
+            fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
+            fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
+            one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
+            # Apply speed by repeating each step
+            y_fade_factors = np.repeat(one_cycle_y, y_fade_speed)
 
-            if has_x_fade:
-                n_fade_x = self.x_fade_steps.get()
-                x_fade_speed = self.x_fade_speed.get()
-                # Create one complete fade cycle
-                fade_down_x = np.linspace(1, 0, n_fade_x, dtype=np.float32)
-                fade_negative_down_x = np.linspace(0, -1, n_fade_x, dtype=np.float32)[1:]
-                fade_negative_up_x = np.linspace(-1, 0, n_fade_x, dtype=np.float32)[1:]
-                fade_up_x = np.linspace(0, 1, n_fade_x, dtype=np.float32)[1:]
-                one_cycle_x = np.concatenate([fade_down_x, fade_negative_down_x, fade_negative_up_x, fade_up_x])
-                # Apply speed by repeating each step
-                x_fade_factors = np.repeat(one_cycle_x, x_fade_speed)
+        # Build X-Fade factors
+        if has_x_fade:
+            n_fade_x = self.x_fade_steps.get()
+            x_fade_speed = self.x_fade_speed.get()
+            # Create one complete fade cycle: 1 → 0 → -1 → 0 → 1
+            fade_down_x = np.linspace(1, 0, n_fade_x, dtype=np.float32)
+            fade_negative_down_x = np.linspace(0, -1, n_fade_x, dtype=np.float32)[1:]
+            fade_negative_up_x = np.linspace(-1, 0, n_fade_x, dtype=np.float32)[1:]
+            fade_up_x = np.linspace(0, 1, n_fade_x, dtype=np.float32)[1:]
+            one_cycle_x = np.concatenate([fade_down_x, fade_negative_down_x, fade_negative_up_x, fade_up_x])
+            # Apply speed by repeating each step
+            x_fade_factors = np.repeat(one_cycle_x, x_fade_speed)
 
-            # Create synchronized fade + rotation sequence
+        # Build Shrink factors
+        if has_shrink:
+            n_shrink = self.shrink_steps.get()
+            shrink_speed = self.shrink_speed.get()
+            # Create one complete shrink cycle: 1 → 0 → 1
+            shrink_down = np.linspace(1, 0, n_shrink, dtype=np.float32)
+            shrink_up = np.linspace(0, 1, n_shrink, dtype=np.float32)[1:]
+            one_cycle_shrink = np.concatenate([shrink_down, shrink_up])
+            # Apply speed by repeating each step
+            shrink_factors = np.repeat(one_cycle_shrink, shrink_speed)
+
+        # Build Rotation angles
+        if has_rotation:
             speed = self.rotation_speed.get()
             direction = -1 if rotation_mode == "CW" else 1
+            # Create angle sequence for n_repeat steps
+            rotation_angles = np.array([direction * speed * i for i in range(n_repeat)], dtype=np.float32)
 
-            x_repeated = []
-            y_repeated = []
+        # Step 3: Determine total number of frames
+        # If ANY effect is enabled, use n_repeat as base
+        # Otherwise just repeat the pattern n_repeat times
 
-            for step_idx in range(n_repeat):
-                # Get fade factors for this step (cycling through fade sequences)
-                y_factor = y_fade_factors[step_idx % len(y_fade_factors)] if y_fade_factors is not None else 1.0
-                x_factor = x_fade_factors[step_idx % len(x_fade_factors)] if x_fade_factors is not None else 1.0
+        any_effect_enabled = has_y_fade or has_x_fade or has_shrink or has_rotation
 
-                # Apply fades
-                x_faded = x_base * x_factor
-                y_faded = y_base * y_factor
+        if not any_effect_enabled:
+            # No effects - simple tile
+            x_repeated = np.tile(x_norm, n_repeat)
+            y_repeated = np.tile(y_norm, n_repeat)
 
-                # Apply rotation
-                angle = direction * speed * step_idx
-                angle_rad = np.radians(angle)
-                cos_a = np.cos(angle_rad)
-                sin_a = np.sin(angle_rad)
-
-                x_rot = x_faded * cos_a - y_faded * sin_a
-                y_rot = x_faded * sin_a + y_faded * cos_a
-
-                x_repeated.append(x_rot)
-                y_repeated.append(y_rot)
-
-            x_base = np.concatenate(x_repeated)
-            y_base = np.concatenate(y_repeated)
-
-            # Renormalize entire sequence to prevent clipping
-            x_base = self.normalize_data(x_base)
-            y_base = self.normalize_data(y_base)
-
-            repeats_applied_in_effects = True
-
-        # SEPARATE MODE: Apply fades independently (without rotation, or rotation will be applied later)
         else:
-            # Apply Y-Axis Fade Sequence if enabled
-            if has_y_fade:
-                n_fade = self.y_fade_steps.get()
-                fade_speed = self.y_fade_speed.get()
-                # Create one complete fade cycle: 1 → 0 → -1 → 0 → 1
-                fade_down = np.linspace(1, 0, n_fade, dtype=np.float32)
-                fade_negative_down = np.linspace(0, -1, n_fade, dtype=np.float32)[1:]
-                fade_negative_up = np.linspace(-1, 0, n_fade, dtype=np.float32)[1:]
-                fade_up = np.linspace(0, 1, n_fade, dtype=np.float32)[1:]
-                one_cycle = np.concatenate([fade_down, fade_negative_down, fade_negative_up, fade_up])
+            # Effects enabled - apply all simultaneously frame-by-frame
+            x_frames = []
+            y_frames = []
 
-                # Build the complete fade sequence with continuous cycling
-                x_faded = []
-                y_faded = []
+            # Check for alternate X/Y fade mode
+            use_alternate = (self.alternate_xy_fade_var.get() and
+                           has_x_fade and has_y_fade and
+                           not has_shrink and not has_rotation)
 
+            if use_alternate:
+                # ALTERNATE MODE: X fade first, then Y fade, repeat
+                # This is a special case where X and Y don't blend
                 for repeat_idx in range(n_repeat):
-                    for fade_factor in one_cycle:
-                        # Repeat each fade step 'fade_speed' times for speed control
-                        for _ in range(fade_speed):
-                            x_faded.append(x_base)
-                            y_faded.append(y_base * fade_factor)
+                    # First: Do X fade sequence
+                    for x_fade_idx in range(len(x_fade_factors)):
+                        x_factor = x_fade_factors[x_fade_idx]
+                        x_frames.append(x_norm * x_factor)
+                        y_frames.append(y_norm)
 
-                x_base = np.concatenate(x_faded)
-                y_base = np.concatenate(y_faded)
+                    # Then: Do Y fade sequence
+                    for y_fade_idx in range(len(y_fade_factors)):
+                        y_factor = y_fade_factors[y_fade_idx]
+                        x_frames.append(x_norm)
+                        y_frames.append(y_norm * y_factor)
 
-                # Mark that repeats have been applied
-                repeats_applied_in_effects = True
+                x_repeated = np.concatenate(x_frames)
+                y_repeated = np.concatenate(y_frames)
 
-            # Apply X-Axis Fade Sequence if enabled
-            if has_x_fade:
-                n_fade = self.x_fade_steps.get()
-                x_fade_speed = self.x_fade_speed.get()
-                # Create one complete X fade cycle: 1 → 0 → -1 → 0 → 1
-                fade_down = np.linspace(1, 0, n_fade, dtype=np.float32)
-                fade_negative_down = np.linspace(0, -1, n_fade, dtype=np.float32)[1:]
-                fade_negative_up = np.linspace(-1, 0, n_fade, dtype=np.float32)[1:]
-                fade_up = np.linspace(0, 1, n_fade, dtype=np.float32)[1:]
-                fade_factors = np.concatenate([fade_down, fade_negative_down, fade_negative_up, fade_up])
-
-                # If repeats were already applied in Y-fade, don't multiply again
-                # Just apply X-fade to the existing pattern
-                if not repeats_applied_in_effects:
-                    # Only X-fade enabled (no Y-fade)
-                    x_faded_list = []
-                    y_faded_list = []
-                    for x_fade_factor in fade_factors:
-                        # Repeat each fade step 'x_fade_speed' times for speed control
-                        for _ in range(x_fade_speed):
-                            x_faded_list.append(x_base * x_fade_factor)
-                            y_faded_list.append(y_base)
-                    x_base = np.concatenate(x_faded_list)
-                    y_base = np.concatenate(y_faded_list)
-                else:
-                    # Y-fade already created many copies
-                    # Check if alternating mode is enabled (only when BOTH X and Y fades are enabled)
-                    if self.alternate_xy_fade_var.get() and self.x_fade_var.get() and self.y_fade_var.get():
-                        # ALTERNATE MODE: Do X fade sequence, then Y fade sequence, repeat
-                        original_x = x_norm.copy()
-                        original_y = y_norm.copy()
-
-                        x_faded_combined = []
-                        y_faded_combined = []
-
-                        # Get Y-fade parameters
-                        n_fade_y = self.y_fade_steps.get()
-                        y_fade_speed = self.y_fade_speed.get()
-                        fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
-                        fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
-                        fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
-                        fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
-                        one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
-
-                        # For each repeat cycle
-                        for repeat_idx in range(n_repeat):
-                            # First: Do X fade sequence
-                            for x_fade_factor in fade_factors:
-                                for _ in range(x_fade_speed):
-                                    x_faded_combined.append(original_x * x_fade_factor)
-                                    y_faded_combined.append(original_y)
-
-                            # Then: Do Y fade sequence
-                            for y_fade_factor in one_cycle_y:
-                                for _ in range(y_fade_speed):
-                                    x_faded_combined.append(original_x)
-                                    y_faded_combined.append(original_y * y_fade_factor)
-
-                        x_base = np.concatenate(x_faded_combined)
-                        y_base = np.concatenate(y_faded_combined)
-                    else:
-                        # COMBINED MODE: Apply both X and Y fade with speed control simultaneously
-                        original_x = x_norm.copy()
-                        original_y = y_norm.copy()
-
-                        # Create X-faded then Y-faded sequence
-                        x_faded_combined = []
-                        y_faded_combined = []
-
-                        # Get Y-fade parameters
-                        n_fade_y = self.y_fade_steps.get()
-                        y_fade_speed = self.y_fade_speed.get()
-                        fade_down_y = np.linspace(1, 0, n_fade_y, dtype=np.float32)
-                        fade_negative_down_y = np.linspace(0, -1, n_fade_y, dtype=np.float32)[1:]
-                        fade_negative_up_y = np.linspace(-1, 0, n_fade_y, dtype=np.float32)[1:]
-                        fade_up_y = np.linspace(0, 1, n_fade_y, dtype=np.float32)[1:]
-                        one_cycle_y = np.concatenate([fade_down_y, fade_negative_down_y, fade_negative_up_y, fade_up_y])
-
-                        # For each repeat cycle
-                        for repeat_idx in range(n_repeat):
-                            # For each X-fade step
-                            for x_fade_factor in fade_factors:
-                                # For each Y-fade step in the cycle
-                                for y_fade_factor in one_cycle_y:
-                                    # Apply speed multipliers for both fades
-                                    for _ in range(x_fade_speed * y_fade_speed):
-                                        x_faded_combined.append(original_x * x_fade_factor)
-                                        y_faded_combined.append(original_y * y_fade_factor)
-
-                        x_base = np.concatenate(x_faded_combined)
-                        y_base = np.concatenate(y_faded_combined)
-                    # Still marked as repeats applied
-
-            # Apply Shrink/Unshrink if enabled
-            if self.shrink_var.get():
-                n_shrink = self.shrink_steps.get()
-                shrink_speed = self.shrink_speed.get()
-                # Create one complete shrink cycle: 1 → 0 → 1 (shrink and expand, no inversion)
-                # Shrink from 1 to near 0
-                shrink_down = np.linspace(1, 0, n_shrink, dtype=np.float32)
-                # Expand from near 0 back to 1 (skip first value to avoid duplicate 0)
-                shrink_up = np.linspace(0, 1, n_shrink, dtype=np.float32)[1:]
-                one_cycle = np.concatenate([shrink_down, shrink_up])
-
-                # Build the complete shrink sequence
-                x_shrunk = []
-                y_shrunk = []
-
-                for repeat_idx in range(n_repeat):
-                    for scale_factor in one_cycle:
-                        # Repeat each shrink step 'shrink_speed' times for speed control
-                        for _ in range(shrink_speed):
-                            x_shrunk.append(x_base * scale_factor)
-                            y_shrunk.append(y_base * scale_factor)
-
-                x_base = np.concatenate(x_shrunk)
-                y_base = np.concatenate(y_shrunk)
-
-                # Mark that repeats have been applied
-                repeats_applied_in_effects = True
-
-        # Apply Mirror Reflections if enabled
-        if self.reflections_var.get():
-            x_base, y_base = self.apply_reflections(x_base, y_base)
-
-        # Get other parameters
-        fs = self.sample_rate_var.get()
-        mult = self.freq_mult_var.get()
-        duration = self.duration_var.get()
-
-        # Handle rotation modes
-        rotation_mode = self.rotation_mode_var.get()
-
-        if rotation_mode == "Static":
-            # Static rotation - apply once
-            angle_rad = np.radians(self.rotation_angle.get())
-            cos_a = np.cos(angle_rad)
-            sin_a = np.sin(angle_rad)
-
-            x_rot = x_base * cos_a - y_base * sin_a
-            y_rot = x_base * sin_a + y_base * cos_a
-
-            # Renormalize to prevent clipping
-            x_base = self.normalize_data(x_rot)
-            y_base = self.normalize_data(y_rot)
-
-            # Repeat the rotated pattern (only if not already repeated in effects)
-            if not repeats_applied_in_effects:
-                x_repeated = np.tile(x_base, n_repeat)
-                y_repeated = np.tile(y_base, n_repeat)
             else:
-                x_repeated = x_base
-                y_repeated = y_base
-            
-        elif rotation_mode in ["CW", "CCW"]:
-            # Dynamic rotation - create rotating sequence
-            speed = self.rotation_speed.get()
-            direction = -1 if rotation_mode == "CW" else 1  # CW is negative angle
+                # BLENDED MODE: All effects apply simultaneously to each frame
+                for frame_idx in range(n_repeat):
+                    # Get current effect factors (cycling through each effect's sequence)
+                    y_factor = 1.0
+                    x_factor = 1.0
+                    scale_factor = 1.0
+                    rotation_angle = 0.0
 
-            if not repeats_applied_in_effects:
-                # Normal rotation with repeats
-                total_steps = n_repeat
+                    if y_fade_factors is not None:
+                        y_factor = y_fade_factors[frame_idx % len(y_fade_factors)]
 
-                # Create rotating sequence
-                x_repeated = []
-                y_repeated = []
+                    if x_fade_factors is not None:
+                        x_factor = x_fade_factors[frame_idx % len(x_fade_factors)]
 
-                for i in range(total_steps):
-                    angle = direction * speed * i
-                    angle_rad = np.radians(angle)
-                    cos_a = np.cos(angle_rad)
-                    sin_a = np.sin(angle_rad)
+                    if shrink_factors is not None:
+                        scale_factor = shrink_factors[frame_idx % len(shrink_factors)]
 
-                    x_rot = x_base * cos_a - y_base * sin_a
-                    y_rot = x_base * sin_a + y_base * cos_a
+                    if rotation_angles is not None:
+                        rotation_angle = rotation_angles[frame_idx % len(rotation_angles)]
 
-                    x_repeated.append(x_rot)
-                    y_repeated.append(y_rot)
+                    # Apply ALL effects to this frame
+                    x_current = x_norm * x_factor * scale_factor
+                    y_current = y_norm * y_factor * scale_factor
 
-                x_repeated = np.concatenate(x_repeated)
-                y_repeated = np.concatenate(y_repeated)
+                    # Apply rotation if present
+                    if rotation_angle != 0.0:
+                        angle_rad = np.radians(rotation_angle)
+                        cos_a = np.cos(angle_rad)
+                        sin_a = np.sin(angle_rad)
+
+                        x_rot = x_current * cos_a - y_current * sin_a
+                        y_rot = x_current * sin_a + y_current * cos_a
+
+                        x_frames.append(x_rot)
+                        y_frames.append(y_rot)
+                    else:
+                        x_frames.append(x_current)
+                        y_frames.append(y_current)
+
+                x_repeated = np.concatenate(x_frames)
+                y_repeated = np.concatenate(y_frames)
 
                 # Renormalize entire sequence to prevent clipping
                 x_repeated = self.normalize_data(x_repeated)
                 y_repeated = self.normalize_data(y_repeated)
 
-                # Calculate info for user
-                num_full_rotations = (total_steps * speed) / 360
-                self.status_label.config(text=f"Generating {num_full_rotations:.1f} rotations...")
-            else:
-                # Repeats already applied in effects, just use the faded pattern
-                x_repeated = x_base
-                y_repeated = y_base
+        # Apply Mirror Reflections if enabled
+        if self.reflections_var.get():
+            x_repeated, y_repeated = self.apply_reflections(x_repeated, y_repeated)
 
-        else:
-            # No rotation
-            if not repeats_applied_in_effects:
-                x_repeated = np.tile(x_base, n_repeat)
-                y_repeated = np.tile(y_base, n_repeat)
-            else:
-                x_repeated = x_base
-                y_repeated = y_base
-        
+        # Handle Static rotation (applied after all other effects)
+        if rotation_mode == "Static":
+            angle_rad = np.radians(self.rotation_angle.get())
+            cos_a = np.cos(angle_rad)
+            sin_a = np.sin(angle_rad)
+
+            x_rot = x_repeated * cos_a - y_repeated * sin_a
+            y_rot = x_repeated * sin_a + y_repeated * cos_a
+
+            # Renormalize to prevent clipping
+            x_repeated = self.normalize_data(x_rot)
+            y_repeated = self.normalize_data(y_rot)
+
         # Calculate playback rate and target length
+        fs = self.sample_rate_var.get()
+        mult = self.freq_mult_var.get()
+        duration = self.duration_var.get()
         actual_fs = fs * mult
         target_length = int(actual_fs * duration)
-        
+
         # Tile to fill duration
         seq_len = len(x_repeated)
         num_tiles = int(np.ceil(target_length / seq_len))
-        
+
         x_full = np.tile(x_repeated, num_tiles)[:target_length]
         y_full = np.tile(y_repeated, num_tiles)[:target_length]
-        
+
         # Create stereo
         stereo = np.column_stack([x_full, y_full]).astype(np.float32)
-        
+
         self.current_audio = stereo
         self.current_fs = actual_fs
-        
-        self.status_label.config(text=f"Ready - {len(stereo)} samples @ {actual_fs/1000:.0f}kHz")
-        
+
+        # Update status with rotation info if applicable
+        if has_rotation and rotation_angles is not None:
+            num_full_rotations = (len(rotation_angles) * self.rotation_speed.get()) / 360
+            self.status_label.config(text=f"Ready - {len(stereo)} samples @ {actual_fs/1000:.0f}kHz ({num_full_rotations:.1f} rotations)")
+        else:
+            self.status_label.config(text=f"Ready - {len(stereo)} samples @ {actual_fs/1000:.0f}kHz")
+
         return stereo, actual_fs
     
     def apply_reflections(self, x, y):
