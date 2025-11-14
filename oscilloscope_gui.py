@@ -1944,7 +1944,8 @@ class OscilloscopeGUI:
         def start_drawing(event):
             """Start drawing when mouse button is pressed"""
             drawing_data['is_drawing'] = True
-            drawing_data['points'] = [(event.x, event.y)]
+            # Append to existing points instead of replacing them
+            drawing_data['points'].append((event.x, event.y))
 
         def draw(event):
             """Draw as mouse moves"""
