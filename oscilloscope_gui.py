@@ -2376,27 +2376,19 @@ class OscilloscopeGUI:
         chaser_params_frame = ttk.Frame(chaser_frame)
         chaser_params_frame.pack(fill=tk.X, pady=5)
 
-        # Trail length parameter
-        ttk.Label(chaser_params_frame, text="Trail Length (%):").grid(row=0, column=0, sticky=tk.W, pady=5, padx=5)
-        trail_length_var = tk.DoubleVar(value=20.0)
-        trail_scale = ttk.Scale(chaser_params_frame, from_=5.0, to=100.0, variable=trail_length_var, orient=tk.HORIZONTAL)
+        # Trail length parameter (number of points)
+        ttk.Label(chaser_params_frame, text="Trail Length (points):").grid(row=0, column=0, sticky=tk.W, pady=5, padx=5)
+        trail_length_var = tk.IntVar(value=100)
+        trail_scale = ttk.Scale(chaser_params_frame, from_=5, to=500, variable=trail_length_var, orient=tk.HORIZONTAL)
         trail_scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
         trail_entry = ttk.Entry(chaser_params_frame, textvariable=trail_length_var, width=10)
         trail_entry.grid(row=0, column=2, padx=5)
-
-        # Number of chase steps
-        ttk.Label(chaser_params_frame, text="Chase Steps:").grid(row=1, column=0, sticky=tk.W, pady=5, padx=5)
-        chase_steps_var = tk.IntVar(value=50)
-        steps_scale = ttk.Scale(chaser_params_frame, from_=10, to=200, variable=chase_steps_var, orient=tk.HORIZONTAL)
-        steps_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
-        steps_entry = ttk.Entry(chaser_params_frame, textvariable=chase_steps_var, width=10)
-        steps_entry.grid(row=1, column=2, padx=5)
 
         chaser_params_frame.columnconfigure(1, weight=1)
 
         # Info label
         chaser_info = ttk.Label(chaser_frame,
-                               text="Chaser effect displays only a segment of the spiral at a time, creating an animation",
+                               text="Displays consecutive non-overlapping segments (e.g., [0:5], [5:10], [10:15]...)",
                                font=('Arial', 8, 'italic'), foreground='gray')
         chaser_info.pack(pady=5)
 
@@ -2460,37 +2452,41 @@ class OscilloscopeGUI:
 
             # Check if chaser effect is enabled
             if chaser_enabled_var.get():
-                # Chaser effect: create segments
-                trail_pct = trail_length_var.get() / 100.0  # Convert percentage to fraction
-                num_steps = int(chase_steps_var.get())
+                # Chaser effect: create consecutive non-overlapping segments
+                # Display x[0:n], then x[n:2n], then x[2n:3n], etc.
+                trail_length = int(trail_length_var.get())
 
-                # Calculate how many points to show in each segment
-                segment_length = int(num_points * trail_pct)
-                if segment_length < 2:
-                    segment_length = 2  # Minimum segment size
+                # Ensure trail length is valid
+                if trail_length < 1:
+                    trail_length = 1
+                if trail_length > num_points:
+                    trail_length = num_points
 
-                # Create segments that move along the spiral
+                # Calculate number of complete chunks
+                num_chunks = num_points // trail_length
+
+                # Create consecutive non-overlapping segments
                 x_segments = []
                 y_segments = []
 
-                for step in range(num_steps):
-                    # Calculate the start position for this segment
-                    # Move the segment along the spiral progressively
-                    start_idx = int((num_points - segment_length) * step / max(num_steps - 1, 1))
-                    end_idx = start_idx + segment_length
+                for i in range(num_chunks):
+                    start_idx = i * trail_length
+                    end_idx = (i + 1) * trail_length
 
-                    # Extract the segment
-                    x_seg = x_full[start_idx:end_idx]
-                    y_seg = y_full[start_idx:end_idx]
+                    x_segments.append(x_full[start_idx:end_idx])
+                    y_segments.append(y_full[start_idx:end_idx])
 
-                    x_segments.append(x_seg)
-                    y_segments.append(y_seg)
+                # Handle any remaining points if num_points is not evenly divisible
+                remainder = num_points % trail_length
+                if remainder > 0:
+                    x_segments.append(x_full[num_chunks * trail_length:])
+                    y_segments.append(y_full[num_chunks * trail_length:])
 
                 # Concatenate all segments to create the chase animation
                 x_data = np.concatenate(x_segments)
                 y_data = np.concatenate(y_segments)
 
-                status_msg = f"Generated Archimedean Spiral with Chaser (trail={trail_pct*100:.0f}%, steps={num_steps})"
+                status_msg = f"Generated Archimedean Spiral with Chaser (trail={trail_length} points, {num_chunks} segments)"
             else:
                 # No chaser effect: use full spiral
                 x_data = x_full
