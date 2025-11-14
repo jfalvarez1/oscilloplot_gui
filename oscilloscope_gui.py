@@ -1445,7 +1445,7 @@ class OscilloscopeGUI:
         # Mouse wheel scrolling
         def on_mousewheel(event):
             canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        canvas.bind_all("<MouseWheel>", on_mousewheel)
+        canvas.bind("<MouseWheel>", on_mousewheel)
 
         def apply():
             pattern_name = selected.get()
