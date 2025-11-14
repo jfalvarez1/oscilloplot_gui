@@ -313,6 +313,50 @@ class OscilloscopeGUI:
 
         ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
 
+        # Wavy Effects
+        wavy_frame = ttk.LabelFrame(effects_frame, text="Wavy Effect", padding="5")
+        wavy_frame.pack(fill=tk.X, pady=5)
+
+        self.x_wavy_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(wavy_frame, text="Add X-Channel Wavy",
+                       variable=self.x_wavy_var,
+                       command=self.effect_changed).pack(anchor=tk.W)
+
+        ttk.Label(wavy_frame, text="X Amplitude (K):",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.x_wavy_amp = tk.DoubleVar(value=0.2)
+        ttk.Scale(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
+                 variable=self.x_wavy_amp,
+                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+
+        ttk.Label(wavy_frame, text="X Angular Frequency (ω):",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.x_wavy_freq = tk.DoubleVar(value=10.0)
+        ttk.Scale(wavy_frame, from_=0.1, to=50.0, orient=tk.HORIZONTAL,
+                 variable=self.x_wavy_freq,
+                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+
+        self.y_wavy_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(wavy_frame, text="Add Y-Channel Wavy",
+                       variable=self.y_wavy_var,
+                       command=self.effect_changed).pack(anchor=tk.W, pady=(10,0))
+
+        ttk.Label(wavy_frame, text="Y Amplitude (K):",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.y_wavy_amp = tk.DoubleVar(value=0.2)
+        ttk.Scale(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
+                 variable=self.y_wavy_amp,
+                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+
+        ttk.Label(wavy_frame, text="Y Angular Frequency (ω):",
+                 font=('Arial', 8)).pack(anchor=tk.W, padx=20)
+        self.y_wavy_freq = tk.DoubleVar(value=10.0)
+        ttk.Scale(wavy_frame, from_=0.1, to=50.0, orient=tk.HORIZONTAL,
+                 variable=self.y_wavy_freq,
+                 command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
+
+        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+
         # Rotation
         rotation_frame = ttk.LabelFrame(effects_frame, text="Rotation", padding="5")
         rotation_frame.pack(fill=tk.X, pady=5)
@@ -544,6 +588,8 @@ class OscilloscopeGUI:
         self.shrink_var.set(False)
         self.x_noise_var.set(False)
         self.y_noise_var.set(False)
+        self.x_wavy_var.set(False)
+        self.y_wavy_var.set(False)
         self.rotation_mode_var.set("Off")
 
         # Reset values to defaults
@@ -555,6 +601,10 @@ class OscilloscopeGUI:
         self.shrink_speed.set(1)
         self.x_noise_amp.set(0.05)
         self.y_noise_amp.set(0.05)
+        self.x_wavy_amp.set(0.2)
+        self.y_wavy_amp.set(0.2)
+        self.x_wavy_freq.set(10.0)
+        self.y_wavy_freq.set(10.0)
         self.rotation_angle.set(0.0)
         self.rotation_speed.set(5.0)
 
@@ -708,6 +758,21 @@ class OscilloscopeGUI:
             # Renormalize after rotation to prevent clipping
             x = self.normalize_data(x_rot)
             y = self.normalize_data(y_rot)
+
+        # Apply wavy effect if enabled
+        if self.x_wavy_var.get() or self.y_wavy_var.get():
+            # Create time array based on position (0 to 2π)
+            t = np.linspace(0, 2*np.pi, len(x))
+
+            if self.x_wavy_var.get():
+                K_x = self.x_wavy_amp.get()
+                w_x = self.x_wavy_freq.get()
+                x = x + K_x * np.sin(w_x * t)
+
+            if self.y_wavy_var.get():
+                K_y = self.y_wavy_amp.get()
+                w_y = self.y_wavy_freq.get()
+                y = y + K_y * np.sin(w_y * t)
 
         return x, y
     
@@ -1024,6 +1089,21 @@ class OscilloscopeGUI:
             y_noise_amp = self.y_noise_amp.get()
             y_noise = np.random.uniform(-y_noise_amp, y_noise_amp, len(y_full))
             y_full = y_full + y_noise
+
+        # Apply wavy effect if enabled
+        if self.x_wavy_var.get() or self.y_wavy_var.get():
+            # Create time array based on actual sample positions
+            t = np.arange(len(x_full)) / actual_fs
+
+            if self.x_wavy_var.get():
+                K_x = self.x_wavy_amp.get()
+                w_x = self.x_wavy_freq.get()
+                x_full = x_full + K_x * np.sin(w_x * 2 * np.pi * t)
+
+            if self.y_wavy_var.get():
+                K_y = self.y_wavy_amp.get()
+                w_y = self.y_wavy_freq.get()
+                y_full = y_full + K_y * np.sin(w_y * 2 * np.pi * t)
 
         # Create stereo
         stereo = np.column_stack([x_full, y_full]).astype(np.float32)
@@ -1401,14 +1481,18 @@ class OscilloscopeGUI:
         # Create scrollable dialog
         dialog = tk.Toplevel(self.root)
         dialog.title("Select Test Pattern")
-        dialog.geometry("350x500")
+        dialog.geometry("380x550")
 
         ttk.Label(dialog, text="Choose a parametric pattern:",
                  font=('Arial', 10, 'bold')).pack(pady=10)
 
+        # Create frame for scrollable area
+        scroll_container = ttk.Frame(dialog)
+        scroll_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
         # Create canvas with scrollbar
-        canvas = tk.Canvas(dialog, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(dialog, orient="vertical", command=canvas.yview)
+        canvas = tk.Canvas(scroll_container, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
 
         scrollable_frame.bind(
@@ -1439,13 +1523,17 @@ class OscilloscopeGUI:
                 ttk.Radiobutton(scrollable_frame, text=name, variable=selected,
                                value=name).pack(anchor=tk.W, padx=30)
 
-        canvas.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=(0, 10))
-        scrollbar.pack(side="right", fill="y", pady=(0, 10))
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
         # Mouse wheel scrolling
         def on_mousewheel(event):
             canvas.yview_scroll(int(-1*(event.delta/120)), "units")
         canvas.bind("<MouseWheel>", on_mousewheel)
+
+        # Button frame at bottom (always visible)
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
 
         def apply():
             pattern_name = selected.get()
@@ -1468,7 +1556,8 @@ class OscilloscopeGUI:
             self.status_label.config(text=f"Generated {pattern_name} pattern")
             dialog.destroy()
 
-        ttk.Button(dialog, text="Generate", command=apply).pack(pady=10)
+        ttk.Button(button_frame, text="Generate Pattern", command=apply).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
     
     def save_to_wav(self):
         """Save current audio to WAV file"""
