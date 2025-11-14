@@ -44,17 +44,13 @@ class OscilloscopeGUI:
         self.effect_change_timer = None
         self.is_regenerating = False  # Flag to prevent simultaneous regenerations
 
-        # Floating pattern data
-        self.floating_pattern_x = None
-        self.floating_pattern_y = None
 
         # Create GUI
         self.create_widgets()
         self.update_display()
 
-        # Initialize wavy and floating pattern labels with default values
+        # Initialize wavy labels with default values
         self.update_wavy_labels_only()
-        self.update_floating_labels_only()
 
         # Start update loops
         self.root.after(50, self.check_updates)
@@ -438,66 +434,51 @@ class OscilloscopeGUI:
 
         ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
 
-        # Floating Pattern Effect
-        floating_frame = ttk.LabelFrame(effects_frame, text="Floating Pattern", padding="5")
-        floating_frame.pack(fill=tk.X, pady=5)
+        # Tremolo Effect (Amplitude Modulation)
+        tremolo_frame = ttk.LabelFrame(effects_frame, text="Tremolo (Amplitude Modulation)", padding="5")
+        tremolo_frame.pack(fill=tk.X, pady=5)
 
-        self.floating_pattern_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(floating_frame, text="Add Floating Pattern",
-                       variable=self.floating_pattern_var,
+        self.tremolo_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(tremolo_frame, text="Enable Tremolo",
+                       variable=self.tremolo_var,
                        command=self.effect_changed).pack(anchor=tk.W)
 
-        # Button to draw/set floating pattern
-        ttk.Button(floating_frame, text="Draw Floating Pattern",
-                  command=self.draw_floating_pattern).pack(fill=tk.X, padx=20, pady=5)
-
-        self.floating_pattern_status = ttk.Label(floating_frame,
-                                                 text="No pattern set",
-                                                 font=('Arial', 8, 'italic'),
-                                                 foreground='gray')
-        self.floating_pattern_status.pack(padx=20, pady=2)
-
-        # Number of instances with value label
-        instance_count_frame = ttk.Frame(floating_frame)
-        instance_count_frame.pack(fill=tk.X, padx=20, pady=(5,0))
-        ttk.Label(instance_count_frame, text="Number of Instances:",
+        # Depth control
+        depth_frame = ttk.Frame(tremolo_frame)
+        depth_frame.pack(fill=tk.X, padx=20, pady=(5,0))
+        ttk.Label(depth_frame, text="Depth (%):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.floating_count_label = ttk.Label(instance_count_frame, text="4",
+        self.tremolo_depth_label = ttk.Label(depth_frame, text="50",
                  font=('Arial', 8, 'bold'))
-        self.floating_count_label.pack(side=tk.RIGHT)
+        self.tremolo_depth_label.pack(side=tk.RIGHT)
 
-        self.floating_count = tk.IntVar(value=4)
-        ttk.Scale(floating_frame, from_=1, to=12, orient=tk.HORIZONTAL,
-                 variable=self.floating_count,
-                 command=lambda v: self.update_floating_labels()).pack(fill=tk.X, padx=20)
+        self.tremolo_depth = tk.DoubleVar(value=50.0)
+        ttk.Scale(tremolo_frame, from_=0.0, to=100.0, orient=tk.HORIZONTAL,
+                 variable=self.tremolo_depth,
+                 command=lambda v: self.tremolo_depth_label.config(text=f"{self.tremolo_depth.get():.0f}")).pack(fill=tk.X, padx=20)
 
-        # Scale with value label
-        scale_frame = ttk.Frame(floating_frame)
-        scale_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(scale_frame, text="Pattern Scale:",
+        # Rate control
+        rate_frame = ttk.Frame(tremolo_frame)
+        rate_frame.pack(fill=tk.X, padx=20)
+        ttk.Label(rate_frame, text="Rate (Hz):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.floating_scale_label = ttk.Label(scale_frame, text="0.30",
+        self.tremolo_rate_label = ttk.Label(rate_frame, text="2.0",
                  font=('Arial', 8, 'bold'))
-        self.floating_scale_label.pack(side=tk.RIGHT)
+        self.tremolo_rate_label.pack(side=tk.RIGHT)
 
-        self.floating_scale = tk.DoubleVar(value=0.3)
-        ttk.Scale(floating_frame, from_=0.1, to=1.0, orient=tk.HORIZONTAL,
-                 variable=self.floating_scale,
-                 command=lambda v: self.update_floating_labels()).pack(fill=tk.X, padx=20)
+        self.tremolo_rate = tk.DoubleVar(value=2.0)
+        ttk.Scale(tremolo_frame, from_=0.1, to=20.0, orient=tk.HORIZONTAL,
+                 variable=self.tremolo_rate,
+                 command=lambda v: self.tremolo_rate_label.config(text=f"{self.tremolo_rate.get():.1f}")).pack(fill=tk.X, padx=20)
 
-        # Offset distance with value label
-        offset_frame = ttk.Frame(floating_frame)
-        offset_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(offset_frame, text="Distance from Center:",
-                 font=('Arial', 8)).pack(side=tk.LEFT)
-        self.floating_offset_label = ttk.Label(offset_frame, text="1.50",
-                 font=('Arial', 8, 'bold'))
-        self.floating_offset_label.pack(side=tk.RIGHT)
-
-        self.floating_offset = tk.DoubleVar(value=1.5)
-        ttk.Scale(floating_frame, from_=0.5, to=3.0, orient=tk.HORIZONTAL,
-                 variable=self.floating_offset,
-                 command=lambda v: self.update_floating_labels()).pack(fill=tk.X, padx=20)
+        # Waveform type
+        waveform_row = ttk.Frame(tremolo_frame)
+        waveform_row.pack(fill=tk.X, padx=20, pady=5)
+        ttk.Label(waveform_row, text="Waveform:", font=('Arial', 8)).pack(side=tk.LEFT, padx=(0, 10))
+        self.tremolo_wave_var = tk.StringVar(value="sine")
+        ttk.Radiobutton(waveform_row, text="Sine", variable=self.tremolo_wave_var, value="sine").pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(waveform_row, text="Triangle", variable=self.tremolo_wave_var, value="triangle").pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(waveform_row, text="Square", variable=self.tremolo_wave_var, value="square").pack(side=tk.LEFT, padx=5)
         
         # === ACTION BUTTONS ===
         button_frame = ttk.Frame(parent)
@@ -717,22 +698,6 @@ class OscilloscopeGUI:
         # Trigger effect changed for preview update
         self.effect_changed()
 
-    def update_floating_labels_only(self):
-        """Update floating pattern value labels without triggering effect_changed"""
-        count = self.floating_count.get()
-        scale = self.floating_scale.get()
-        offset = self.floating_offset.get()
-
-        self.floating_count_label.config(text=f"{count}")
-        self.floating_scale_label.config(text=f"{scale:.2f}")
-        self.floating_offset_label.config(text=f"{offset:.2f}")
-
-    def update_floating_labels(self):
-        """Update floating pattern value labels and trigger effect preview"""
-        self.update_floating_labels_only()
-        # Trigger effect changed for preview update
-        self.effect_changed()
-
     def reset_effects(self):
         """Reset all effects to their default values"""
         # Turn off all effects
@@ -746,7 +711,7 @@ class OscilloscopeGUI:
         self.x_wavy_var.set(False)
         self.y_wavy_var.set(False)
         self.rotation_mode_var.set("Off")
-        self.floating_pattern_var.set(False)
+        self.tremolo_var.set(False)
 
         # Reset values to defaults
         self.y_fade_steps.set(10)
@@ -763,13 +728,11 @@ class OscilloscopeGUI:
         self.y_wavy_freq.set(10.0)
         self.rotation_angle.set(0.0)
         self.rotation_speed.set(5.0)
-        self.floating_count.set(4)
-        self.floating_scale.set(0.3)
-        self.floating_offset.set(1.5)
+        self.tremolo_depth.set(50.0)
+        self.tremolo_rate.set(2.0)
 
-        # Update wavy and floating pattern labels to reflect reset values
+        # Update wavy labels to reflect reset values
         self.update_wavy_labels_only()
-        self.update_floating_labels_only()
 
         # Update display
         self.update_display()
@@ -1260,38 +1223,6 @@ class OscilloscopeGUI:
             x_repeated = self.normalize_data(x_rot)
             y_repeated = self.normalize_data(y_rot)
 
-        # Add floating pattern if enabled (before tiling)
-        if self.floating_pattern_var.get() and self.floating_pattern_x is not None:
-            num_instances = self.floating_count.get()
-            pattern_scale = self.floating_scale.get()
-            distance = self.floating_offset.get()
-
-            # Create instances of the pattern around the center
-            all_pattern_x = []
-            all_pattern_y = []
-
-            for i in range(num_instances):
-                # Distribute instances evenly in a circle
-                angle = (2 * np.pi * i) / num_instances
-                offset_x = distance * np.cos(angle)
-                offset_y = distance * np.sin(angle)
-
-                # Scale and position the pattern
-                scaled_x = self.floating_pattern_x * pattern_scale + offset_x
-                scaled_y = self.floating_pattern_y * pattern_scale + offset_y
-
-                all_pattern_x.append(scaled_x)
-                all_pattern_y.append(scaled_y)
-
-            # Combine all pattern instances
-            if all_pattern_x:
-                pattern_x = np.concatenate(all_pattern_x)
-                pattern_y = np.concatenate(all_pattern_y)
-
-                # Prepend pattern (so main image draws on top)
-                x_repeated = np.concatenate([pattern_x, x_repeated])
-                y_repeated = np.concatenate([pattern_y, y_repeated])
-
         # Calculate playback rate and target length
         fs = self.sample_rate_var.get()
         mult = self.freq_mult_var.get()
@@ -1331,6 +1262,32 @@ class OscilloscopeGUI:
                 K_y = self.y_wavy_amp.get()
                 w_y = self.y_wavy_freq.get()
                 y_full = y_full + K_y * np.sin(w_y * 2 * np.pi * t)
+
+        # Apply tremolo effect if enabled (amplitude modulation)
+        if self.tremolo_var.get():
+            # Create time array if not already created
+            if not (self.x_wavy_var.get() or self.y_wavy_var.get()):
+                t = np.arange(len(x_full)) / actual_fs
+
+            depth = self.tremolo_depth.get() / 100.0  # Convert percentage to 0-1
+            rate = self.tremolo_rate.get()
+            wave_type = self.tremolo_wave_var.get()
+
+            # Generate modulation waveform
+            if wave_type == "sine":
+                mod = np.sin(2 * np.pi * rate * t)
+            elif wave_type == "triangle":
+                mod = 2 * np.abs(2 * (rate * t - np.floor(rate * t + 0.5))) - 1
+            else:  # square
+                mod = np.sign(np.sin(2 * np.pi * rate * t))
+
+            # Scale modulation: (1 - depth) + depth * modulation
+            # This keeps amplitude between (1-depth) and 1
+            modulation = (1 - depth) + depth * (mod + 1) / 2
+
+            # Apply to both channels
+            x_full = x_full * modulation
+            y_full = y_full * modulation
 
         # Create stereo
         stereo = np.column_stack([x_full, y_full]).astype(np.float32)
@@ -1886,117 +1843,6 @@ class OscilloscopeGUI:
         ttk.Button(button_frame, text="Clear", command=clear_canvas).pack(
             side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Apply Drawing", command=apply_drawing).pack(
-            side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
-            side=tk.LEFT, padx=5)
-
-    def draw_floating_pattern(self):
-        """Open a canvas for drawing a floating pattern"""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Draw Floating Pattern")
-        dialog.geometry("550x650")
-
-        # Instructions
-        instruction_frame = ttk.Frame(dialog)
-        instruction_frame.pack(pady=10)
-        ttk.Label(instruction_frame, text="Draw a small pattern to float around the image:",
-                 font=('Arial', 10, 'bold')).pack()
-        ttk.Label(instruction_frame, text="Click and drag to draw • Keep it small and simple",
-                 font=('Arial', 8), foreground='gray').pack()
-
-        # Drawing canvas (square aspect ratio)
-        canvas_frame = ttk.Frame(dialog)
-        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        canvas = tk.Canvas(canvas_frame, width=500, height=500, bg='white',
-                          highlightthickness=1, highlightbackground='gray')
-        canvas.pack()
-
-        # Drawing state
-        drawing_data = {
-            'is_drawing': False,
-            'points': [],  # Store (x, y) tuples
-            'canvas_objects': []  # Store line IDs for clearing
-        }
-
-        def start_drawing(event):
-            """Start drawing when mouse button is pressed"""
-            drawing_data['is_drawing'] = True
-            drawing_data['points'].append((event.x, event.y))
-
-        def draw(event):
-            """Draw as mouse moves"""
-            if drawing_data['is_drawing']:
-                x, y = event.x, event.y
-                prev_x, prev_y = drawing_data['points'][-1]
-
-                # Draw line from previous point to current point
-                line_id = canvas.create_line(prev_x, prev_y, x, y,
-                                             fill='blue', width=2, capstyle=tk.ROUND)
-                drawing_data['canvas_objects'].append(line_id)
-                drawing_data['points'].append((x, y))
-
-        def stop_drawing(event):
-            """Stop drawing when mouse button is released"""
-            drawing_data['is_drawing'] = False
-
-        def clear_canvas():
-            """Clear the canvas"""
-            for obj_id in drawing_data['canvas_objects']:
-                canvas.delete(obj_id)
-            drawing_data['canvas_objects'] = []
-            drawing_data['points'] = []
-
-        def apply_drawing():
-            """Store drawn pattern for floating"""
-            if len(drawing_data['points']) < 2:
-                messagebox.showwarning("No Drawing", "Please draw a pattern first!")
-                return
-
-            # Get canvas dimensions
-            canvas_size = 500
-
-            # Convert canvas coordinates to normalized coordinates (-1 to 1)
-            points = np.array(drawing_data['points'])
-            x_canvas = points[:, 0]
-            y_canvas = points[:, 1]
-
-            # Center and normalize
-            x_norm = (x_canvas - canvas_size/2) / (canvas_size/2)
-            y_norm = -(y_canvas - canvas_size/2) / (canvas_size/2)
-
-            # Center the pattern around origin
-            x_centered = x_norm - np.mean(x_norm)
-            y_centered = y_norm - np.mean(y_norm)
-
-            # Store pattern
-            self.floating_pattern_x = x_centered
-            self.floating_pattern_y = y_centered
-
-            # Update status label
-            self.floating_pattern_status.config(
-                text=f"Pattern set ({len(x_centered)} points)",
-                foreground='blue'
-            )
-
-            # Trigger effect update if enabled
-            if self.floating_pattern_var.get():
-                self.effect_changed()
-
-            dialog.destroy()
-
-        # Bind mouse events
-        canvas.bind("<Button-1>", start_drawing)
-        canvas.bind("<B1-Motion>", draw)
-        canvas.bind("<ButtonRelease-1>", stop_drawing)
-
-        # Button frame
-        button_frame = ttk.Frame(dialog)
-        button_frame.pack(fill=tk.X, padx=10, pady=10)
-
-        ttk.Button(button_frame, text="Clear", command=clear_canvas).pack(
-            side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Apply Pattern", command=apply_drawing).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
             side=tk.LEFT, padx=5)
