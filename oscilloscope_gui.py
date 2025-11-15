@@ -2173,10 +2173,18 @@ class OscilloscopeGUI:
         """Open a canvas for drawing custom patterns"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Draw Pattern")
-        dialog.geometry("550x650")
+        dialog.geometry("750x650")
+
+        # Main container - left panel for drawing, right panel for presets
+        main_container = ttk.Frame(dialog)
+        main_container.pack(fill=tk.BOTH, expand=True)
+
+        # Left panel - Drawing
+        left_panel = ttk.Frame(main_container)
+        left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 5))
 
         # Instructions
-        instruction_frame = ttk.Frame(dialog)
+        instruction_frame = ttk.Frame(left_panel)
         instruction_frame.pack(pady=10)
         ttk.Label(instruction_frame, text="Draw your pattern below:",
                  font=('Arial', 10, 'bold')).pack()
@@ -2184,10 +2192,10 @@ class OscilloscopeGUI:
                  font=('Arial', 8), foreground='gray').pack()
 
         # Drawing canvas (square aspect ratio to match oscilloscope display)
-        canvas_frame = ttk.Frame(dialog)
-        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        canvas_frame = ttk.Frame(left_panel)
+        canvas_frame.pack(fill=tk.BOTH, expand=True, pady=10)
 
-        canvas = tk.Canvas(canvas_frame, width=500, height=500, bg='white',
+        canvas = tk.Canvas(canvas_frame, width=450, height=450, bg='white',
                           highlightthickness=1, highlightbackground='gray')
         canvas.pack()
 
@@ -2235,7 +2243,7 @@ class OscilloscopeGUI:
                 return
 
             # Get canvas dimensions (square aspect ratio)
-            canvas_size = 500
+            canvas_size = 450
 
             # Convert canvas coordinates to normalized coordinates (-1 to 1)
             points = np.array(drawing_data['points'])
@@ -2243,10 +2251,10 @@ class OscilloscopeGUI:
             y_canvas = points[:, 1]
 
             # Center and normalize (canvas is square, so same scaling for both axes)
-            # X: left=0 -> -1, center=250 -> 0, right=500 -> 1
+            # X: left=0 -> -1, center=225 -> 0, right=450 -> 1
             x_norm = (x_canvas - canvas_size/2) / (canvas_size/2)
 
-            # Y: top=0 -> 1, center=250 -> 0, bottom=500 -> -1 (flip Y axis)
+            # Y: top=0 -> 1, center=225 -> 0, bottom=450 -> -1 (flip Y axis)
             y_norm = -(y_canvas - canvas_size/2) / (canvas_size/2)
 
             # Set as current data
@@ -2257,14 +2265,315 @@ class OscilloscopeGUI:
             self.status_label.config(text=f"Loaded drawn pattern ({len(x_norm)} points)")
             dialog.destroy()
 
+        def load_preset_shape(shape_name):
+            """Load a preset 3D shape"""
+            num_points = 1000
+
+            if shape_name == "cube":
+                # 3D rotating cube (wireframe projection)
+                t = np.linspace(0, 2*np.pi, num_points)
+                # Rotate cube over time
+                angles = t
+
+                # Cube vertices (8 corners)
+                vertices = np.array([
+                    [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],  # Back face
+                    [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]  # Front face
+                ])
+
+                # Cube edges (12 edges, defined as pairs of vertex indices)
+                edges = [
+                    (0,1), (1,2), (2,3), (3,0),  # Back face
+                    (4,5), (5,6), (6,7), (7,4),  # Front face
+                    (0,4), (1,5), (2,6), (3,7)   # Connecting edges
+                ]
+
+                x_data = []
+                y_data = []
+
+                for i in range(num_points):
+                    angle = angles[i]
+                    # Rotation matrices (rotate around Y and X axes)
+                    cos_y, sin_y = np.cos(angle), np.sin(angle)
+                    cos_x, sin_x = np.cos(angle*0.7), np.sin(angle*0.7)
+
+                    # Rotate vertices
+                    rotated_verts = []
+                    for v in vertices:
+                        # Rotate around Y axis
+                        x_rot = v[0] * cos_y - v[2] * sin_y
+                        z_rot = v[0] * sin_y + v[2] * cos_y
+                        y_temp = v[1]
+
+                        # Rotate around X axis
+                        y_rot = y_temp * cos_x - z_rot * sin_x
+                        z_final = y_temp * sin_x + z_rot * cos_x
+
+                        # Project to 2D (perspective)
+                        scale = 3 / (3 + z_final)
+                        rotated_verts.append([x_rot * scale, y_rot * scale])
+
+                    # Draw edges for this frame
+                    # Sample one edge per point (cycle through edges)
+                    edge_idx = i % len(edges)
+                    v1_idx, v2_idx = edges[edge_idx]
+                    # Interpolate along the edge
+                    t_edge = (i % (num_points // len(edges))) / (num_points // len(edges))
+                    x = rotated_verts[v1_idx][0] * (1-t_edge) + rotated_verts[v2_idx][0] * t_edge
+                    y = rotated_verts[v1_idx][1] * (1-t_edge) + rotated_verts[v2_idx][1] * t_edge
+
+                    x_data.append(x)
+                    y_data.append(y)
+
+                x_data = np.array(x_data) * 0.6
+                y_data = np.array(y_data) * 0.6
+
+            elif shape_name == "pyramid":
+                # 3D rotating pyramid (square base)
+                t = np.linspace(0, 2*np.pi, num_points)
+                angles = t
+
+                # Pyramid vertices (5 points: 4 base + 1 apex)
+                vertices = np.array([
+                    [-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0],  # Base
+                    [0, 0, 1.5]  # Apex
+                ])
+
+                # Pyramid edges
+                edges = [
+                    (0,1), (1,2), (2,3), (3,0),  # Base
+                    (0,4), (1,4), (2,4), (3,4)   # Sides to apex
+                ]
+
+                x_data = []
+                y_data = []
+
+                for i in range(num_points):
+                    angle = angles[i]
+                    cos_y, sin_y = np.cos(angle), np.sin(angle)
+                    cos_x, sin_x = np.cos(angle*0.5), np.sin(angle*0.5)
+
+                    rotated_verts = []
+                    for v in vertices:
+                        # Rotate around Y
+                        x_rot = v[0] * cos_y - v[2] * sin_y
+                        z_rot = v[0] * sin_y + v[2] * cos_y
+                        y_temp = v[1]
+
+                        # Rotate around X
+                        y_rot = y_temp * cos_x - z_rot * sin_x
+                        z_final = y_temp * sin_x + z_rot * cos_x
+
+                        # Project to 2D
+                        scale = 3 / (3 + z_final)
+                        rotated_verts.append([x_rot * scale, y_rot * scale])
+
+                    edge_idx = i % len(edges)
+                    v1_idx, v2_idx = edges[edge_idx]
+                    t_edge = (i % (num_points // len(edges))) / (num_points // len(edges))
+                    x = rotated_verts[v1_idx][0] * (1-t_edge) + rotated_verts[v2_idx][0] * t_edge
+                    y = rotated_verts[v1_idx][1] * (1-t_edge) + rotated_verts[v2_idx][1] * t_edge
+
+                    x_data.append(x)
+                    y_data.append(y)
+
+                x_data = np.array(x_data) * 0.6
+                y_data = np.array(y_data) * 0.6
+
+            elif shape_name == "sphere":
+                # Sphere with latitude/longitude lines
+                t = np.linspace(0, 8*np.pi, num_points)
+                u = np.sin(t * 3) * np.pi  # Latitude
+                v = t  # Longitude
+
+                x_data = np.cos(u) * np.cos(v) * 0.7
+                y_data = np.cos(u) * np.sin(v) * 0.7
+
+            elif shape_name == "torus":
+                # Torus (donut shape)
+                t = np.linspace(0, 4*np.pi, num_points)
+                R = 0.6  # Major radius
+                r = 0.3  # Minor radius
+
+                u = t * 2
+                v = t * 3
+
+                x_data = (R + r * np.cos(v)) * np.cos(u)
+                y_data = (R + r * np.cos(v)) * np.sin(u)
+
+            elif shape_name == "helix":
+                # 3D helix
+                t = np.linspace(0, 6*np.pi, num_points)
+                x_data = np.cos(t) * 0.6
+                y_data = np.sin(t) * 0.6 + t / (6*np.pi) * 0.5
+
+            elif shape_name == "cone":
+                # 3D rotating cone
+                t = np.linspace(0, 2*np.pi, num_points)
+                angles = t
+
+                vertices = []
+                # Generate cone vertices (circular base + apex)
+                n_base = 16
+                for i in range(n_base):
+                    angle = 2 * np.pi * i / n_base
+                    vertices.append([np.cos(angle), np.sin(angle), 0])
+                vertices.append([0, 0, 1.5])  # Apex
+                vertices = np.array(vertices)
+
+                # Cone edges
+                edges = []
+                for i in range(n_base):
+                    edges.append((i, (i+1) % n_base))  # Base circle
+                    edges.append((i, n_base))  # To apex
+
+                x_data = []
+                y_data = []
+
+                for i in range(num_points):
+                    angle = angles[i]
+                    cos_y, sin_y = np.cos(angle), np.sin(angle)
+                    cos_x, sin_x = np.cos(angle*0.6), np.sin(angle*0.6)
+
+                    rotated_verts = []
+                    for v in vertices:
+                        x_rot = v[0] * cos_y - v[2] * sin_y
+                        z_rot = v[0] * sin_y + v[2] * cos_y
+                        y_temp = v[1]
+
+                        y_rot = y_temp * cos_x - z_rot * sin_x
+                        z_final = y_temp * sin_x + z_rot * cos_x
+
+                        scale = 3 / (3 + z_final)
+                        rotated_verts.append([x_rot * scale, y_rot * scale])
+
+                    edge_idx = i % len(edges)
+                    v1_idx, v2_idx = edges[edge_idx]
+                    t_edge = (i % (num_points // len(edges))) / (num_points // len(edges))
+                    x = rotated_verts[v1_idx][0] * (1-t_edge) + rotated_verts[v2_idx][0] * t_edge
+                    y = rotated_verts[v1_idx][1] * (1-t_edge) + rotated_verts[v2_idx][1] * t_edge
+
+                    x_data.append(x)
+                    y_data.append(y)
+
+                x_data = np.array(x_data) * 0.6
+                y_data = np.array(y_data) * 0.6
+
+            elif shape_name == "octahedron":
+                # Octahedron (8 faces, 6 vertices)
+                t = np.linspace(0, 2*np.pi, num_points)
+                angles = t
+
+                vertices = np.array([
+                    [1, 0, 0], [-1, 0, 0],  # Left-right
+                    [0, 1, 0], [0, -1, 0],  # Up-down
+                    [0, 0, 1], [0, 0, -1]   # Front-back
+                ])
+
+                edges = [
+                    (0,2), (0,3), (0,4), (0,5),  # From +X vertex
+                    (1,2), (1,3), (1,4), (1,5),  # From -X vertex
+                    (2,4), (2,5), (3,4), (3,5)   # Square edges
+                ]
+
+                x_data = []
+                y_data = []
+
+                for i in range(num_points):
+                    angle = angles[i]
+                    cos_y, sin_y = np.cos(angle), np.sin(angle)
+                    cos_x, sin_x = np.cos(angle*0.8), np.sin(angle*0.8)
+
+                    rotated_verts = []
+                    for v in vertices:
+                        x_rot = v[0] * cos_y - v[2] * sin_y
+                        z_rot = v[0] * sin_y + v[2] * cos_y
+                        y_temp = v[1]
+
+                        y_rot = y_temp * cos_x - z_rot * sin_x
+                        z_final = y_temp * sin_x + z_rot * cos_x
+
+                        scale = 3 / (3 + z_final)
+                        rotated_verts.append([x_rot * scale, y_rot * scale])
+
+                    edge_idx = i % len(edges)
+                    v1_idx, v2_idx = edges[edge_idx]
+                    t_edge = (i % (num_points // len(edges))) / (num_points // len(edges))
+                    x = rotated_verts[v1_idx][0] * (1-t_edge) + rotated_verts[v2_idx][0] * t_edge
+                    y = rotated_verts[v1_idx][1] * (1-t_edge) + rotated_verts[v2_idx][1] * t_edge
+
+                    x_data.append(x)
+                    y_data.append(y)
+
+                x_data = np.array(x_data) * 0.7
+                y_data = np.array(y_data) * 0.7
+
+            elif shape_name == "cylinder":
+                # Cylinder (rotating)
+                t = np.linspace(0, 2*np.pi, num_points)
+                angles = t
+
+                vertices = []
+                n_circle = 16
+                for i in range(n_circle):
+                    angle = 2 * np.pi * i / n_circle
+                    vertices.append([np.cos(angle), np.sin(angle), -1])  # Bottom
+                    vertices.append([np.cos(angle), np.sin(angle), 1])   # Top
+                vertices = np.array(vertices)
+
+                edges = []
+                for i in range(n_circle):
+                    # Vertical edges
+                    edges.append((i*2, i*2+1))
+                    # Bottom circle
+                    edges.append((i*2, ((i+1)%n_circle)*2))
+                    # Top circle
+                    edges.append((i*2+1, ((i+1)%n_circle)*2+1))
+
+                x_data = []
+                y_data = []
+
+                for i in range(num_points):
+                    angle = angles[i]
+                    cos_y, sin_y = np.cos(angle), np.sin(angle)
+
+                    rotated_verts = []
+                    for v in vertices:
+                        x_rot = v[0] * cos_y - v[2] * sin_y
+                        z_rot = v[0] * sin_y + v[2] * cos_y
+                        y_temp = v[1]
+
+                        scale = 3 / (3 + z_rot)
+                        rotated_verts.append([x_rot * scale, y_temp * scale])
+
+                    edge_idx = i % len(edges)
+                    v1_idx, v2_idx = edges[edge_idx]
+                    t_edge = (i % (num_points // len(edges))) / (num_points // len(edges))
+                    x = rotated_verts[v1_idx][0] * (1-t_edge) + rotated_verts[v2_idx][0] * t_edge
+                    y = rotated_verts[v1_idx][1] * (1-t_edge) + rotated_verts[v2_idx][1] * t_edge
+
+                    x_data.append(x)
+                    y_data.append(y)
+
+                x_data = np.array(x_data) * 0.6
+                y_data = np.array(y_data) * 0.6
+
+            # Set as current data
+            self.x_data = x_data
+            self.y_data = y_data
+            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.update_display()
+            self.status_label.config(text=f"Loaded {shape_name} pattern")
+            dialog.destroy()
+
         # Bind mouse events
         canvas.bind("<Button-1>", start_drawing)
         canvas.bind("<B1-Motion>", draw)
         canvas.bind("<ButtonRelease-1>", stop_drawing)
 
-        # Button frame
-        button_frame = ttk.Frame(dialog)
-        button_frame.pack(fill=tk.X, padx=10, pady=10)
+        # Button frame for drawing
+        button_frame = ttk.Frame(left_panel)
+        button_frame.pack(fill=tk.X, pady=10)
 
         ttk.Button(button_frame, text="Clear", command=clear_canvas).pack(
             side=tk.LEFT, padx=5)
@@ -2272,6 +2581,47 @@ class OscilloscopeGUI:
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
             side=tk.LEFT, padx=5)
+
+        # Right panel - Preset 3D Shapes
+        right_panel = ttk.LabelFrame(main_container, text="Preset 3D Shapes", padding="10")
+        right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 10), pady=10)
+
+        ttk.Label(right_panel, text="Click to load a 3D shape:",
+                 font=('Arial', 9, 'bold')).pack(pady=(0, 10))
+
+        # Wireframe shapes (rotate over time)
+        wireframe_frame = ttk.LabelFrame(right_panel, text="Wireframe (Rotating)", padding="5")
+        wireframe_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Button(wireframe_frame, text="Cube",
+                  command=lambda: load_preset_shape("cube")).pack(fill=tk.X, pady=2)
+        ttk.Button(wireframe_frame, text="Pyramid",
+                  command=lambda: load_preset_shape("pyramid")).pack(fill=tk.X, pady=2)
+        ttk.Button(wireframe_frame, text="Octahedron",
+                  command=lambda: load_preset_shape("octahedron")).pack(fill=tk.X, pady=2)
+        ttk.Button(wireframe_frame, text="Cone",
+                  command=lambda: load_preset_shape("cone")).pack(fill=tk.X, pady=2)
+        ttk.Button(wireframe_frame, text="Cylinder",
+                  command=lambda: load_preset_shape("cylinder")).pack(fill=tk.X, pady=2)
+
+        # Parametric shapes
+        parametric_frame = ttk.LabelFrame(right_panel, text="Parametric Surfaces", padding="5")
+        parametric_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Button(parametric_frame, text="Sphere",
+                  command=lambda: load_preset_shape("sphere")).pack(fill=tk.X, pady=2)
+        ttk.Button(parametric_frame, text="Torus (Donut)",
+                  command=lambda: load_preset_shape("torus")).pack(fill=tk.X, pady=2)
+        ttk.Button(parametric_frame, text="Helix (3D Spiral)",
+                  command=lambda: load_preset_shape("helix")).pack(fill=tk.X, pady=2)
+
+        # Info label
+        info_label = ttk.Label(right_panel,
+                              text="These shapes animate when\nplayed on the oscilloscope!",
+                              font=('Arial', 8, 'italic'),
+                              foreground='gray',
+                              justify=tk.CENTER)
+        info_label.pack(pady=10)
 
     def open_harmonic_sum(self):
         """Open dialog to create pattern from sum of harmonics"""
