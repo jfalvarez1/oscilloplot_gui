@@ -1205,6 +1205,10 @@ class OscilloscopeGUI:
                         if self.points.get_offsets().shape[0] > 0:
                             self.points.set_offsets(np.empty((0, 2)))
 
+                        # Make line bright during live preview (since scatter is hidden)
+                        self.line.set_alpha(0.9)
+                        self.line.set_linewidth(1.0)
+
                         # Calculate current playback position
                         elapsed = time.time() - self.playback_start_time
                         sample_position = int(elapsed * self.current_fs)
@@ -1322,6 +1326,9 @@ class OscilloscopeGUI:
 
         # Update plot - both line and points for realistic oscilloscope effect
         self.line.set_data(x_display, y_display)
+        # Restore line to faint for static display (bright scatter provides visibility)
+        self.line.set_alpha(0.15)
+        self.line.set_linewidth(0.5)
 
         # Clear old scatter plot and create new one (prevents ghosting/persistence)
         self.points.remove()
