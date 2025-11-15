@@ -2990,11 +2990,15 @@ class OscilloscopeGUI:
         """Open sound pad interface for live performance and sequencing"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Sound Pad")
-        dialog.geometry("800x700")
+        dialog.geometry("900x750")
 
         # Sound pad state
         pad_notes = {}  # Maps (row, col) to frequency
-        sequence = []  # List of (pad_idx, duration) tuples
+        # 3 independent sequence timelines for layered drum patterns
+        track1_sequence = []  # Track 1: Drum/Kick line
+        track2_sequence = []  # Track 2: Snare line
+        track3_sequence = []  # Track 3: Beat/HiHat line
+        current_track = tk.IntVar(value=1)  # Which track is being recorded
         is_playing_live = False
         current_instrument = tk.StringVar(value="sine")
         current_warp = tk.DoubleVar(value=0.0)
@@ -3226,79 +3230,195 @@ class OscilloscopeGUI:
         ttk.Label(warp_frame, text="Adds frequency modulation",
                  font=('Arial', 8, 'italic'), foreground='gray').pack()
 
-        # Sequencer
-        sequencer_frame = ttk.LabelFrame(right_panel, text="Sequencer", padding="10")
+        # Sequencer - 3 Track System
+        sequencer_frame = ttk.LabelFrame(right_panel, text="3-Track Sequencer", padding="10")
         sequencer_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
-        ttk.Label(sequencer_frame, text="Build a sequence:", font=('Arial', 9, 'bold')).pack(anchor=tk.W)
+        ttk.Label(sequencer_frame, text="Layer drum patterns across 3 tracks:",
+                 font=('Arial', 9, 'bold')).pack(anchor=tk.W)
 
-        # Sequence display
-        sequence_text = tk.Text(sequencer_frame, height=8, width=30, font=('Courier', 9))
-        sequence_text.pack(fill=tk.BOTH, expand=True, pady=5)
-        sequence_text.insert('1.0', "Sequence empty.\nPress pads to add notes.")
-        sequence_text.config(state=tk.DISABLED)
+        # Track selector
+        track_select_frame = ttk.Frame(sequencer_frame)
+        track_select_frame.pack(fill=tk.X, pady=5)
+        ttk.Label(track_select_frame, text="Record to:", font=('Arial', 8, 'bold')).pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(track_select_frame, text="Track 1 (Drum)",
+                       variable=current_track, value=1).pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(track_select_frame, text="Track 2 (Snare)",
+                       variable=current_track, value=2).pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(track_select_frame, text="Track 3 (Beat)",
+                       variable=current_track, value=3).pack(side=tk.LEFT, padx=5)
 
-        def update_sequence_display():
-            sequence_text.config(state=tk.NORMAL)
-            sequence_text.delete('1.0', tk.END)
-            if not sequence:
-                sequence_text.insert('1.0', "Sequence empty.\nPress pads to add notes.")
+        # 3 Sequence displays
+        tracks_display_frame = ttk.Frame(sequencer_frame)
+        tracks_display_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        # Track 1
+        track1_label = ttk.Label(tracks_display_frame, text="Track 1 (Drum):",
+                                font=('Courier', 8, 'bold'), foreground='#D32F2F')
+        track1_label.grid(row=0, column=0, sticky='w', pady=(0, 2))
+        track1_text = tk.Text(tracks_display_frame, height=3, width=40, font=('Courier', 7))
+        track1_text.grid(row=1, column=0, sticky='ew', pady=(0, 5))
+        track1_text.insert('1.0', "Empty")
+        track1_text.config(state=tk.DISABLED)
+
+        # Track 2
+        track2_label = ttk.Label(tracks_display_frame, text="Track 2 (Snare):",
+                                font=('Courier', 8, 'bold'), foreground='#1976D2')
+        track2_label.grid(row=2, column=0, sticky='w', pady=(0, 2))
+        track2_text = tk.Text(tracks_display_frame, height=3, width=40, font=('Courier', 7))
+        track2_text.grid(row=3, column=0, sticky='ew', pady=(0, 5))
+        track2_text.insert('1.0', "Empty")
+        track2_text.config(state=tk.DISABLED)
+
+        # Track 3
+        track3_label = ttk.Label(tracks_display_frame, text="Track 3 (Beat):",
+                                font=('Courier', 8, 'bold'), foreground='#388E3C')
+        track3_label.grid(row=4, column=0, sticky='w', pady=(0, 2))
+        track3_text = tk.Text(tracks_display_frame, height=3, width=40, font=('Courier', 7))
+        track3_text.grid(row=5, column=0, sticky='ew', pady=(0, 5))
+        track3_text.insert('1.0', "Empty")
+        track3_text.config(state=tk.DISABLED)
+
+        tracks_display_frame.columnconfigure(0, weight=1)
+
+        def update_sequence_displays():
+            """Update all 3 track displays"""
+            note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+            # Update Track 1
+            track1_text.config(state=tk.NORMAL)
+            track1_text.delete('1.0', tk.END)
+            if not track1_sequence:
+                track1_text.insert('1.0', "Empty")
             else:
-                for i, (pad_idx, dur) in enumerate(sequence):
-                    note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-                    note_name = note_names[pad_idx % 12] + str(3 + pad_idx // 12)
-                    sequence_text.insert(tk.END, f"{i+1}. {note_name} ({dur:.2f}s)\n")
-            sequence_text.config(state=tk.DISABLED)
+                notes_str = " ".join([f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
+                                     for pad_idx, _ in track1_sequence])
+                track1_text.insert('1.0', notes_str)
+            track1_text.config(state=tk.DISABLED)
+
+            # Update Track 2
+            track2_text.config(state=tk.NORMAL)
+            track2_text.delete('1.0', tk.END)
+            if not track2_sequence:
+                track2_text.insert('1.0', "Empty")
+            else:
+                notes_str = " ".join([f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
+                                     for pad_idx, _ in track2_sequence])
+                track2_text.insert('1.0', notes_str)
+            track2_text.config(state=tk.DISABLED)
+
+            # Update Track 3
+            track3_text.config(state=tk.NORMAL)
+            track3_text.delete('1.0', tk.END)
+            if not track3_sequence:
+                track3_text.insert('1.0', "Empty")
+            else:
+                notes_str = " ".join([f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
+                                     for pad_idx, _ in track3_sequence])
+                track3_text.insert('1.0', notes_str)
+            track3_text.config(state=tk.DISABLED)
 
         def add_to_sequence(row, col):
-            """Add pad to sequence"""
+            """Add pad to current track sequence"""
             pad_idx = row * 4 + col
             duration = 0.5
-            sequence.append((pad_idx, duration))
-            update_sequence_display()
 
-        def clear_sequence():
-            sequence.clear()
-            update_sequence_display()
+            track_num = current_track.get()
+            if track_num == 1:
+                track1_sequence.append((pad_idx, duration))
+            elif track_num == 2:
+                track2_sequence.append((pad_idx, duration))
+            elif track_num == 3:
+                track3_sequence.append((pad_idx, duration))
 
-        def play_sequence():
-            """Play the entire sequence"""
-            if not sequence:
+            update_sequence_displays()
+
+        def clear_current_track():
+            """Clear the currently selected track"""
+            track_num = current_track.get()
+            if track_num == 1:
+                track1_sequence.clear()
+            elif track_num == 2:
+                track2_sequence.clear()
+            elif track_num == 3:
+                track3_sequence.clear()
+            update_sequence_displays()
+
+        def clear_all_tracks():
+            """Clear all 3 tracks"""
+            track1_sequence.clear()
+            track2_sequence.clear()
+            track3_sequence.clear()
+            update_sequence_displays()
+
+        def merge_and_apply():
+            """Merge all 3 tracks together and apply to main oscilloscope"""
+            if not (track1_sequence or track2_sequence or track3_sequence):
+                messagebox.showwarning("Empty Tracks", "All tracks are empty. Add notes first.")
                 return
 
-            all_x = []
-            all_y = []
+            sample_rate = 44100
 
-            for pad_idx, duration in sequence:
-                note_freq = base_notes[pad_idx]
-                x, y = generate_pad_sound(note_freq, current_instrument.get(),
-                                        current_warp.get(), duration=duration)
-                all_x.append(x)
-                all_y.append(y)
+            # Calculate total duration needed (longest track)
+            def calc_track_duration(seq):
+                return sum(dur for _, dur in seq) if seq else 0
 
-            # Concatenate all segments
-            x_full = np.concatenate(all_x)
-            y_full = np.concatenate(all_y)
+            max_duration = max(calc_track_duration(track1_sequence),
+                             calc_track_duration(track2_sequence),
+                             calc_track_duration(track3_sequence))
 
-            # Update display
-            self.x_data = x_full
-            self.y_data = y_full
-            self.data_info_label.config(text=f"Points: {len(x_full)}")
+            total_samples = int(sample_rate * max_duration)
+
+            # Initialize mixed output buffers
+            x_mixed = np.zeros(total_samples, dtype=np.float32)
+            y_mixed = np.zeros(total_samples, dtype=np.float32)
+
+            # Process each track
+            for track_seq in [track1_sequence, track2_sequence, track3_sequence]:
+                if not track_seq:
+                    continue
+
+                current_pos = 0
+                for pad_idx, duration in track_seq:
+                    note_freq = base_notes[pad_idx]
+                    x, y = generate_pad_sound(note_freq, current_instrument.get(),
+                                            current_warp.get(), duration=duration)
+
+                    # Calculate where to place this note
+                    start_sample = current_pos
+                    end_sample = min(start_sample + len(x), total_samples)
+                    segment_len = end_sample - start_sample
+
+                    # Mix into output buffers
+                    x_mixed[start_sample:end_sample] += x[:segment_len]
+                    y_mixed[start_sample:end_sample] += y[:segment_len]
+
+                    current_pos += len(x)
+
+            # Normalize mixed output
+            max_val = max(np.max(np.abs(x_mixed)), np.max(np.abs(y_mixed)))
+            if max_val > 0:
+                x_mixed = x_mixed / max_val
+                y_mixed = y_mixed / max_val
+
+            # Update main oscilloscope
+            self.x_data = x_mixed
+            self.y_data = y_mixed
+            self.data_info_label.config(text=f"Points: {len(x_mixed)}")
             self.update_display()
-            self.status_label.config(text=f"Playing sequence ({len(sequence)} notes)")
 
-            # Play sequence once (not looping) using sounddevice directly
-            stereo_audio = np.column_stack([x_full, y_full]).astype(np.float32)
-            sd.play(stereo_audio, 44100, blocking=False)
+            total_notes = len(track1_sequence) + len(track2_sequence) + len(track3_sequence)
+            self.status_label.config(text=f"Merged 3 tracks ({total_notes} notes, {max_duration:.1f}s)")
+
+            # Apply to generate audio for playback
+            self.apply_parameters()
 
         # Sequencer controls
         seq_controls = ttk.Frame(sequencer_frame)
-        seq_controls.pack(fill=tk.X)
-
-        ttk.Label(seq_controls, text="Recording:", font=('Arial', 8)).pack(side=tk.LEFT, padx=5)
+        seq_controls.pack(fill=tk.X, pady=5)
 
         recording_var = tk.BooleanVar(value=False)
-        record_check = ttk.Checkbutton(seq_controls, text="Record pads to sequence",
+        record_check = ttk.Checkbutton(seq_controls, text="Record pads to selected track",
                                       variable=recording_var)
         record_check.pack(anchor=tk.W, pady=2)
 
@@ -3317,8 +3437,15 @@ class OscilloscopeGUI:
         seq_btn_frame = ttk.Frame(sequencer_frame)
         seq_btn_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Button(seq_btn_frame, text="Play Sequence", command=play_sequence).pack(side=tk.LEFT, padx=2, expand=True, fill=tk.X)
-        ttk.Button(seq_btn_frame, text="Clear", command=clear_sequence).pack(side=tk.LEFT, padx=2, expand=True, fill=tk.X)
+        ttk.Button(seq_btn_frame, text="Merge & Apply", command=merge_and_apply,
+                  style='Accent.TButton').pack(side=tk.TOP, pady=2, fill=tk.X)
+
+        clear_btn_frame = ttk.Frame(sequencer_frame)
+        clear_btn_frame.pack(fill=tk.X)
+        ttk.Button(clear_btn_frame, text="Clear Current Track", command=clear_current_track).pack(
+            side=tk.LEFT, padx=2, expand=True, fill=tk.X)
+        ttk.Button(clear_btn_frame, text="Clear All", command=clear_all_tracks).pack(
+            side=tk.LEFT, padx=2, expand=True, fill=tk.X)
 
         # Bottom buttons
         bottom_frame = ttk.Frame(right_panel)
