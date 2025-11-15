@@ -746,8 +746,11 @@ class OscilloscopeGUI:
         self.ax.set_ylabel('Y (Right Channel)', color='#00ff00')
         self.ax.tick_params(colors='#00ff00')
 
-        # Initial plot
-        self.line, = self.ax.plot([], [], color='#00ff00', linewidth=1.5, alpha=0.8)
+        # Initial plot - use both lines and points for realistic oscilloscope effect
+        # Very light connecting lines (almost invisible)
+        self.line, = self.ax.plot([], [], color='#00ff00', linewidth=0.5, alpha=0.15)
+        # Bright points for the actual beam positions
+        self.points = self.ax.scatter([], [], color='#00ff00', s=1.5, alpha=0.9)
 
         # Embed in tkinter
         self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
@@ -1269,9 +1272,10 @@ class OscilloscopeGUI:
             x_display = x_display[::step]
             y_display = y_display[::step]
 
-        # Update plot
+        # Update plot - both line and points for realistic oscilloscope effect
         self.line.set_data(x_display, y_display)
-        
+        self.points.set_offsets(np.column_stack((x_display, y_display)))
+
         # Update limits if needed
         margin = 0.1
         x_range = [x_display.min() - margin, x_display.max() + margin]
@@ -3318,6 +3322,20 @@ class OscilloscopeGUI:
         ttk.Label(mode4_frame, text="• Creates rotating Lissajous patterns",
                  font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
 
+        ttk.Separator(mode_frame, orient='horizontal').pack(fill=tk.X, pady=10)
+
+        # Mode 5: Mirrored with Frequency and Phase Sweep
+        mode5_frame = ttk.Frame(mode_frame)
+        mode5_frame.pack(fill=tk.X, pady=5)
+        ttk.Radiobutton(mode5_frame, text="Mirrored + Frequency & Phase Sweep",
+                       variable=mode_var, value="freq_phase_sweep").pack(anchor=tk.W)
+        ttk.Label(mode5_frame, text="• Like mirrored mode (sin/cos swap)",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ttk.Label(mode5_frame, text="• Y channel frequencies AND phases sweep continuously",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ttk.Label(mode5_frame, text="• Creates complex morphing animations",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+
         # Preview area
         preview_frame = ttk.LabelFrame(dialog, text="Last Generated", padding="10")
         preview_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -3538,6 +3556,72 @@ class OscilloscopeGUI:
                         y_description.append(f"{amplitude:.2f}·sin({frequency:.1f}t + {phase_start:.1f}→{phase_end:.1f})")
 
                 status_msg = f"Random harmonics (phase sweep): {num_terms} terms, {num_sweep_steps} frames"
+
+            elif mode == "freq_phase_sweep":
+                # Mode 5: Mirrored with both Frequency and Phase Sweep
+                num_terms = np.random.randint(1, 11)  # 1-10 terms
+                num_sweep_steps = 20  # Number of frames for sweep
+
+                # Generate shared parameters
+                terms = []
+                for i in range(num_terms):
+                    wave_type = np.random.choice(['sin', 'cos'])
+                    amplitude = np.random.uniform(0.01, 1.0)
+                    frequency_start = np.random.uniform(0, 1000)
+                    frequency_end = np.random.uniform(0, 1000)
+                    phase_start = np.random.uniform(0, 1000)
+                    phase_end = np.random.uniform(0, 1000)
+                    terms.append((wave_type, amplitude, frequency_start, frequency_end, phase_start, phase_end))
+
+                # Generate frames
+                all_x_frames = []
+                all_y_frames = []
+
+                for step in range(num_sweep_steps):
+                    # Interpolate both frequencies and phases for this frame
+                    interp_factor = step / (num_sweep_steps - 1) if num_sweep_steps > 1 else 0
+
+                    # Generate X channel (constant frequency and phase)
+                    x_frame = np.zeros(num_points)
+                    for wave_type, amplitude, freq_start, freq_end, phase_start, phase_end in terms:
+                        frequency = freq_start  # X uses start frequency
+                        phase = phase_start  # X uses start phase
+                        if wave_type == 'sin':
+                            x_frame += amplitude * np.sin(frequency * t + phase)
+                        else:
+                            x_frame += amplitude * np.cos(frequency * t + phase)
+
+                    # Generate Y channel (swept frequency and phase)
+                    y_frame = np.zeros(num_points)
+                    for wave_type, amplitude, freq_start, freq_end, phase_start, phase_end in terms:
+                        frequency = freq_start + (freq_end - freq_start) * interp_factor
+                        phase = phase_start + (phase_end - phase_start) * interp_factor
+                        if wave_type == 'sin':
+                            # sin on X becomes cos on Y
+                            y_frame += amplitude * np.cos(frequency * t + phase)
+                        else:
+                            # cos on X becomes sin on Y
+                            y_frame += amplitude * np.sin(frequency * t + phase)
+
+                    all_x_frames.append(x_frame)
+                    all_y_frames.append(y_frame)
+
+                # Concatenate all frames
+                x_data = np.concatenate(all_x_frames)
+                y_data = np.concatenate(all_y_frames)
+
+                # Build descriptions
+                x_description = []
+                y_description = []
+                for wave_type, amplitude, freq_start, freq_end, phase_start, phase_end in terms:
+                    if wave_type == 'sin':
+                        x_description.append(f"{amplitude:.2f}·sin({freq_start:.1f}t + {phase_start:.1f})")
+                        y_description.append(f"{amplitude:.2f}·cos({freq_start:.1f}→{freq_end:.1f} t + {phase_start:.1f}→{phase_end:.1f})")
+                    else:
+                        x_description.append(f"{amplitude:.2f}·cos({freq_start:.1f}t + {phase_start:.1f})")
+                        y_description.append(f"{amplitude:.2f}·sin({freq_start:.1f}→{freq_end:.1f} t + {phase_start:.1f}→{phase_end:.1f})")
+
+                status_msg = f"Random harmonics (freq+phase sweep): {num_terms} terms, {num_sweep_steps} frames"
 
             # Normalize
             x_data = x_data / (np.max(np.abs(x_data)) + 1e-10)
