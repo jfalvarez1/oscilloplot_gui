@@ -1385,6 +1385,17 @@ class OscilloscopeGUI:
         # Apply effects
         x_display, y_display = self.apply_effects(x_norm, y_norm)
 
+        # Check if CW/CCW rotation is enabled - if so, hide scatter plot to prevent overlay
+        rotation_mode = self.rotation_mode_var.get()
+        if rotation_mode in ["CW", "CCW"]:
+            # Hide scatter plot when rotation animation is active
+            # (live preview will show the rotating pattern)
+            self.line.set_data([], [])
+            if self.points.get_offsets().shape[0] > 0:
+                self.points.set_offsets(np.empty((0, 2)))
+            self.canvas.draw_idle()
+            return
+
         # Calculate density-based colors BEFORE tiling (prevents artificial persistence)
         # This ensures density reflects natural beam speed, not repetition artifacts
         colors_single = self.calculate_density_colors(x_display, y_display)
@@ -2164,8 +2175,8 @@ class OscilloscopeGUI:
         scroll_container = ttk.Frame(dialog)
         scroll_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
-        # Create canvas with scrollbar
-        canvas = tk.Canvas(scroll_container, highlightthickness=0)
+        # Create canvas with scrollbar - set explicit height to ensure scrollbar shows
+        canvas = tk.Canvas(scroll_container, highlightthickness=0, height=400)
         scrollbar = ttk.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
 
@@ -2325,8 +2336,8 @@ class OscilloscopeGUI:
         scroll_container = ttk.Frame(dialog)
         scroll_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
-        # Create canvas with scrollbar
-        canvas = tk.Canvas(scroll_container, highlightthickness=0)
+        # Create canvas with scrollbar - set explicit height to ensure scrollbar shows
+        canvas = tk.Canvas(scroll_container, highlightthickness=0, height=400)
         scrollbar = ttk.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
 
