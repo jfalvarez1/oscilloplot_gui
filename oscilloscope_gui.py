@@ -2072,19 +2072,13 @@ class OscilloscopeGUI:
             "Spiral (Archimedean)": lambda t: (t/10*np.cos(t), t/10*np.sin(t)),
             "Spiral (Logarithmic)": lambda t: (np.exp(t/10)*np.cos(t), np.exp(t/10)*np.sin(t)),
 
-            # 3D-Looking Shapes (Parametric curves that give 3D appearance)
-            "3D Cube (Lissajous)": lambda t: (np.sign(np.sin(t))*0.7, np.sign(np.sin(2*t + np.pi/4))*0.7),
-            "3D Sphere (Spherical)": lambda t: (np.sin(2*t)*np.cos(7*t), np.sin(2*t)*np.sin(7*t)),
-            "3D Torus (Donut)": lambda t: ((1 + 0.3*np.cos(5*t))*np.cos(t)*0.7,
-                                           (1 + 0.3*np.cos(5*t))*np.sin(t)*0.7),
-            "3D Trefoil Knot": lambda t: (np.sin(t) + 2*np.sin(2*t),
-                                          np.cos(t) - 2*np.cos(2*t)),
-            "3D Helix (Spiral)": lambda t: (np.cos(t)*0.8, np.sin(t)*0.8 + t/(3*np.pi) - 1),
-            "3D Spring (Coil)": lambda t: ((1 + 0.2*np.sin(8*t))*np.cos(t)*0.7,
-                                           (1 + 0.2*np.sin(8*t))*np.sin(t)*0.7),
-            "3D Cone (Tapering)": lambda t: (np.cos(2*t)*(1.5 - t/(2*np.pi))*0.6,
-                                            np.sin(2*t)*(1.5 - t/(2*np.pi))*0.6),
-            "3D Cylinder": lambda t: (np.cos(t)*0.7, np.sin(3*t)*0.7),
+            # Parametric 3D-Style Curves
+            # Note: True 3D requires X,Y,Z. These are 2D curves that create 3D-like effects
+            "Helix (3D Spiral)": lambda t: (np.cos(t)*0.7, np.sin(t)*0.7 + (t-np.pi)/(2*np.pi)*0.5),
+            "Trefoil Knot": lambda t: ((np.sin(t) + 2*np.sin(2*t)) * 0.3,
+                                       (np.cos(t) - 2*np.cos(2*t)) * 0.3),
+            "Torus Knot": lambda t: ((2 + np.cos(3*t))*np.cos(2*t)*0.3,
+                                     (2 + np.cos(3*t))*np.sin(2*t)*0.3),
 
             # Complex parametric curves
             "Hypotrochoid": lambda t: ((3)*np.cos(t) + (1)*np.cos((3)/(1)*t),
@@ -2136,7 +2130,7 @@ class OscilloscopeGUI:
             "Lissajous Curves": [k for k in patterns.keys() if "Lissajous" in k],
             "Stars & Flowers": ["Star (5-point)", "Flower (6-petal)", "Rose Curve (4-petal)"],
             "Spirals": ["Spiral (Archimedean)", "Spiral (Logarithmic)"],
-            "3D Shapes": [k for k in patterns.keys() if k.startswith("3D ")],
+            "Knots & 3D-Style": ["Helix (3D Spiral)", "Trefoil Knot", "Torus Knot"],
             "Complex Curves": ["Hypotrochoid", "Epitrochoid", "Butterfly Curve",
                               "Cardioid", "Deltoid"],
             "Special": ["Figure-8", "Infinity (∞)"]
