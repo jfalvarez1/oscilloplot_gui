@@ -482,7 +482,7 @@ class OscilloscopeGUI:
         self.tremolo_depth = tk.DoubleVar(value=50.0)
         ctk.CTkSlider(tremolo_frame, from_=0.0, to=100.0,
                  variable=self.tremolo_depth,
-                 command=lambda v: self.tremolo_depth_label.config(text=f"{self.tremolo_depth.get():.0f}")).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.tremolo_depth_label.configure(text=f"{self.tremolo_depth.get():.0f}")).pack(fill=tk.X, padx=20)
 
         # Rate control
         rate_frame = ctk.CTkFrame(tremolo_frame)
@@ -496,7 +496,7 @@ class OscilloscopeGUI:
         self.tremolo_rate = tk.DoubleVar(value=2.0)
         ctk.CTkSlider(tremolo_frame, from_=0.1, to=20.0,
                  variable=self.tremolo_rate,
-                 command=lambda v: self.tremolo_rate_label.config(text=f"{self.tremolo_rate.get():.1f}")).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.tremolo_rate_label.configure(text=f"{self.tremolo_rate.get():.1f}")).pack(fill=tk.X, padx=20)
 
         # Waveform type
         waveform_row = ctk.CTkFrame(tremolo_frame)
@@ -532,7 +532,7 @@ class OscilloscopeGUI:
         self.ring_carrier_freq = tk.DoubleVar(value=200.0)
         ctk.CTkSlider(ring_frame, from_=10.0, to=2000.0,
                  variable=self.ring_carrier_freq,
-                 command=lambda v: self.ring_carrier_label.config(text=f"{self.ring_carrier_freq.get():.0f}")).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.ring_carrier_label.configure(text=f"{self.ring_carrier_freq.get():.0f}")).pack(fill=tk.X, padx=20)
 
         # Depth control
         ring_depth_frame = ctk.CTkFrame(ring_frame)
@@ -546,7 +546,7 @@ class OscilloscopeGUI:
         self.ring_mix = tk.DoubleVar(value=50.0)
         ctk.CTkSlider(ring_frame, from_=0.0, to=100.0,
                  variable=self.ring_mix,
-                 command=lambda v: self.ring_mix_label.config(text=f"{self.ring_mix.get():.0f}")).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.ring_mix_label.configure(text=f"{self.ring_mix.get():.0f}")).pack(fill=tk.X, padx=20)
 
         ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
 
@@ -573,7 +573,7 @@ class OscilloscopeGUI:
         self.echo_count = tk.IntVar(value=3)
         ctk.CTkSlider(echo_frame, from_=1, to=10,
                  variable=self.echo_count,
-                 command=lambda v: self.echo_count_label.config(text=f"{self.echo_count.get():.0f}")).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.echo_count_label.configure(text=f"{self.echo_count.get():.0f}")).pack(fill=tk.X, padx=20)
 
         # Decay control
         decay_frame = ctk.CTkFrame(echo_frame)
@@ -587,7 +587,7 @@ class OscilloscopeGUI:
         self.echo_decay = tk.DoubleVar(value=0.7)
         ctk.CTkSlider(echo_frame, from_=0.1, to=0.95,
                  variable=self.echo_decay,
-                 command=lambda v: self.echo_decay_label.config(text=f"{self.echo_decay.get():.2f}")).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.echo_decay_label.configure(text=f"{self.echo_decay.get():.2f}")).pack(fill=tk.X, padx=20)
 
         # Delay time (as percentage of pattern length)
         delay_frame = ctk.CTkFrame(echo_frame)
@@ -601,7 +601,7 @@ class OscilloscopeGUI:
         self.echo_delay = tk.DoubleVar(value=10.0)
         ctk.CTkSlider(echo_frame, from_=1.0, to=50.0,
                  variable=self.echo_delay,
-                 command=lambda v: self.echo_delay_label.config(text=f"{self.echo_delay.get():.0f}")).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.echo_delay_label.configure(text=f"{self.echo_delay.get():.0f}")).pack(fill=tk.X, padx=20)
 
         ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
 
@@ -628,7 +628,7 @@ class OscilloscopeGUI:
         self.kaleido_sections = tk.IntVar(value=6)
         ctk.CTkSlider(kaleido_frame, from_=2, to=12,
                  variable=self.kaleido_sections,
-                 command=lambda v: self.kaleido_sections_label.config(text=f"{self.kaleido_sections.get():.0f}")).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.kaleido_sections_label.configure(text=f"{self.kaleido_sections.get():.0f}")).pack(fill=tk.X, padx=20)
 
         # Mirror option
         self.kaleido_mirror_var = tk.BooleanVar(value=True)
@@ -673,7 +673,7 @@ class OscilloscopeGUI:
         self.distortion_threshold = tk.DoubleVar(value=0.5)
         ctk.CTkSlider(distortion_frame, from_=0.1, to=2.0,
                  variable=self.distortion_threshold,
-                 command=lambda v: self.distortion_threshold_label.config(text=f"{self.distortion_threshold.get():.2f}")).pack(fill=tk.X, padx=20)
+                 command=lambda v: self.distortion_threshold_label.configure(text=f"{self.distortion_threshold.get():.2f}")).pack(fill=tk.X, padx=20)
 
         # === ACTION BUTTONS ===
         button_frame = ctk.CTkFrame(parent)
@@ -809,9 +809,9 @@ class OscilloscopeGUI:
         actual = fs * mult
         
         if actual >= 1000:
-            self.actual_rate_label.config(text=f"{actual/1000:.0f} kHz")
+            self.actual_rate_label.configure(text=f"{actual/1000:.0f} kHz")
         else:
-            self.actual_rate_label.config(text=f"{actual} Hz")
+            self.actual_rate_label.configure(text=f"{actual} Hz")
     
     def normalize_data(self, data):
         """Normalize data to [-1, 1]"""
@@ -857,11 +857,11 @@ class OscilloscopeGUI:
                     num_rotations = (n_repeat * speed) / 360
                     
                     direction = "↻ CW" if mode == "CW" else "↺ CCW"
-                    self.rotation_info_label.config(
+                    self.rotation_info_label.configure(
                         text=f"{direction}: {num_rotations:.1f} full rotations"
                     )
                 else:
-                    self.rotation_info_label.config(text="")
+                    self.rotation_info_label.configure(text="")
         except:
             pass
     
@@ -885,8 +885,8 @@ class OscilloscopeGUI:
         # Update amplitude labels (3 decimal places)
         x_amp = self.x_wavy_amp.get()
         y_amp = self.y_wavy_amp.get()
-        self.x_wavy_amp_label.config(text=f"{x_amp:.3f}")
-        self.y_wavy_amp_label.config(text=f"{y_amp:.3f}")
+        self.x_wavy_amp_label.configure(text=f"{x_amp:.3f}")
+        self.y_wavy_amp_label.configure(text=f"{y_amp:.3f}")
 
         # Update frequency labels (formatted for readability)
         x_freq = self.x_wavy_freq.get()
@@ -901,8 +901,8 @@ class OscilloscopeGUI:
             else:
                 return f"{freq:.2f}"
 
-        self.x_wavy_freq_label.config(text=format_freq(x_freq))
-        self.y_wavy_freq_label.config(text=format_freq(y_freq))
+        self.x_wavy_freq_label.configure(text=format_freq(x_freq))
+        self.y_wavy_freq_label.configure(text=format_freq(y_freq))
 
     def update_wavy_labels(self):
         """Update wavy effect value labels and trigger effect preview"""
@@ -1241,7 +1241,7 @@ class OscilloscopeGUI:
     def update_fps(self, *args):
         """Update frame refresh rate"""
         fps = int(self.fps_var.get())
-        self.fps_label.config(text=f"{fps} FPS")
+        self.fps_label.configure(text=f"{fps} FPS")
 
     def update_live_preview(self):
         """Update display to show current audio output position - MIMICS TAS 465 ANALOG SCOPE"""
@@ -1390,14 +1390,19 @@ class OscilloscopeGUI:
             colors = colors[::step]
 
         # Update plot - both line and points for realistic oscilloscope effect
-        self.line.set_data(x_display, y_display)
-        # Restore line to faint for static display (bright scatter provides visibility)
-        self.line.set_alpha(0.15)
-        self.line.set_linewidth(0.5)
+        # Check if plot objects exist (they won't during initialization when traces fire)
+        if hasattr(self, 'line') and hasattr(self, 'points'):
+            self.line.set_data(x_display, y_display)
+            # Restore line to faint for static display (bright scatter provides visibility)
+            self.line.set_alpha(0.15)
+            self.line.set_linewidth(0.5)
 
-        # Clear old scatter plot and create new one (prevents ghosting/persistence)
-        self.points.remove()
-        self.points = self.ax.scatter(x_display, y_display, c=colors, s=1.5)
+            # Clear old scatter plot and create new one (prevents ghosting/persistence)
+            self.points.remove()
+            self.points = self.ax.scatter(x_display, y_display, c=colors, s=1.5)
+        else:
+            # During initialization, skip plot updates
+            return
 
         # Update limits if needed
         margin = 0.1
@@ -1416,7 +1421,7 @@ class OscilloscopeGUI:
     def generate_audio(self):
         """Generate audio with current parameters and effects - ALL EFFECTS BLEND TOGETHER"""
 
-        self.status_label.config(text="Generating audio...")
+        self.status_label.configure(text="Generating audio...")
         self.root.update()
 
         # Normalize base pattern
@@ -1765,9 +1770,9 @@ class OscilloscopeGUI:
         # Update status with rotation info if applicable
         if has_rotation and rotation_angles is not None:
             num_full_rotations = (len(rotation_angles) * self.rotation_speed.get()) / 360
-            self.status_label.config(text=f"Ready - {len(stereo)} samples @ {actual_fs/1000:.0f}kHz ({num_full_rotations:.1f} rotations)")
+            self.status_label.configure(text=f"Ready - {len(stereo)} samples @ {actual_fs/1000:.0f}kHz ({num_full_rotations:.1f} rotations)")
         else:
-            self.status_label.config(text=f"Ready - {len(stereo)} samples @ {actual_fs/1000:.0f}kHz")
+            self.status_label.configure(text=f"Ready - {len(stereo)} samples @ {actual_fs/1000:.0f}kHz")
 
         return stereo, actual_fs
     
@@ -1886,13 +1891,13 @@ class OscilloscopeGUI:
             return
 
         self.is_playing = True
-        self.play_btn.config(text="⏸ Pause")
+        self.play_btn.configure(text="⏸ Pause")
 
         # Update status based on live preview mode
         if self.preview_active:
-            self.status_label.config(text="Playing (Live Preview)")
+            self.status_label.configure(text="Playing (Live Preview)")
         else:
-            self.status_label.config(text="Playing...")
+            self.status_label.configure(text="Playing...")
 
         # Track playback start time for live preview
         import time
@@ -1911,8 +1916,8 @@ class OscilloscopeGUI:
         self.stop_flag.set()
         sd.stop()
         self.is_playing = False
-        self.play_btn.config(text="▶ Play Audio")
-        self.status_label.config(text="Paused")
+        self.play_btn.configure(text="▶ Play Audio")
+        self.status_label.configure(text="Paused")
 
         # Always restore static display (including scatter plot) when stopping
         self.update_display()
@@ -1940,12 +1945,12 @@ class OscilloscopeGUI:
 
                     if msg == "playback_complete":
                         self.is_playing = False
-                        self.play_btn.config(text="▶ Play Audio")
-                        self.status_label.config(text="Playback complete")
+                        self.play_btn.configure(text="▶ Play Audio")
+                        self.status_label.configure(text="Playback complete")
                     elif msg == "error":
                         self.is_playing = False
-                        self.play_btn.config(text="▶ Play Audio")
-                        self.status_label.config(text=f"Error: {data}")
+                        self.play_btn.configure(text="▶ Play Audio")
+                        self.status_label.configure(text=f"Error: {data}")
             except queue.Empty:
                 pass
 
@@ -1969,9 +1974,9 @@ class OscilloscopeGUI:
             x, y = self.extract_txt_arrays(filename)
             self.x_data = x
             self.y_data = y
-            self.data_info_label.config(text=f"Points: {len(x)}")
+            self.data_info_label.configure(text=f"Points: {len(x)}")
             self.update_display()
-            self.status_label.config(text=f"Loaded {len(x)} points from text file")
+            self.status_label.configure(text=f"Loaded {len(x)} points from text file")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load text file:\n{str(e)}")
     
@@ -2040,9 +2045,9 @@ class OscilloscopeGUI:
             x, y = self.extract_matlab_arrays(filename)
             self.x_data = x
             self.y_data = y
-            self.data_info_label.config(text=f"Points: {len(x)}")
+            self.data_info_label.configure(text=f"Points: {len(x)}")
             self.update_display()
-            self.status_label.config(text=f"Loaded {len(x)} points from MATLAB file")
+            self.status_label.configure(text=f"Loaded {len(x)} points from MATLAB file")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load MATLAB file:\n{str(e)}")
     
@@ -2079,9 +2084,9 @@ class OscilloscopeGUI:
             data = np.load(filename)
             self.x_data = data['x']
             self.y_data = data['y']
-            self.data_info_label.config(text=f"Points: {len(self.x_data)}")
+            self.data_info_label.configure(text=f"Points: {len(self.x_data)}")
             self.update_display()
-            self.status_label.config(text=f"Loaded {len(self.x_data)} points from NumPy file")
+            self.status_label.configure(text=f"Loaded {len(self.x_data)} points from NumPy file")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load NumPy file:\n{str(e)}")
     
@@ -2210,9 +2215,9 @@ class OscilloscopeGUI:
             x, y = patterns[pattern_name](t)
             self.x_data = x
             self.y_data = y
-            self.data_info_label.config(text=f"Points: {len(x)}")
+            self.data_info_label.configure(text=f"Points: {len(x)}")
             self.update_display()
-            self.status_label.config(text=f"Generated {pattern_name} pattern")
+            self.status_label.configure(text=f"Generated {pattern_name} pattern")
             dialog.destroy()
 
         ctk.CTkButton(button_frame, text="Generate Pattern", command=apply).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
@@ -2301,9 +2306,9 @@ class OscilloscopeGUI:
             # Set as current data
             self.x_data = x_norm
             self.y_data = y_norm
-            self.data_info_label.config(text=f"Points: {len(x_norm)}")
+            self.data_info_label.configure(text=f"Points: {len(x_norm)}")
             self.update_display()
-            self.status_label.config(text=f"Loaded drawn pattern ({len(x_norm)} points)")
+            self.status_label.configure(text=f"Loaded drawn pattern ({len(x_norm)} points)")
             dialog.destroy()
 
         # Bind mouse events
@@ -2415,9 +2420,9 @@ class OscilloscopeGUI:
             # Update display
             self.x_data = x_data
             self.y_data = y_data
-            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.data_info_label.configure(text=f"Points: {len(x_data)}")
             self.update_display()
-            self.status_label.config(text=f"Preview: N={len(x_terms)} terms (X), M={len(y_terms)} terms (Y)")
+            self.status_label.configure(text=f"Preview: N={len(x_terms)} terms (X), M={len(y_terms)} terms (Y)")
 
         def refresh_x_display():
             """Refresh X channel term display"""
@@ -2791,9 +2796,9 @@ class OscilloscopeGUI:
             # Set as current data
             self.x_data = x_data
             self.y_data = y_data
-            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.data_info_label.configure(text=f"Points: {len(x_data)}")
             self.update_display()
-            self.status_label.config(text=status_msg)
+            self.status_label.configure(text=status_msg)
 
             # Apply parameters and generate audio
             self.apply_parameters()
@@ -2965,8 +2970,8 @@ class OscilloscopeGUI:
             x_b = x_b_var.get()
             y_a = y_a_var.get()
             y_b = y_b_var.get()
-            x_formula_label.config(text=f"x(t) = {x_a:.2f}·t·sin({x_b:.2f}·t)")
-            y_formula_label.config(text=f"y(t) = {y_a:.2f}·t·cos({y_b:.2f}·t)")
+            x_formula_label.configure(text=f"x(t) = {x_a:.2f}·t·sin({x_b:.2f}·t)")
+            y_formula_label.configure(text=f"y(t) = {y_a:.2f}·t·cos({y_b:.2f}·t)")
 
         def update_preview(*args):
             """Update oscilloscope display with current spiral parameters"""
@@ -3008,9 +3013,9 @@ class OscilloscopeGUI:
             # Update display
             self.x_data = x_data
             self.y_data = y_data
-            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.data_info_label.configure(text=f"Points: {len(x_data)}")
             self.update_display()
-            self.status_label.config(text=f"Preview: Archimedean Spiral (X: a={x_a:.2f}, b={x_freq_label}; Y: a={y_a:.2f}, b={y_freq_label})")
+            self.status_label.configure(text=f"Preview: Archimedean Spiral (X: a={x_a:.2f}, b={x_freq_label}; Y: a={y_a:.2f}, b={y_freq_label})")
             update_formula_labels()
 
         # Bind parameter changes to update preview
@@ -3113,9 +3118,9 @@ class OscilloscopeGUI:
             # Set as current data
             self.x_data = x_data
             self.y_data = y_data
-            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.data_info_label.configure(text=f"Points: {len(x_data)}")
             self.update_display()
-            self.status_label.config(text=status_msg)
+            self.status_label.configure(text=status_msg)
 
             # Apply parameters and generate audio
             self.apply_parameters()
@@ -3299,9 +3304,9 @@ class OscilloscopeGUI:
             # Update display
             self.x_data = x
             self.y_data = y
-            self.data_info_label.config(text=f"Points: {len(x)}")
+            self.data_info_label.configure(text=f"Points: {len(x)}")
             self.update_display()
-            self.status_label.config(text=f"Pad {pad_idx+1} - {note_freq:.1f} Hz")
+            self.status_label.configure(text=f"Pad {pad_idx+1} - {note_freq:.1f} Hz")
 
             # Play sound once (not looping) using sounddevice directly
             stereo_audio = np.column_stack([x, y]).astype(np.float32)
@@ -3379,7 +3384,7 @@ class OscilloscopeGUI:
 
         warp_scale = ctk.CTkSlider(warp_frame, from_=-1.0, to=1.0,
                               variable=current_warp,
-                              command=lambda v: warp_value_label.config(text=f"{current_warp.get():.2f}"))
+                              command=lambda v: warp_value_label.configure(text=f"{current_warp.get():.2f}"))
         warp_scale.pack(fill=tk.X, pady=5)
 
         ctk.CTkLabel(warp_frame, text="Adds frequency modulation",
@@ -3436,7 +3441,7 @@ class OscilloscopeGUI:
         offset_label.grid(row=1, column=1, padx=5, sticky='w', pady=(5,0))
 
         def update_offset_label(val):
-            offset_label.config(text=f"{position_offset.get():.2f}")
+            offset_label.configure(text=f"{position_offset.get():.2f}")
 
         offset_scale = ctk.CTkSlider(tempo_frame, from_=0.0, to=0.99,
                                variable=position_offset, command=update_offset_label)
@@ -3710,11 +3715,11 @@ class OscilloscopeGUI:
             # Update main oscilloscope
             self.x_data = x_mixed
             self.y_data = y_mixed
-            self.data_info_label.config(text=f"Points: {len(x_mixed)}")
+            self.data_info_label.configure(text=f"Points: {len(x_mixed)}")
             self.update_display()
 
             total_notes = len(track1_sequence) + len(track2_sequence) + len(track3_sequence)
-            self.status_label.config(text=f"Merged 3 tracks ({total_notes} notes, {total_duration:.1f}s, {bpm} BPM)")
+            self.status_label.configure(text=f"Merged 3 tracks ({total_notes} notes, {total_duration:.1f}s, {bpm} BPM)")
 
             # Apply to generate audio for playback
             self.apply_parameters()
@@ -4352,9 +4357,9 @@ class OscilloscopeGUI:
             # Set as current data
             self.x_data = x_data
             self.y_data = y_data
-            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.data_info_label.configure(text=f"Points: {len(x_data)}")
             self.update_display()
-            self.status_label.config(text=status_msg)
+            self.status_label.configure(text=status_msg)
 
             # Update preview
             preview_text.config(state=tk.NORMAL)
