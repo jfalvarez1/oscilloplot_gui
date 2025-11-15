@@ -3248,7 +3248,15 @@ class OscilloscopeGUI:
         """Open dialog for random harmonics generation with two modes"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Random Harmonics Generator")
-        dialog.geometry("500x600")
+        dialog.geometry("500x650")
+
+        # Stop audio when dialog is closed
+        def on_dialog_close():
+            if self.is_playing:
+                self.stop_playback()
+            dialog.destroy()
+
+        dialog.protocol("WM_DELETE_WINDOW", on_dialog_close)
 
         # Instructions
         instruction_frame = ttk.Frame(dialog)
@@ -3258,9 +3266,47 @@ class OscilloscopeGUI:
         ttk.Label(instruction_frame, text="Choose generation mode and click Generate",
                  font=('Arial', 9), foreground='gray').pack()
 
-        # Mode selection
-        mode_frame = ttk.LabelFrame(dialog, text="Generation Mode", padding="10")
-        mode_frame.pack(fill=tk.X, padx=10, pady=10)
+        # Create a frame to hold the canvas and scrollbar
+        scroll_container = ttk.Frame(dialog)
+        scroll_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Create canvas for scrolling
+        canvas = tk.Canvas(scroll_container, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
+
+        # Create frame inside canvas for mode selection
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Pack scrollbar and canvas
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # Enable mousewheel scrolling
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+        canvas.bind_all("<MouseWheel>", on_mousewheel)
+
+        # Unbind mousewheel when dialog is destroyed
+        def cleanup_mousewheel():
+            canvas.unbind_all("<MouseWheel>")
+            if self.is_playing:
+                self.stop_playback()
+            dialog.destroy()
+
+        dialog.protocol("WM_DELETE_WINDOW", cleanup_mousewheel)
+
+        # Mode selection (now inside scrollable_frame)
+        mode_frame = ttk.LabelFrame(scrollable_frame, text="Generation Mode", padding="10")
+        mode_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         mode_var = tk.StringVar(value="random")
 
@@ -3665,7 +3711,7 @@ class OscilloscopeGUI:
 
         ttk.Button(button_frame, text="Generate", command=generate_pattern).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        ttk.Button(button_frame, text="Close", command=dialog.destroy).pack(
+        ttk.Button(button_frame, text="Close", command=cleanup_mousewheel).pack(
             side=tk.LEFT, padx=5)
 
     def save_to_wav(self):
