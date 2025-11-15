@@ -1234,6 +1234,11 @@ class OscilloscopeGUI:
                 try:
                     import time
                     if hasattr(self, 'playback_start_time'):
+                        # Hide scatter plot during live preview (prevents static persistence)
+                        # Only show the animated line trace, matching real oscilloscope behavior
+                        if self.points.get_offsets().shape[0] > 0:
+                            self.points.set_offsets(np.empty((0, 2)))
+
                         # Calculate current playback position
                         elapsed = time.time() - self.playback_start_time
                         sample_position = int(elapsed * self.current_fs)
@@ -1919,10 +1924,9 @@ class OscilloscopeGUI:
         self.is_playing = False
         self.play_btn.config(text="▶ Play Audio")
         self.status_label.config(text="Paused")
-        
-        # Reset preview to static view if live preview is off
-        if not self.preview_active:
-            self.update_display()
+
+        # Always restore static display (including scatter plot) when stopping
+        self.update_display()
     
     def play_audio_thread(self):
         """Thread function for playing audio in continuous loop"""
