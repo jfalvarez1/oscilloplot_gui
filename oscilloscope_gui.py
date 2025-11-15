@@ -2813,6 +2813,23 @@ class OscilloscopeGUI:
 
         x_params_frame.columnconfigure(1, weight=1)
 
+        # X frequency sweep option
+        x_sweep_enabled_var = tk.BooleanVar(value=False)
+        x_sweep_check = ttk.Checkbutton(x_frame, text="Enable Frequency Sweep",
+                                        variable=x_sweep_enabled_var)
+        x_sweep_check.pack(anchor=tk.W, pady=5)
+
+        x_sweep_frame = ttk.Frame(x_frame)
+        x_sweep_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(x_sweep_frame, text="Start Freq:").grid(row=0, column=0, sticky=tk.W, padx=5)
+        x_sweep_start_var = tk.DoubleVar(value=0.1)
+        ttk.Entry(x_sweep_frame, textvariable=x_sweep_start_var, width=8).grid(row=0, column=1, padx=5)
+
+        ttk.Label(x_sweep_frame, text="End Freq:").grid(row=0, column=2, sticky=tk.W, padx=5)
+        x_sweep_end_var = tk.DoubleVar(value=10.0)
+        ttk.Entry(x_sweep_frame, textvariable=x_sweep_end_var, width=8).grid(row=0, column=3, padx=5)
+
         # X formula display
         x_formula_label = ttk.Label(x_frame, text="", font=('Arial', 9, 'italic'), foreground='blue')
         x_formula_label.pack(pady=10)
@@ -2840,6 +2857,23 @@ class OscilloscopeGUI:
         y_b_entry.grid(row=1, column=2, padx=5)
 
         y_params_frame.columnconfigure(1, weight=1)
+
+        # Y frequency sweep option
+        y_sweep_enabled_var = tk.BooleanVar(value=False)
+        y_sweep_check = ttk.Checkbutton(y_frame, text="Enable Frequency Sweep",
+                                        variable=y_sweep_enabled_var)
+        y_sweep_check.pack(anchor=tk.W, pady=5)
+
+        y_sweep_frame = ttk.Frame(y_frame)
+        y_sweep_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(y_sweep_frame, text="Start Freq:").grid(row=0, column=0, sticky=tk.W, padx=5)
+        y_sweep_start_var = tk.DoubleVar(value=0.1)
+        ttk.Entry(y_sweep_frame, textvariable=y_sweep_start_var, width=8).grid(row=0, column=1, padx=5)
+
+        ttk.Label(y_sweep_frame, text="End Freq:").grid(row=0, column=2, sticky=tk.W, padx=5)
+        y_sweep_end_var = tk.DoubleVar(value=10.0)
+        ttk.Entry(y_sweep_frame, textvariable=y_sweep_end_var, width=8).grid(row=0, column=3, padx=5)
 
         # Y formula display
         y_formula_label = ttk.Label(y_frame, text="", font=('Arial', 9, 'italic'), foreground='blue')
@@ -2898,22 +2932,36 @@ class OscilloscopeGUI:
             num_points = 2000
             t = np.linspace(0, 4*np.pi, num_points)
 
-            # Calculate X channel: x = a*t*sin(b*t)
+            # Calculate X channel: x = a*t*sin(b*t) with optional frequency sweep
             x_a = x_a_var.get()
-            x_b = x_b_var.get()
-            x_data = x_a * t * np.sin(x_b * t)
+            if x_sweep_enabled_var.get():
+                # Frequency sweep: linearly interpolate from start to end
+                x_b_sweep = np.linspace(x_sweep_start_var.get(), x_sweep_end_var.get(), num_points)
+                x_data = x_a * t * np.sin(x_b_sweep * t)
+                x_freq_label = f"sweep {x_sweep_start_var.get():.2f}->{x_sweep_end_var.get():.2f}"
+            else:
+                x_b = x_b_var.get()
+                x_data = x_a * t * np.sin(x_b * t)
+                x_freq_label = f"{x_b:.2f}"
 
-            # Calculate Y channel: y = a*t*cos(b*t)
+            # Calculate Y channel: y = a*t*cos(b*t) with optional frequency sweep
             y_a = y_a_var.get()
-            y_b = y_b_var.get()
-            y_data = y_a * t * np.cos(y_b * t)
+            if y_sweep_enabled_var.get():
+                # Frequency sweep: linearly interpolate from start to end
+                y_b_sweep = np.linspace(y_sweep_start_var.get(), y_sweep_end_var.get(), num_points)
+                y_data = y_a * t * np.cos(y_b_sweep * t)
+                y_freq_label = f"sweep {y_sweep_start_var.get():.2f}->{y_sweep_end_var.get():.2f}"
+            else:
+                y_b = y_b_var.get()
+                y_data = y_a * t * np.cos(y_b * t)
+                y_freq_label = f"{y_b:.2f}"
 
             # Update display
             self.x_data = x_data
             self.y_data = y_data
             self.data_info_label.config(text=f"Points: {len(x_data)}")
             self.update_display()
-            self.status_label.config(text=f"Preview: Archimedean Spiral (a_x={x_a:.2f}, b_x={x_b:.2f}, a_y={y_a:.2f}, b_y={y_b:.2f})")
+            self.status_label.config(text=f"Preview: Archimedean Spiral (X: a={x_a:.2f}, b={x_freq_label}; Y: a={y_a:.2f}, b={y_freq_label})")
             update_formula_labels()
 
         # Bind parameter changes to update preview
@@ -2921,6 +2969,12 @@ class OscilloscopeGUI:
         x_b_var.trace('w', update_preview)
         y_a_var.trace('w', update_preview)
         y_b_var.trace('w', update_preview)
+        x_sweep_enabled_var.trace('w', update_preview)
+        x_sweep_start_var.trace('w', update_preview)
+        x_sweep_end_var.trace('w', update_preview)
+        y_sweep_enabled_var.trace('w', update_preview)
+        y_sweep_start_var.trace('w', update_preview)
+        y_sweep_end_var.trace('w', update_preview)
 
         # Initial preview
         update_preview()
@@ -2931,15 +2985,27 @@ class OscilloscopeGUI:
             num_points = 2000
             t = np.linspace(0, 4*np.pi, num_points)
 
-            # Calculate X channel
+            # Calculate X channel with optional frequency sweep
             x_a = x_a_var.get()
-            x_b = x_b_var.get()
-            x_full = x_a * t * np.sin(x_b * t)
+            if x_sweep_enabled_var.get():
+                x_b_sweep = np.linspace(x_sweep_start_var.get(), x_sweep_end_var.get(), num_points)
+                x_full = x_a * t * np.sin(x_b_sweep * t)
+                x_freq_info = f"sweep {x_sweep_start_var.get():.2f}->{x_sweep_end_var.get():.2f}"
+            else:
+                x_b = x_b_var.get()
+                x_full = x_a * t * np.sin(x_b * t)
+                x_freq_info = f"{x_b:.2f}"
 
-            # Calculate Y channel
+            # Calculate Y channel with optional frequency sweep
             y_a = y_a_var.get()
-            y_b = y_b_var.get()
-            y_full = y_a * t * np.cos(y_b * t)
+            if y_sweep_enabled_var.get():
+                y_b_sweep = np.linspace(y_sweep_start_var.get(), y_sweep_end_var.get(), num_points)
+                y_full = y_a * t * np.cos(y_b_sweep * t)
+                y_freq_info = f"sweep {y_sweep_start_var.get():.2f}->{y_sweep_end_var.get():.2f}"
+            else:
+                y_b = y_b_var.get()
+                y_full = y_a * t * np.cos(y_b * t)
+                y_freq_info = f"{y_b:.2f}"
 
             # Check if chaser effect is enabled
             if chaser_enabled_var.get():
@@ -2981,12 +3047,12 @@ class OscilloscopeGUI:
                 y_data = np.concatenate(y_segments)
 
                 num_positions = max_start + 1
-                status_msg = f"Generated Archimedean Spiral with Chaser (trail={trail_length} pts, reps={point_reps}, {num_positions} positions)"
+                status_msg = f"Generated Archimedean Spiral with Chaser (X: a={x_a:.2f}, b={x_freq_info}; Y: a={y_a:.2f}, b={y_freq_info}; trail={trail_length}, reps={point_reps})"
             else:
                 # No chaser effect: use full spiral
                 x_data = x_full
                 y_data = y_full
-                status_msg = f"Generated Archimedean Spiral (a_x={x_a:.2f}, b_x={x_b:.2f}, a_y={y_a:.2f}, b_y={y_b:.2f})"
+                status_msg = f"Generated Archimedean Spiral (X: a={x_a:.2f}, b={x_freq_info}; Y: a={y_a:.2f}, b={y_freq_info})"
 
             # Set as current data
             self.x_data = x_data
