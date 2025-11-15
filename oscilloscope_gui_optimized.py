@@ -2236,6 +2236,170 @@ class OscilloscopeGUI:
         """Open a canvas for drawing custom patterns"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Draw Pattern")
+        dialog.geometry("550x650")
+
+        # Instructions
+        instruction_frame = ttk.Frame(dialog)
+        instruction_frame.pack(pady=10)
+        ttk.Label(instruction_frame, text="Draw your pattern below:",
+                 font=('Arial', 10, 'bold')).pack()
+        ttk.Label(instruction_frame, text="Click and drag to draw • The path will be traced in order",
+                 font=('Arial', 8), foreground='gray').pack()
+
+        # Drawing canvas (square aspect ratio to match oscilloscope display)
+        canvas_frame = ttk.Frame(dialog)
+        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        canvas = tk.Canvas(canvas_frame, width=500, height=500, bg='white',
+                          highlightthickness=1, highlightbackground='gray')
+        canvas.pack()
+
+        # Drawing state
+        drawing_data = {
+            'is_drawing': False,
+            'points': [],  # Store (x, y) tuples
+            'canvas_objects': []  # Store line IDs for clearing
+        }
+
+    def generate_test_pattern(self):
+        """Generate a test pattern with parametric equations"""
+        patterns = {
+            # Basic shapes
+            "Circle": lambda t: (np.cos(t), np.sin(t)),
+            "Ellipse": lambda t: (1.5*np.cos(t), np.sin(t)),
+
+            # Lissajous curves with different phase shifts
+            "Lissajous 3:2": lambda t: (np.sin(3*t), np.sin(2*t)),
+            "Lissajous 3:2 (π/2 phase)": lambda t: (np.sin(3*t), np.sin(2*t + np.pi/2)),
+            "Lissajous 5:4": lambda t: (np.sin(5*t), np.sin(4*t)),
+            "Lissajous 5:4 (π/4 phase)": lambda t: (np.sin(5*t), np.sin(4*t + np.pi/4)),
+            "Lissajous 7:5 (π/3 phase)": lambda t: (np.sin(7*t), np.sin(5*t + np.pi/3)),
+
+            # Stars and flowers
+            "Star (5-point)": lambda t: (np.cos(t) * (1 + 0.5*np.sin(5*t)),
+                                         np.sin(t) * (1 + 0.5*np.sin(5*t))),
+            "Flower (6-petal)": lambda t: (np.cos(t) * (1 + 0.3*np.cos(6*t)),
+                                          np.sin(t) * (1 + 0.3*np.cos(6*t))),
+            "Rose Curve (4-petal)": lambda t: (np.cos(4*t) * np.cos(t),
+                                               np.cos(4*t) * np.sin(t)),
+
+            # Spirals
+            "Spiral (Archimedean)": lambda t: (t/10*np.cos(t), t/10*np.sin(t)),
+            "Spiral (Logarithmic)": lambda t: (np.exp(t/10)*np.cos(t), np.exp(t/10)*np.sin(t)),
+
+            # 3D Shapes (Rotating/Animated)
+            "3D Sphere": lambda t: (np.cos(t)*np.cos(5*t)*0.7, np.cos(t)*np.sin(5*t)*0.7),
+            "3D Torus": lambda t: ((0.6 + 0.3*np.cos(t*3))*np.cos(t), (0.6 + 0.3*np.cos(t*3))*np.sin(t)),
+            "3D Helix": lambda t: (np.cos(t)*0.6, np.sin(t)*0.6 + (t%(2*np.pi)-np.pi)*0.3),
+            "3D Knot": lambda t: ((2 + np.cos(3*t))*np.cos(2*t)*0.4, (2 + np.cos(3*t))*np.sin(2*t)*0.4),
+            "3D Cylinder": lambda t: (np.cos(t/3)*0.7, np.sin(t)*0.7),
+            "3D Cone": lambda t: (np.cos(t)*(1-t/(2*np.pi))*0.7, np.sin(t)*(1-t/(2*np.pi))*0.7),
+            "3D Spring": lambda t: (np.cos(t*2)*0.5, np.sin(t*2)*0.5 + np.sin(t/2)*0.4),
+            "3D Mobius Strip": lambda t: ((1 + 0.5*np.cos(t/2))*np.cos(t), (1 + 0.5*np.cos(t/2))*np.sin(t)),
+
+            # Complex parametric curves
+            "Hypotrochoid": lambda t: ((3)*np.cos(t) + (1)*np.cos((3)/(1)*t),
+                                       (3)*np.sin(t) - (1)*np.sin((3)/(1)*t)),
+            "Epitrochoid": lambda t: ((5)*np.cos(t) - (2)*np.cos((5)/(2)*t),
+                                      (5)*np.sin(t) - (2)*np.sin((5)/(2)*t)),
+            "Butterfly Curve": lambda t: (np.sin(t)*(np.exp(np.cos(t)) - 2*np.cos(4*t) - np.sin(t/12)**5),
+                                         np.cos(t)*(np.exp(np.cos(t)) - 2*np.cos(4*t) - np.sin(t/12)**5)),
+
+            # Figure-8 and infinity
+            "Figure-8": lambda t: (np.sin(t), np.sin(2*t)),
+            "Infinity (∞)": lambda t: (np.cos(t), np.sin(2*t)),
+
+            # Cardioid and epicycloid
+            "Cardioid": lambda t: ((1-np.cos(t))*np.cos(t), (1-np.cos(t))*np.sin(t)),
+            "Deltoid": lambda t: (2*np.cos(t) + np.cos(2*t), 2*np.sin(t) - np.sin(2*t)),
+        }
+
+        # Create scrollable dialog
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Select Test Pattern")
+        dialog.geometry("380x550")
+
+        ttk.Label(dialog, text="Choose a parametric pattern:",
+                 font=('Arial', 10, 'bold')).pack(pady=10)
+
+        # Create frame for scrollable area
+        scroll_container = ttk.Frame(dialog)
+        scroll_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+        # Create canvas with scrollbar
+        canvas = tk.Canvas(scroll_container, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        selected = tk.StringVar(value="Circle")
+
+        # Group patterns by category
+        categories = {
+            "Basic Shapes": ["Circle", "Ellipse"],
+            "Lissajous Curves": [k for k in patterns.keys() if "Lissajous" in k],
+            "Stars & Flowers": ["Star (5-point)", "Flower (6-petal)", "Rose Curve (4-petal)"],
+            "Spirals": ["Spiral (Archimedean)", "Spiral (Logarithmic)"],
+            "3D Shapes": [k for k in patterns.keys() if k.startswith("3D ")],
+            "Complex Curves": ["Hypotrochoid", "Epitrochoid", "Butterfly Curve",
+                              "Cardioid", "Deltoid"],
+            "Special": ["Figure-8", "Infinity (∞)"]
+        }
+
+        for category, pattern_names in categories.items():
+            ttk.Label(scrollable_frame, text=category,
+                     font=('Arial', 9, 'bold')).pack(anchor=tk.W, padx=10, pady=(10, 5))
+            for name in pattern_names:
+                ttk.Radiobutton(scrollable_frame, text=name, variable=selected,
+                               value=name).pack(anchor=tk.W, padx=30)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Mouse wheel scrolling
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind("<MouseWheel>", on_mousewheel)
+
+        # Button frame at bottom (always visible)
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        def apply():
+            pattern_name = selected.get()
+
+            # Different time ranges for different patterns
+            if "Spiral" in pattern_name:
+                t = np.linspace(0, 6*np.pi, 800)
+            elif "Butterfly" in pattern_name:
+                t = np.linspace(0, 12*np.pi, 1000)
+            elif "Lissajous" in pattern_name or "Figure" in pattern_name or "Infinity" in pattern_name:
+                t = np.linspace(0, 2*np.pi, 500)
+            else:
+                t = np.linspace(0, 2*np.pi, 600)
+
+            x, y = patterns[pattern_name](t)
+            self.x_data = x
+            self.y_data = y
+            self.data_info_label.config(text=f"Points: {len(x)}")
+            self.update_display()
+            self.status_label.config(text=f"Generated {pattern_name} pattern")
+            dialog.destroy()
+
+        ttk.Button(button_frame, text="Generate Pattern", command=apply).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+
+    def open_drawing_canvas(self):
+        """Open a canvas for drawing custom patterns"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Draw Pattern")
         dialog.geometry("750x650")
 
         # Main container - left panel for drawing, right panel for presets
