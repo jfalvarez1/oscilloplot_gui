@@ -1370,10 +1370,16 @@ class OscilloscopeGUI:
         # Apply effects
         x_display, y_display = self.apply_effects(x_norm, y_norm)
 
+        # Calculate density-based colors BEFORE tiling (prevents artificial persistence)
+        # This ensures density reflects natural beam speed, not repetition artifacts
+        colors_single = self.calculate_density_colors(x_display, y_display)
+
         # Repeat pattern for visibility
         display_repeats = min(20, max(1, 100 // len(x_norm)))
         x_display = np.tile(x_display, display_repeats)
         y_display = np.tile(y_display, display_repeats)
+        # Tile the colors too so each repetition has same density-based brightness
+        colors = np.tile(colors_single, (display_repeats, 1))
 
         # Downsample if too many points for rendering (prevents matplotlib overflow)
         max_display_points = 50000
@@ -1382,9 +1388,7 @@ class OscilloscopeGUI:
             step = len(x_display) // max_display_points
             x_display = x_display[::step]
             y_display = y_display[::step]
-
-        # Calculate density-based colors for realistic phosphor effect
-        colors = self.calculate_density_colors(x_display, y_display)
+            colors = colors[::step]
 
         # Update plot - both line and points for realistic oscilloscope effect
         self.line.set_data(x_display, y_display)
