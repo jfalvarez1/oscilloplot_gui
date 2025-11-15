@@ -2288,15 +2288,19 @@ class OscilloscopeGUI:
             "Spiral (Archimedean)": lambda t: (t/10*np.cos(t), t/10*np.sin(t)),
             "Spiral (Logarithmic)": lambda t: (np.exp(t/10)*np.cos(t), np.exp(t/10)*np.sin(t)),
 
-            # 3D Shapes (Rotating/Animated)
-            "3D Sphere": lambda t: (np.cos(t)*np.cos(5*t)*0.7, np.cos(t)*np.sin(5*t)*0.7),
-            "3D Torus": lambda t: ((0.6 + 0.3*np.cos(t*3))*np.cos(t), (0.6 + 0.3*np.cos(t*3))*np.sin(t)),
-            "3D Helix": lambda t: (np.cos(t)*0.6, np.sin(t)*0.6 + (t%(2*np.pi)-np.pi)*0.3),
-            "3D Knot": lambda t: ((2 + np.cos(3*t))*np.cos(2*t)*0.4, (2 + np.cos(3*t))*np.sin(2*t)*0.4),
-            "3D Cylinder": lambda t: (np.cos(t/3)*0.7, np.sin(t)*0.7),
-            "3D Cone": lambda t: (np.cos(t)*(1-t/(2*np.pi))*0.7, np.sin(t)*(1-t/(2*np.pi))*0.7),
-            "3D Spring": lambda t: (np.cos(t*2)*0.5, np.sin(t*2)*0.5 + np.sin(t/2)*0.4),
-            "3D Mobius Strip": lambda t: ((1 + 0.5*np.cos(t/2))*np.cos(t), (1 + 0.5*np.cos(t/2))*np.sin(t)),
+            # 3D-Looking Shapes (Parametric curves that give 3D appearance)
+            "3D Cube (Lissajous)": lambda t: (np.sign(np.sin(t))*0.7, np.sign(np.sin(2*t + np.pi/4))*0.7),
+            "3D Sphere (Spherical)": lambda t: (np.sin(2*t)*np.cos(7*t), np.sin(2*t)*np.sin(7*t)),
+            "3D Torus (Donut)": lambda t: ((1 + 0.3*np.cos(5*t))*np.cos(t)*0.7,
+                                           (1 + 0.3*np.cos(5*t))*np.sin(t)*0.7),
+            "3D Trefoil Knot": lambda t: (np.sin(t) + 2*np.sin(2*t),
+                                          np.cos(t) - 2*np.cos(2*t)),
+            "3D Helix (Spiral)": lambda t: (np.cos(t)*0.8, np.sin(t)*0.8 + t/(3*np.pi) - 1),
+            "3D Spring (Coil)": lambda t: ((1 + 0.2*np.sin(8*t))*np.cos(t)*0.7,
+                                           (1 + 0.2*np.sin(8*t))*np.sin(t)*0.7),
+            "3D Cone (Tapering)": lambda t: (np.cos(2*t)*(1.5 - t/(2*np.pi))*0.6,
+                                            np.sin(2*t)*(1.5 - t/(2*np.pi))*0.6),
+            "3D Cylinder": lambda t: (np.cos(t)*0.7, np.sin(3*t)*0.7),
 
             # Complex parametric curves
             "Hypotrochoid": lambda t: ((3)*np.cos(t) + (1)*np.cos((3)/(1)*t),
