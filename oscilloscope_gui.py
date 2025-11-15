@@ -2934,14 +2934,19 @@ class OscilloscopeGUI:
             # Time array (0 to 4π with high resolution for nice spiral)
             num_points = 2000
             t = np.linspace(0, 4*np.pi, num_points)
+            t_max = t[-1]
 
             # Calculate X channel: x = a*t*sin(b*t) with optional frequency sweep
             x_a = x_a_var.get()
             if x_sweep_enabled_var.get():
-                # Frequency sweep: linearly interpolate from start to end
-                x_b_sweep = np.linspace(x_sweep_start_var.get(), x_sweep_end_var.get(), num_points)
-                x_data = x_a * t * np.sin(x_b_sweep * t)
-                x_freq_label = f"sweep {x_sweep_start_var.get():.2f}->{x_sweep_end_var.get():.2f}"
+                # Frequency sweep: compute proper phase from integrated frequency
+                # f(t) = f_start + (f_end - f_start) * t / t_max
+                # phase(t) = integral of f(t) = f_start*t + (f_end - f_start)*t^2/(2*t_max)
+                f_start = x_sweep_start_var.get()
+                f_end = x_sweep_end_var.get()
+                phase = f_start * t + (f_end - f_start) * t**2 / (2 * t_max)
+                x_data = x_a * t * np.sin(phase)
+                x_freq_label = f"sweep {f_start:.2f}->{f_end:.2f}"
             else:
                 x_b = x_b_var.get()
                 x_data = x_a * t * np.sin(x_b * t)
@@ -2950,10 +2955,12 @@ class OscilloscopeGUI:
             # Calculate Y channel: y = a*t*cos(b*t) with optional frequency sweep
             y_a = y_a_var.get()
             if y_sweep_enabled_var.get():
-                # Frequency sweep: linearly interpolate from start to end
-                y_b_sweep = np.linspace(y_sweep_start_var.get(), y_sweep_end_var.get(), num_points)
-                y_data = y_a * t * np.cos(y_b_sweep * t)
-                y_freq_label = f"sweep {y_sweep_start_var.get():.2f}->{y_sweep_end_var.get():.2f}"
+                # Frequency sweep: compute proper phase from integrated frequency
+                f_start = y_sweep_start_var.get()
+                f_end = y_sweep_end_var.get()
+                phase = f_start * t + (f_end - f_start) * t**2 / (2 * t_max)
+                y_data = y_a * t * np.cos(phase)
+                y_freq_label = f"sweep {f_start:.2f}->{f_end:.2f}"
             else:
                 y_b = y_b_var.get()
                 y_data = y_a * t * np.cos(y_b * t)
@@ -2987,13 +2994,17 @@ class OscilloscopeGUI:
             # Time array (0 to 4π with high resolution)
             num_points = 2000
             t = np.linspace(0, 4*np.pi, num_points)
+            t_max = t[-1]
 
             # Calculate X channel with optional frequency sweep
             x_a = x_a_var.get()
             if x_sweep_enabled_var.get():
-                x_b_sweep = np.linspace(x_sweep_start_var.get(), x_sweep_end_var.get(), num_points)
-                x_full = x_a * t * np.sin(x_b_sweep * t)
-                x_freq_info = f"sweep {x_sweep_start_var.get():.2f}->{x_sweep_end_var.get():.2f}"
+                # Frequency sweep: compute proper phase from integrated frequency
+                f_start = x_sweep_start_var.get()
+                f_end = x_sweep_end_var.get()
+                phase = f_start * t + (f_end - f_start) * t**2 / (2 * t_max)
+                x_full = x_a * t * np.sin(phase)
+                x_freq_info = f"sweep {f_start:.2f}->{f_end:.2f}"
             else:
                 x_b = x_b_var.get()
                 x_full = x_a * t * np.sin(x_b * t)
@@ -3002,9 +3013,12 @@ class OscilloscopeGUI:
             # Calculate Y channel with optional frequency sweep
             y_a = y_a_var.get()
             if y_sweep_enabled_var.get():
-                y_b_sweep = np.linspace(y_sweep_start_var.get(), y_sweep_end_var.get(), num_points)
-                y_full = y_a * t * np.cos(y_b_sweep * t)
-                y_freq_info = f"sweep {y_sweep_start_var.get():.2f}->{y_sweep_end_var.get():.2f}"
+                # Frequency sweep: compute proper phase from integrated frequency
+                f_start = y_sweep_start_var.get()
+                f_end = y_sweep_end_var.get()
+                phase = f_start * t + (f_end - f_start) * t**2 / (2 * t_max)
+                y_full = y_a * t * np.cos(phase)
+                y_freq_info = f"sweep {f_start:.2f}->{f_end:.2f}"
             else:
                 y_b = y_b_var.get()
                 y_full = y_a * t * np.cos(y_b * t)
