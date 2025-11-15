@@ -681,8 +681,7 @@ class OscilloscopeGUI:
         row += 1
 
         self.apply_btn = ctk.CTkButton(button_frame, text="Apply & Generate",
-                                    command=self.apply_parameters,
-                                    style='Accent.TButton')
+                                    command=self.apply_parameters)
         self.apply_btn.pack(fill=tk.X, pady=2)
 
         self.play_btn = ctk.CTkButton(button_frame, text="▶ Play Audio",
@@ -1095,7 +1094,7 @@ class OscilloscopeGUI:
                 y = np.concatenate(y_frames)
 
         # Mirror Reflections
-        if self.reflections_var.get():
+        if hasattr(self, 'reflections_var') and self.reflections_var.get():
             x, y = self.apply_reflections(x, y)
 
         # Rotation - static angle only for display
@@ -1112,22 +1111,22 @@ class OscilloscopeGUI:
             y = self.normalize_data(y_rot)
 
         # Apply wavy effect if enabled
-        if self.x_wavy_var.get() or self.y_wavy_var.get():
+        if (hasattr(self, 'x_wavy_var') and self.x_wavy_var.get()) or (hasattr(self, 'y_wavy_var') and self.y_wavy_var.get()):
             # Create time array based on position (0 to 2π)
             t = np.linspace(0, 2*np.pi, len(x))
 
-            if self.x_wavy_var.get():
+            if hasattr(self, 'x_wavy_var') and self.x_wavy_var.get():
                 K_x = self.x_wavy_amp.get()
                 w_x = self.x_wavy_freq.get()
                 x = x + K_x * np.sin(w_x * t)
 
-            if self.y_wavy_var.get():
+            if hasattr(self, 'y_wavy_var') and self.y_wavy_var.get():
                 K_y = self.y_wavy_amp.get()
                 w_y = self.y_wavy_freq.get()
                 y = y + K_y * np.sin(w_y * t)
 
         # Ring Modulation Effect
-        if self.ring_mod_var.get():
+        if hasattr(self, 'ring_mod_var') and self.ring_mod_var.get():
             t = np.linspace(0, 2*np.pi, len(x))
             carrier_freq = self.ring_carrier_freq.get()
             mix = self.ring_mix.get() / 100.0
@@ -1144,7 +1143,7 @@ class OscilloscopeGUI:
             y = (1 - mix) * y + mix * y_mod
 
         # Distortion Effect
-        if self.distortion_var.get():
+        if hasattr(self, 'distortion_var') and self.distortion_var.get():
             threshold = self.distortion_threshold.get()
             dist_type = self.distortion_type_var.get()
 
@@ -1164,7 +1163,7 @@ class OscilloscopeGUI:
                            threshold - (np.abs(y) - threshold), y)
 
         # Echo/Delay Effect
-        if self.echo_var.get():
+        if hasattr(self, 'echo_var') and self.echo_var.get():
             num_echoes = self.echo_count.get()
             decay = self.echo_decay.get()
             delay_pct = self.echo_delay.get() / 100.0
@@ -1191,7 +1190,7 @@ class OscilloscopeGUI:
             y = y_with_echo
 
         # Kaleidoscope Effect
-        if self.kaleido_var.get():
+        if hasattr(self, 'kaleido_var') and self.kaleido_var.get():
             sections = self.kaleido_sections.get()
             mirror = self.kaleido_mirror_var.get()
 
@@ -1576,7 +1575,7 @@ class OscilloscopeGUI:
                 y_repeated = self.normalize_data(y_repeated)
 
         # Apply Mirror Reflections if enabled
-        if self.reflections_var.get():
+        if hasattr(self, 'reflections_var') and self.reflections_var.get():
             x_repeated, y_repeated = self.apply_reflections(x_repeated, y_repeated)
 
         # Handle Static rotation (applied after all other effects)
@@ -1633,7 +1632,7 @@ class OscilloscopeGUI:
                 y_full = y_full + K_y * np.sin(w_y * 2 * np.pi * t)
 
         # Apply tremolo effect if enabled (amplitude modulation)
-        if self.tremolo_var.get():
+        if hasattr(self, 'tremolo_var') and self.tremolo_var.get():
             # Create time array if not already created
             if not (self.x_wavy_var.get() or self.y_wavy_var.get()):
                 t = np.arange(len(x_full)) / actual_fs
@@ -1679,7 +1678,7 @@ class OscilloscopeGUI:
             y_full = (1 - mix) * y_full + mix * y_mod
 
         # Apply distortion effect if enabled
-        if self.distortion_var.get():
+        if hasattr(self, 'distortion_var') and self.distortion_var.get():
             threshold = self.distortion_threshold.get()
             dist_type = self.distortion_type_var.get()
 
@@ -1699,7 +1698,7 @@ class OscilloscopeGUI:
                            threshold - (np.abs(y_full) - threshold), y_full)
 
         # Apply echo/delay effect if enabled
-        if self.echo_var.get():
+        if hasattr(self, 'echo_var') and self.echo_var.get():
             num_echoes = self.echo_count.get()
             decay = self.echo_decay.get()
             delay_pct = self.echo_delay.get() / 100.0
@@ -1726,7 +1725,7 @@ class OscilloscopeGUI:
             y_full = y_with_echo
 
         # Apply kaleidoscope effect if enabled
-        if self.kaleido_var.get():
+        if hasattr(self, 'kaleido_var') and self.kaleido_var.get():
             sections = self.kaleido_sections.get()
             mirror = self.kaleido_mirror_var.get()
 
@@ -3748,8 +3747,7 @@ class OscilloscopeGUI:
         seq_btn_frame = ctk.CTkFrame(sequencer_frame)
         seq_btn_frame.pack(fill=tk.X, pady=5)
 
-        ctk.CTkButton(seq_btn_frame, text="Merge & Apply", command=merge_and_apply,
-                  style='Accent.TButton').pack(side=tk.TOP, pady=2, fill=tk.X)
+        ctk.CTkButton(seq_btn_frame, text="Merge & Apply", command=merge_and_apply).pack(side=tk.TOP, pady=2, fill=tk.X)
 
         clear_btn_frame = ctk.CTkFrame(sequencer_frame)
         clear_btn_frame.pack(fill=tk.X)
