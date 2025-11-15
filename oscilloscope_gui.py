@@ -1215,7 +1215,7 @@ class OscilloscopeGUI:
         self.fps_label.config(text=f"{fps} FPS")
 
     def update_live_preview(self):
-        """Update display to show current audio output position as a continuous stream"""
+        """Update display to show current audio output position - MIMICS TAS 465 ANALOG SCOPE"""
         try:
             if self.preview_active and self.is_playing and self.current_audio is not None:
                 try:
@@ -1238,30 +1238,32 @@ class OscilloscopeGUI:
                         total_samples = len(self.current_audio)
                         if sample_position >= total_samples:
                             sample_position = sample_position % total_samples
-                            # Reset buffer on loop
-                            self.preview_buffer = []
-                            self.last_preview_update = sample_position
                             # Update start time for smoother looping
                             self.playback_start_time = time.time() - (sample_position / self.current_fs)
 
-                        # Add new samples to rolling buffer since last update
-                        if sample_position > self.last_preview_update:
-                            new_samples = self.current_audio[self.last_preview_update:sample_position]
-                            if len(self.preview_buffer) == 0:
-                                self.preview_buffer = new_samples.tolist()
-                            else:
-                                self.preview_buffer.extend(new_samples.tolist())
-                            self.last_preview_update = sample_position
+                        # TAS 465 BEHAVIOR: Show only current instantaneous pattern, not historical trail
+                        # Calculate base pattern length (original data before effects/repetitions)
+                        base_pattern_len = len(self.x_data)
 
-                            # Keep buffer at desired window size (remove old samples)
-                            if len(self.preview_buffer) > self.preview_window_size:
-                                self.preview_buffer = self.preview_buffer[-self.preview_window_size:]
+                        # Determine how many times pattern is repeated in audio
+                        # (from generate_audio: pattern is repeated n_repeat times with effects)
+                        pattern_repeat_count = max(1, total_samples // base_pattern_len)
+                        samples_per_repetition = total_samples // pattern_repeat_count
 
-                        # Display the rolling buffer
-                        if len(self.preview_buffer) >= 10:
-                            buffer_array = np.array(self.preview_buffer)
-                            x_preview = buffer_array[:, 0]
-                            y_preview = buffer_array[:, 1]
+                        # Find which repetition we're currently in
+                        current_repetition = sample_position // samples_per_repetition
+                        repetition_start = current_repetition * samples_per_repetition
+
+                        # Extract ONLY the current pattern state (one complete trace)
+                        # Show 3-5 repetitions of this for visibility, like scope persistence
+                        display_reps = min(5, max(3, 1000 // base_pattern_len))
+                        extract_len = min(samples_per_repetition * display_reps,
+                                         total_samples - repetition_start)
+
+                        if extract_len > 10:
+                            current_segment = self.current_audio[repetition_start:repetition_start + extract_len]
+                            x_preview = current_segment[:, 0]
+                            y_preview = current_segment[:, 1]
 
                             # Update plot - only the line, no scatter (prevents persistence)
                             self.line.set_data(x_preview, y_preview)

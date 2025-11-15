@@ -1272,52 +1272,34 @@ class OscilloscopeGUI:
                         total_samples = len(self.current_audio)
                         if sample_position >= total_samples:
                             sample_position = sample_position % total_samples
-                            # OPTIMIZATION: Reset circular buffer on loop
-                            self.preview_buffer.fill(0)
-                            self.buffer_write_index = 0
-                            self.buffer_valid_count = 0
-                            self.last_preview_update = sample_position
                             # Update start time for smoother looping
                             self.playback_start_time = time.time() - (sample_position / self.current_fs)
                             # Invalidate background cache
                             self.blit_background = None
 
-                        # OPTIMIZATION: Add new samples to circular buffer (no list operations!)
-                        if sample_position > self.last_preview_update:
-                            new_samples = self.current_audio[self.last_preview_update:sample_position]
-                            num_new = len(new_samples)
+                        # TAS 465 BEHAVIOR: Show only current instantaneous pattern, not historical trail
+                        # Calculate base pattern length (original data before effects/repetitions)
+                        base_pattern_len = len(self.x_data)
 
-                            if num_new > 0:
-                                # Write to circular buffer
-                                for i in range(num_new):
-                                    self.preview_buffer[self.buffer_write_index] = new_samples[i]
-                                    self.buffer_write_index = (self.buffer_write_index + 1) % self.preview_window_size
-                                    self.buffer_valid_count = min(self.buffer_valid_count + 1, self.preview_window_size)
+                        # Determine how many times pattern is repeated in audio
+                        # (from generate_audio: pattern is repeated n_repeat times with effects)
+                        pattern_repeat_count = max(1, total_samples // base_pattern_len)
+                        samples_per_repetition = total_samples // pattern_repeat_count
 
-                                self.last_preview_update = sample_position
+                        # Find which repetition we're currently in
+                        current_repetition = sample_position // samples_per_repetition
+                        repetition_start = current_repetition * samples_per_repetition
 
-                        # OPTIMIZATION: Display using blitting for fast rendering
-                        if self.buffer_valid_count >= 10:
-                            # Get valid data from circular buffer
-                            if self.buffer_valid_count < self.preview_window_size:
-                                # Buffer not full yet - use only valid portion
-                                display_data = self.preview_buffer[:self.buffer_valid_count].copy()
-                            else:
-                                # Buffer is full - reconstruct correct order from circular buffer
-                                # Data from write_index to end, then from 0 to write_index
-                                display_data = np.vstack([
-                                    self.preview_buffer[self.buffer_write_index:],
-                                    self.preview_buffer[:self.buffer_write_index]
-                                ])
+                        # Extract ONLY the current pattern state (one complete trace)
+                        # Show 3-5 repetitions of this for visibility, like scope persistence
+                        display_reps = min(5, max(3, 1000 // base_pattern_len))
+                        extract_len = min(samples_per_repetition * display_reps,
+                                         total_samples - repetition_start)
 
-                            # OPTIMIZATION: Smart decimation for large datasets
-                            if len(display_data) > 2000:
-                                # Downsample to ~2000 points for smooth rendering
-                                step = len(display_data) // 2000
-                                display_data = display_data[::step]
-
-                            x_preview = display_data[:, 0]
-                            y_preview = display_data[:, 1]
+                        if extract_len > 10:
+                            current_segment = self.current_audio[repetition_start:repetition_start + extract_len]
+                            x_preview = current_segment[:, 0]
+                            y_preview = current_segment[:, 1]
 
                             # OPTIMIZATION: Use blitting for 10-100x faster rendering
                             if self.blit_enabled:
