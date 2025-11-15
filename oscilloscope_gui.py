@@ -3241,78 +3241,194 @@ class OscilloscopeGUI:
         ttk.Button(bottom_frame, text="Close", command=dialog.destroy).pack(fill=tk.X)
 
     def generate_random_harmonics(self):
-        """Generate randomized sum of sines and cosines with random frequencies, amplitudes, and phases"""
-        # Random parameters
-        num_terms_x = np.random.randint(3, 10)  # 3-9 terms for X channel
-        num_terms_y = np.random.randint(3, 10)  # 3-9 terms for Y channel
+        """Open dialog for random harmonics generation with two modes"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Random Harmonics Generator")
+        dialog.geometry("500x400")
 
-        num_points = 1000
-        t = np.linspace(0, 2*np.pi, num_points)
+        # Instructions
+        instruction_frame = ttk.Frame(dialog)
+        instruction_frame.pack(pady=10, padx=10, fill=tk.X)
+        ttk.Label(instruction_frame, text="Generate Random Harmonic Patterns",
+                 font=('Arial', 12, 'bold')).pack()
+        ttk.Label(instruction_frame, text="Choose generation mode and click Generate",
+                 font=('Arial', 9), foreground='gray').pack()
 
-        # Generate X channel
-        x_data = np.zeros(num_points)
-        x_description = []
+        # Mode selection
+        mode_frame = ttk.LabelFrame(dialog, text="Generation Mode", padding="10")
+        mode_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        for i in range(num_terms_x):
-            # Random parameters
-            wave_type = np.random.choice(['sin', 'cos'])
-            amplitude = np.random.uniform(0.3, 1.0)
-            frequency = np.random.uniform(0.5, 8.0)
-            phase = np.random.uniform(0, 2*np.pi)
+        mode_var = tk.StringVar(value="random")
 
-            # Generate term
-            if wave_type == 'sin':
-                x_data += amplitude * np.sin(frequency * t + phase)
-                x_description.append(f"{amplitude:.2f}·sin({frequency:.1f}t + {phase:.2f})")
+        # Mode 1: Fully Random
+        mode1_frame = ttk.Frame(mode_frame)
+        mode1_frame.pack(fill=tk.X, pady=5)
+        ttk.Radiobutton(mode1_frame, text="Fully Random",
+                       variable=mode_var, value="random").pack(anchor=tk.W)
+        ttk.Label(mode1_frame, text="• X and Y channels completely independent",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ttk.Label(mode1_frame, text="• 1-10 terms per channel",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ttk.Label(mode1_frame, text="• Frequencies: 0-1000",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ttk.Label(mode1_frame, text="• Phase shifts: 0-1000",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+
+        ttk.Separator(mode_frame, orient='horizontal').pack(fill=tk.X, pady=10)
+
+        # Mode 2: Mirrored (sin/cos swap)
+        mode2_frame = ttk.Frame(mode_frame)
+        mode2_frame.pack(fill=tk.X, pady=5)
+        ttk.Radiobutton(mode2_frame, text="Mirrored (Sin/Cos Swap)",
+                       variable=mode_var, value="mirrored").pack(anchor=tk.W)
+        ttk.Label(mode2_frame, text="• X and Y channels use same parameters",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ttk.Label(mode2_frame, text="• sin terms on X become cos on Y",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ttk.Label(mode2_frame, text="• cos terms on X become sin on Y",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ttk.Label(mode2_frame, text="• Creates symmetrical Lissajous patterns",
+                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+
+        # Preview area
+        preview_frame = ttk.LabelFrame(dialog, text="Last Generated", padding="10")
+        preview_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        preview_text = tk.Text(preview_frame, height=8, width=60, font=('Courier', 8), state=tk.DISABLED)
+        preview_text.pack(fill=tk.BOTH, expand=True)
+
+        def generate_pattern():
+            """Generate pattern based on selected mode"""
+            mode = mode_var.get()
+            num_points = 1000
+            t = np.linspace(0, 2*np.pi, num_points)
+
+            if mode == "random":
+                # Mode 1: Fully Random
+                num_terms_x = np.random.randint(1, 11)  # 1-10 terms
+                num_terms_y = np.random.randint(1, 11)  # 1-10 terms
+
+                # Generate X channel
+                x_data = np.zeros(num_points)
+                x_description = []
+
+                for i in range(num_terms_x):
+                    wave_type = np.random.choice(['sin', 'cos'])
+                    amplitude = np.random.uniform(0.3, 1.0)
+                    frequency = np.random.uniform(0, 1000)
+                    phase = np.random.uniform(0, 1000)
+
+                    if wave_type == 'sin':
+                        x_data += amplitude * np.sin(frequency * t + phase)
+                        x_description.append(f"{amplitude:.2f}·sin({frequency:.1f}t + {phase:.1f})")
+                    else:
+                        x_data += amplitude * np.cos(frequency * t + phase)
+                        x_description.append(f"{amplitude:.2f}·cos({frequency:.1f}t + {phase:.1f})")
+
+                # Generate Y channel
+                y_data = np.zeros(num_points)
+                y_description = []
+
+                for i in range(num_terms_y):
+                    wave_type = np.random.choice(['sin', 'cos'])
+                    amplitude = np.random.uniform(0.3, 1.0)
+                    frequency = np.random.uniform(0, 1000)
+                    phase = np.random.uniform(0, 1000)
+
+                    if wave_type == 'sin':
+                        y_data += amplitude * np.sin(frequency * t + phase)
+                        y_description.append(f"{amplitude:.2f}·sin({frequency:.1f}t + {phase:.1f})")
+                    else:
+                        y_data += amplitude * np.cos(frequency * t + phase)
+                        y_description.append(f"{amplitude:.2f}·cos({frequency:.1f}t + {phase:.1f})")
+
+                status_msg = f"Random harmonics (fully random): X({num_terms_x} terms), Y({num_terms_y} terms)"
+
             else:
-                x_data += amplitude * np.cos(frequency * t + phase)
-                x_description.append(f"{amplitude:.2f}·cos({frequency:.1f}t + {phase:.2f})")
+                # Mode 2: Mirrored (sin/cos swap)
+                num_terms = np.random.randint(1, 11)  # 1-10 terms
 
-        # Generate Y channel
-        y_data = np.zeros(num_points)
-        y_description = []
+                # Generate shared parameters
+                terms = []
+                for i in range(num_terms):
+                    wave_type = np.random.choice(['sin', 'cos'])
+                    amplitude = np.random.uniform(0.3, 1.0)
+                    frequency = np.random.uniform(0, 1000)
+                    phase = np.random.uniform(0, 1000)
+                    terms.append((wave_type, amplitude, frequency, phase))
 
-        for i in range(num_terms_y):
-            # Random parameters
-            wave_type = np.random.choice(['sin', 'cos'])
-            amplitude = np.random.uniform(0.3, 1.0)
-            frequency = np.random.uniform(0.5, 8.0)
-            phase = np.random.uniform(0, 2*np.pi)
+                # Generate X channel
+                x_data = np.zeros(num_points)
+                x_description = []
 
-            # Generate term
-            if wave_type == 'sin':
-                y_data += amplitude * np.sin(frequency * t + phase)
-                y_description.append(f"{amplitude:.2f}·sin({frequency:.1f}t + {phase:.2f})")
-            else:
-                y_data += amplitude * np.cos(frequency * t + phase)
-                y_description.append(f"{amplitude:.2f}·cos({frequency:.1f}t + {phase:.2f})")
+                for wave_type, amplitude, frequency, phase in terms:
+                    if wave_type == 'sin':
+                        x_data += amplitude * np.sin(frequency * t + phase)
+                        x_description.append(f"{amplitude:.2f}·sin({frequency:.1f}t + {phase:.1f})")
+                    else:
+                        x_data += amplitude * np.cos(frequency * t + phase)
+                        x_description.append(f"{amplitude:.2f}·cos({frequency:.1f}t + {phase:.1f})")
 
-        # Normalize
-        x_data = x_data / (np.max(np.abs(x_data)) + 1e-10)
-        y_data = y_data / (np.max(np.abs(y_data)) + 1e-10)
+                # Generate Y channel (swap sin/cos)
+                y_data = np.zeros(num_points)
+                y_description = []
 
-        # Set as current data
-        self.x_data = x_data
-        self.y_data = y_data
-        self.data_info_label.config(text=f"Points: {len(x_data)}")
-        self.update_display()
+                for wave_type, amplitude, frequency, phase in terms:
+                    if wave_type == 'sin':
+                        # sin on X becomes cos on Y
+                        y_data += amplitude * np.cos(frequency * t + phase)
+                        y_description.append(f"{amplitude:.2f}·cos({frequency:.1f}t + {phase:.1f})")
+                    else:
+                        # cos on X becomes sin on Y
+                        y_data += amplitude * np.sin(frequency * t + phase)
+                        y_description.append(f"{amplitude:.2f}·sin({frequency:.1f}t + {phase:.1f})")
 
-        # Create status message
-        status_msg = f"Random harmonics: X({num_terms_x} terms), Y({num_terms_y} terms)"
-        self.status_label.config(text=status_msg)
+                status_msg = f"Random harmonics (mirrored): {num_terms} terms"
 
-        # Show details in console
-        print("\n=== Random Harmonics Generated ===")
-        print(f"X channel ({num_terms_x} terms):")
-        for desc in x_description:
-            print(f"  + {desc}")
-        print(f"\nY channel ({num_terms_y} terms):")
-        for desc in y_description:
-            print(f"  + {desc}")
-        print("="*35 + "\n")
+            # Normalize
+            x_data = x_data / (np.max(np.abs(x_data)) + 1e-10)
+            y_data = y_data / (np.max(np.abs(y_data)) + 1e-10)
 
-        # Apply parameters and generate audio
-        self.apply_parameters()
+            # Set as current data
+            self.x_data = x_data
+            self.y_data = y_data
+            self.data_info_label.config(text=f"Points: {len(x_data)}")
+            self.update_display()
+            self.status_label.config(text=status_msg)
+
+            # Update preview
+            preview_text.config(state=tk.NORMAL)
+            preview_text.delete('1.0', tk.END)
+            preview_text.insert(tk.END, f"X channel:\n")
+            for desc in x_description:
+                preview_text.insert(tk.END, f"  + {desc}\n")
+            preview_text.insert(tk.END, f"\nY channel:\n")
+            for desc in y_description:
+                preview_text.insert(tk.END, f"  + {desc}\n")
+            preview_text.config(state=tk.DISABLED)
+
+            # Print to console
+            print("\n=== Random Harmonics Generated ===")
+            print(f"Mode: {mode}")
+            print(f"X channel:")
+            for desc in x_description:
+                print(f"  + {desc}")
+            print(f"\nY channel:")
+            for desc in y_description:
+                print(f"  + {desc}")
+            print("="*35 + "\n")
+
+            # Apply parameters and generate audio
+            self.apply_parameters()
+
+        # Buttons
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Button(button_frame, text="Generate", command=generate_pattern).pack(
+            side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ttk.Button(button_frame, text="Close", command=dialog.destroy).pack(
+            side=tk.LEFT, padx=5)
 
     def save_to_wav(self):
         """Save current audio to WAV file"""
