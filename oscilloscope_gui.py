@@ -326,7 +326,7 @@ class OscilloscopeGUI:
         ctk.CTkLabel(noise_frame, text="X Noise Amplitude:",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.x_noise_amp = tk.DoubleVar(value=0.05)
-        ctk.CTkSlider(noise_frame, from_=0.001, to=0.3, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(noise_frame, from_=0.001, to=0.3,
                  variable=self.x_noise_amp,
                  command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
 
@@ -338,7 +338,7 @@ class OscilloscopeGUI:
         ctk.CTkLabel(noise_frame, text="Y Noise Amplitude:",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.y_noise_amp = tk.DoubleVar(value=0.05)
-        ctk.CTkSlider(noise_frame, from_=0.001, to=0.3, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(noise_frame, from_=0.001, to=0.3,
                  variable=self.y_noise_amp,
                  command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
 
@@ -365,7 +365,7 @@ class OscilloscopeGUI:
         self.x_wavy_amp_label.pack(side=tk.RIGHT)
 
         self.x_wavy_amp = tk.DoubleVar(value=0.2)
-        ctk.CTkSlider(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(wavy_frame, from_=0.0, to=1.0,
                  variable=self.x_wavy_amp,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
@@ -381,7 +381,7 @@ class OscilloscopeGUI:
                  font=('Arial', 8, 'bold'))
         self.x_wavy_freq_label.pack(side=tk.RIGHT)
 
-        ctk.CTkSlider(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(wavy_frame, from_=1.0, to=1000000.0,
                  variable=self.x_wavy_freq,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
@@ -400,7 +400,7 @@ class OscilloscopeGUI:
         self.y_wavy_amp_label.pack(side=tk.RIGHT)
 
         self.y_wavy_amp = tk.DoubleVar(value=0.2)
-        ctk.CTkSlider(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(wavy_frame, from_=0.0, to=1.0,
                  variable=self.y_wavy_amp,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
@@ -416,7 +416,7 @@ class OscilloscopeGUI:
                  font=('Arial', 8, 'bold'))
         self.y_wavy_freq_label.pack(side=tk.RIGHT)
 
-        ctk.CTkSlider(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(wavy_frame, from_=1.0, to=1000000.0,
                  variable=self.y_wavy_freq,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
@@ -440,13 +440,13 @@ class OscilloscopeGUI:
         
         ctk.CTkLabel(rotation_frame, text="Static Angle (degrees):").pack(anchor=tk.W, pady=(5,0))
         self.rotation_angle = tk.DoubleVar(value=0.0)
-        ctk.CTkSlider(rotation_frame, from_=-180, to=180, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(rotation_frame, from_=-180, to=180,
                  variable=self.rotation_angle,
                  command=lambda v: self.rotation_mode_changed()).pack(fill=tk.X)
         
         ctk.CTkLabel(rotation_frame, text="Rotation Speed (degrees/cycle):").pack(anchor=tk.W, pady=(5,0))
         self.rotation_speed = tk.DoubleVar(value=5.0)
-        ctk.CTkSlider(rotation_frame, from_=0.5, to=45, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(rotation_frame, from_=0.5, to=45,
                  variable=self.rotation_speed,
                  command=lambda v: self.rotation_mode_changed()).pack(fill=tk.X)
 
@@ -480,7 +480,7 @@ class OscilloscopeGUI:
         self.tremolo_depth_label.pack(side=tk.RIGHT)
 
         self.tremolo_depth = tk.DoubleVar(value=50.0)
-        ctk.CTkSlider(tremolo_frame, from_=0.0, to=100.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(tremolo_frame, from_=0.0, to=100.0,
                  variable=self.tremolo_depth,
                  command=lambda v: self.tremolo_depth_label.config(text=f"{self.tremolo_depth.get():.0f}")).pack(fill=tk.X, padx=20)
 
@@ -494,7 +494,7 @@ class OscilloscopeGUI:
         self.tremolo_rate_label.pack(side=tk.RIGHT)
 
         self.tremolo_rate = tk.DoubleVar(value=2.0)
-        ctk.CTkSlider(tremolo_frame, from_=0.1, to=20.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(tremolo_frame, from_=0.1, to=20.0,
                  variable=self.tremolo_rate,
                  command=lambda v: self.tremolo_rate_label.config(text=f"{self.tremolo_rate.get():.1f}")).pack(fill=tk.X, padx=20)
 
@@ -530,7 +530,7 @@ class OscilloscopeGUI:
         self.ring_carrier_label.pack(side=tk.RIGHT)
 
         self.ring_carrier_freq = tk.DoubleVar(value=200.0)
-        ctk.CTkSlider(ring_frame, from_=10.0, to=2000.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(ring_frame, from_=10.0, to=2000.0,
                  variable=self.ring_carrier_freq,
                  command=lambda v: self.ring_carrier_label.config(text=f"{self.ring_carrier_freq.get():.0f}")).pack(fill=tk.X, padx=20)
 
@@ -544,7 +544,7 @@ class OscilloscopeGUI:
         self.ring_mix_label.pack(side=tk.RIGHT)
 
         self.ring_mix = tk.DoubleVar(value=50.0)
-        ctk.CTkSlider(ring_frame, from_=0.0, to=100.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(ring_frame, from_=0.0, to=100.0,
                  variable=self.ring_mix,
                  command=lambda v: self.ring_mix_label.config(text=f"{self.ring_mix.get():.0f}")).pack(fill=tk.X, padx=20)
 
@@ -571,7 +571,7 @@ class OscilloscopeGUI:
         self.echo_count_label.pack(side=tk.RIGHT)
 
         self.echo_count = tk.IntVar(value=3)
-        ctk.CTkSlider(echo_frame, from_=1, to=10, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(echo_frame, from_=1, to=10,
                  variable=self.echo_count,
                  command=lambda v: self.echo_count_label.config(text=f"{self.echo_count.get():.0f}")).pack(fill=tk.X, padx=20)
 
@@ -585,7 +585,7 @@ class OscilloscopeGUI:
         self.echo_decay_label.pack(side=tk.RIGHT)
 
         self.echo_decay = tk.DoubleVar(value=0.7)
-        ctk.CTkSlider(echo_frame, from_=0.1, to=0.95, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(echo_frame, from_=0.1, to=0.95,
                  variable=self.echo_decay,
                  command=lambda v: self.echo_decay_label.config(text=f"{self.echo_decay.get():.2f}")).pack(fill=tk.X, padx=20)
 
@@ -599,7 +599,7 @@ class OscilloscopeGUI:
         self.echo_delay_label.pack(side=tk.RIGHT)
 
         self.echo_delay = tk.DoubleVar(value=10.0)
-        ctk.CTkSlider(echo_frame, from_=1.0, to=50.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(echo_frame, from_=1.0, to=50.0,
                  variable=self.echo_delay,
                  command=lambda v: self.echo_delay_label.config(text=f"{self.echo_delay.get():.0f}")).pack(fill=tk.X, padx=20)
 
@@ -626,7 +626,7 @@ class OscilloscopeGUI:
         self.kaleido_sections_label.pack(side=tk.RIGHT)
 
         self.kaleido_sections = tk.IntVar(value=6)
-        ctk.CTkSlider(kaleido_frame, from_=2, to=12, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(kaleido_frame, from_=2, to=12,
                  variable=self.kaleido_sections,
                  command=lambda v: self.kaleido_sections_label.config(text=f"{self.kaleido_sections.get():.0f}")).pack(fill=tk.X, padx=20)
 
@@ -671,7 +671,7 @@ class OscilloscopeGUI:
         self.distortion_threshold_label.pack(side=tk.RIGHT)
 
         self.distortion_threshold = tk.DoubleVar(value=0.5)
-        ctk.CTkSlider(distortion_frame, from_=0.1, to=2.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(distortion_frame, from_=0.1, to=2.0,
                  variable=self.distortion_threshold,
                  command=lambda v: self.distortion_threshold_label.config(text=f"{self.distortion_threshold.get():.2f}")).pack(fill=tk.X, padx=20)
 
@@ -972,11 +972,11 @@ class OscilloscopeGUI:
         x_norm = x.copy()
         y_norm = y.copy()
 
-        # Determine which effects are enabled
-        has_y_fade = self.y_fade_var.get()
-        has_x_fade = self.x_fade_var.get()
-        has_shrink = self.shrink_var.get()
-        rotation_mode = self.rotation_mode_var.get()
+        # Determine which effects are enabled (with defensive checks for initialization)
+        has_y_fade = self.y_fade_var.get() if hasattr(self, 'y_fade_var') else False
+        has_x_fade = self.x_fade_var.get() if hasattr(self, 'x_fade_var') else False
+        has_shrink = self.shrink_var.get() if hasattr(self, 'shrink_var') else False
+        rotation_mode = self.rotation_mode_var.get() if hasattr(self, 'rotation_mode_var') else "Off"
 
         # Build effect factor arrays
         y_fade_factors = None
@@ -2838,14 +2838,14 @@ class OscilloscopeGUI:
 
         ctk.CTkLabel(x_params_frame, text="Parameter 'a' (amplitude):").grid(row=0, column=0, sticky=tk.W, pady=5)
         x_a_var = tk.DoubleVar(value=1.0)
-        x_a_scale = ctk.CTkSlider(x_params_frame, from_=0.1, to=5.0, variable=x_a_var, orient=tk.HORIZONTAL)
+        x_a_scale = ctk.CTkSlider(x_params_frame, from_=0.1, to=5.0, variable=x_a_var)
         x_a_scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
         x_a_entry = ctk.CTkEntry(x_params_frame, textvariable=x_a_var, width=10)
         x_a_entry.grid(row=0, column=2, padx=5)
 
         ctk.CTkLabel(x_params_frame, text="Parameter 'b' (frequency):").grid(row=1, column=0, sticky=tk.W, pady=5)
         x_b_var = tk.DoubleVar(value=1.0)
-        x_b_scale = ctk.CTkSlider(x_params_frame, from_=0.1, to=10.0, variable=x_b_var, orient=tk.HORIZONTAL)
+        x_b_scale = ctk.CTkSlider(x_params_frame, from_=0.1, to=10.0, variable=x_b_var)
         x_b_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
         x_b_entry = ctk.CTkEntry(x_params_frame, textvariable=x_b_var, width=10)
         x_b_entry.grid(row=1, column=2, padx=5)
@@ -2885,14 +2885,14 @@ class OscilloscopeGUI:
 
         ctk.CTkLabel(y_params_frame, text="Parameter 'a' (amplitude):").grid(row=0, column=0, sticky=tk.W, pady=5)
         y_a_var = tk.DoubleVar(value=1.0)
-        y_a_scale = ctk.CTkSlider(y_params_frame, from_=0.1, to=5.0, variable=y_a_var, orient=tk.HORIZONTAL)
+        y_a_scale = ctk.CTkSlider(y_params_frame, from_=0.1, to=5.0, variable=y_a_var)
         y_a_scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
         y_a_entry = ctk.CTkEntry(y_params_frame, textvariable=y_a_var, width=10)
         y_a_entry.grid(row=0, column=2, padx=5)
 
         ctk.CTkLabel(y_params_frame, text="Parameter 'b' (frequency):").grid(row=1, column=0, sticky=tk.W, pady=5)
         y_b_var = tk.DoubleVar(value=1.0)
-        y_b_scale = ctk.CTkSlider(y_params_frame, from_=0.1, to=10.0, variable=y_b_var, orient=tk.HORIZONTAL)
+        y_b_scale = ctk.CTkSlider(y_params_frame, from_=0.1, to=10.0, variable=y_b_var)
         y_b_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
         y_b_entry = ctk.CTkEntry(y_params_frame, textvariable=y_b_var, width=10)
         y_b_entry.grid(row=1, column=2, padx=5)
@@ -2939,7 +2939,7 @@ class OscilloscopeGUI:
         # Trail length parameter (number of points)
         ctk.CTkLabel(chaser_params_frame, text="Trail Length (points):").grid(row=0, column=0, sticky=tk.W, pady=5, padx=5)
         trail_length_var = tk.IntVar(value=100)
-        trail_scale = ctk.CTkSlider(chaser_params_frame, from_=5, to=500, variable=trail_length_var, orient=tk.HORIZONTAL)
+        trail_scale = ctk.CTkSlider(chaser_params_frame, from_=5, to=500, variable=trail_length_var)
         trail_scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
         trail_entry = ctk.CTkEntry(chaser_params_frame, textvariable=trail_length_var, width=10)
         trail_entry.grid(row=0, column=2, padx=5)
@@ -2947,7 +2947,7 @@ class OscilloscopeGUI:
         # Point repetitions parameter (controls speed)
         ctk.CTkLabel(chaser_params_frame, text="Point Repetitions (speed):").grid(row=1, column=0, sticky=tk.W, pady=5, padx=5)
         point_reps_var = tk.IntVar(value=10)
-        reps_scale = ctk.CTkSlider(chaser_params_frame, from_=1, to=100, variable=point_reps_var, orient=tk.HORIZONTAL)
+        reps_scale = ctk.CTkSlider(chaser_params_frame, from_=1, to=100, variable=point_reps_var)
         reps_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
         reps_entry = ctk.CTkEntry(chaser_params_frame, textvariable=point_reps_var, width=10)
         reps_entry.grid(row=1, column=2, padx=5)
@@ -3378,7 +3378,7 @@ class OscilloscopeGUI:
         warp_value_label = ctk.CTkLabel(warp_label_frame, text="0.0", font=('Arial', 9, 'bold'))
         warp_value_label.pack(side=tk.RIGHT)
 
-        warp_scale = ctk.CTkSlider(warp_frame, from_=-1.0, to=1.0, orient=tk.HORIZONTAL,
+        warp_scale = ctk.CTkSlider(warp_frame, from_=-1.0, to=1.0,
                               variable=current_warp,
                               command=lambda v: warp_value_label.config(text=f"{current_warp.get():.2f}"))
         warp_scale.pack(fill=tk.X, pady=5)
@@ -3439,7 +3439,7 @@ class OscilloscopeGUI:
         def update_offset_label(val):
             offset_label.config(text=f"{position_offset.get():.2f}")
 
-        offset_scale = ctk.CTkSlider(tempo_frame, from_=0.0, to=0.99, orient=tk.HORIZONTAL,
+        offset_scale = ctk.CTkSlider(tempo_frame, from_=0.0, to=0.99,
                                variable=position_offset, command=update_offset_label)
         offset_scale.grid(row=1, column=2, columnspan=3, padx=5, sticky='ew', pady=(5,0))
 
