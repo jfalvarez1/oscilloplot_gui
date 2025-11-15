@@ -3029,6 +3029,7 @@ class OscilloscopeGUI:
         tempo_bpm = tk.IntVar(value=120)  # BPM for playback
         num_steps = tk.IntVar(value=16)  # Number of time slots per pattern
         current_step = tk.IntVar(value=0)  # Currently selected time slot for recording
+        position_offset = tk.DoubleVar(value=0.0)  # Fine-tune position (0.0 to 0.99)
         note_duration = tk.DoubleVar(value=0.25)  # Duration of each note in seconds
 
         # Note frequencies (chromatic scale starting from C3)
@@ -3301,6 +3302,21 @@ class OscilloscopeGUI:
                                       textvariable=note_duration, width=6, format="%.2f")
         duration_spinbox.grid(row=0, column=5, padx=5)
 
+        # Position offset control (second row)
+        ttk.Label(tempo_frame, text="Position Offset:", font=('Arial', 8, 'bold')).grid(row=1, column=0, padx=5, sticky='w', pady=(5,0))
+        offset_label = ttk.Label(tempo_frame, text="0.00", font=('Arial', 8))
+        offset_label.grid(row=1, column=1, padx=5, sticky='w', pady=(5,0))
+
+        def update_offset_label(val):
+            offset_label.config(text=f"{position_offset.get():.2f}")
+
+        offset_scale = ttk.Scale(tempo_frame, from_=0.0, to=0.99, orient=tk.HORIZONTAL,
+                               variable=position_offset, command=update_offset_label)
+        offset_scale.grid(row=1, column=2, columnspan=3, padx=5, sticky='ew', pady=(5,0))
+
+        ttk.Label(tempo_frame, text="(Fine-tune note position)", font=('Arial', 7, 'italic'),
+                 foreground='gray').grid(row=1, column=5, padx=5, sticky='w', pady=(5,0))
+
         # Visual step grid for selecting time slots
         step_grid_frame = ttk.LabelFrame(sequencer_frame, text="Time Slots (Click to select)", padding="5")
         step_grid_frame.pack(fill=tk.X, pady=5)
@@ -3320,12 +3336,20 @@ class OscilloscopeGUI:
                 elif track_num == 3:
                     track_seq = track3_sequence
 
+                # Check if any position starting with this step exists (e.g., 4.0, 4.25, 4.5)
+                has_note = False
+                if track_seq:
+                    for pos in track_seq.keys():
+                        if int(pos) == step_num:
+                            has_note = True
+                            break
+
                 # Update button appearance
                 if step_num == current_step.get():
                     # Selected step
                     btn.config(relief=tk.SUNKEN, bg='#2196F3', fg='white')
-                elif track_seq and step_num in track_seq:
-                    # Step has a note
+                elif has_note:
+                    # Step has a note (at any fractional position)
                     btn.config(relief=tk.RAISED, bg='#4CAF50', fg='white')
                 else:
                     # Empty step
@@ -3391,20 +3415,18 @@ class OscilloscopeGUI:
             if not track1_sequence:
                 track1_text.insert('1.0', "Empty")
             else:
-                # Create a grid visualization showing notes in time slots
-                grid_str = ""
-                for step in range(num_steps.get()):
-                    if step in track1_sequence:
-                        pad_idx, _ = track1_sequence[step]
-                        note = f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
-                        grid_str += f"[{note}]"
-                    else:
-                        grid_str += "[ - ]"
-                    if (step + 1) % 8 == 0:  # Line break every 8 steps
-                        grid_str += "\n"
-                    else:
-                        grid_str += " "
-                track1_text.insert('1.0', grid_str.strip())
+                # Show all notes with their positions sorted by time
+                sorted_positions = sorted(track1_sequence.keys())
+                notes_list = []
+                for pos in sorted_positions:
+                    pad_idx, _ = track1_sequence[pos]
+                    note = f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
+                    # Show position with offset if fractional
+                    if pos % 1 == 0:  # Integer position
+                        notes_list.append(f"[{int(pos)+1}:{note}]")
+                    else:  # Fractional position
+                        notes_list.append(f"[{pos+1:.2f}:{note}]")
+                track1_text.insert('1.0', " ".join(notes_list))
             track1_text.config(state=tk.DISABLED)
 
             # Update Track 2
@@ -3413,19 +3435,16 @@ class OscilloscopeGUI:
             if not track2_sequence:
                 track2_text.insert('1.0', "Empty")
             else:
-                grid_str = ""
-                for step in range(num_steps.get()):
-                    if step in track2_sequence:
-                        pad_idx, _ = track2_sequence[step]
-                        note = f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
-                        grid_str += f"[{note}]"
+                sorted_positions = sorted(track2_sequence.keys())
+                notes_list = []
+                for pos in sorted_positions:
+                    pad_idx, _ = track2_sequence[pos]
+                    note = f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
+                    if pos % 1 == 0:
+                        notes_list.append(f"[{int(pos)+1}:{note}]")
                     else:
-                        grid_str += "[ - ]"
-                    if (step + 1) % 8 == 0:
-                        grid_str += "\n"
-                    else:
-                        grid_str += " "
-                track2_text.insert('1.0', grid_str.strip())
+                        notes_list.append(f"[{pos+1:.2f}:{note}]")
+                track2_text.insert('1.0', " ".join(notes_list))
             track2_text.config(state=tk.DISABLED)
 
             # Update Track 3
@@ -3434,37 +3453,59 @@ class OscilloscopeGUI:
             if not track3_sequence:
                 track3_text.insert('1.0', "Empty")
             else:
-                grid_str = ""
-                for step in range(num_steps.get()):
-                    if step in track3_sequence:
-                        pad_idx, _ = track3_sequence[step]
-                        note = f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
-                        grid_str += f"[{note}]"
+                sorted_positions = sorted(track3_sequence.keys())
+                notes_list = []
+                for pos in sorted_positions:
+                    pad_idx, _ = track3_sequence[pos]
+                    note = f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
+                    if pos % 1 == 0:
+                        notes_list.append(f"[{int(pos)+1}:{note}]")
                     else:
-                        grid_str += "[ - ]"
-                    if (step + 1) % 8 == 0:
-                        grid_str += "\n"
-                    else:
-                        grid_str += " "
-                track3_text.insert('1.0', grid_str.strip())
+                        notes_list.append(f"[{pos+1:.2f}:{note}]")
+                track3_text.insert('1.0', " ".join(notes_list))
             track3_text.config(state=tk.DISABLED)
 
         def add_to_sequence(row, col):
-            """Add pad to current track sequence at the selected time slot"""
+            """Add pad to current track sequence at the selected time slot with position offset"""
             pad_idx = row * 4 + col
             duration = note_duration.get()
             step = current_step.get()
+            offset = position_offset.get()
+
+            # Calculate fractional position (e.g., step 4 + offset 0.5 = position 4.5)
+            position = step + offset
 
             track_num = current_track.get()
             if track_num == 1:
-                track1_sequence[step] = (pad_idx, duration)
+                track1_sequence[position] = (pad_idx, duration)
             elif track_num == 2:
-                track2_sequence[step] = (pad_idx, duration)
+                track2_sequence[position] = (pad_idx, duration)
             elif track_num == 3:
-                track3_sequence[step] = (pad_idx, duration)
+                track3_sequence[position] = (pad_idx, duration)
 
             update_sequence_displays()
             update_step_grid()
+
+        def clear_current_step():
+            """Remove note from current step in selected track"""
+            step = current_step.get()
+            offset = position_offset.get()
+            position = step + offset
+
+            track_num = current_track.get()
+            track_seq = None
+            if track_num == 1:
+                track_seq = track1_sequence
+            elif track_num == 2:
+                track_seq = track2_sequence
+            elif track_num == 3:
+                track_seq = track3_sequence
+
+            # Remove the note at this position if it exists
+            if track_seq is not None and position in track_seq:
+                del track_seq[position]
+                update_sequence_displays()
+                update_step_grid()
 
         def clear_current_track():
             """Clear the currently selected track"""
@@ -3514,13 +3555,13 @@ class OscilloscopeGUI:
                 if not track_seq:
                     continue
 
-                for step, (pad_idx, duration) in track_seq.items():
+                for position, (pad_idx, duration) in track_seq.items():
                     note_freq = base_notes[pad_idx]
                     x, y = generate_pad_sound(note_freq, current_instrument.get(),
                                             current_warp.get(), duration=duration)
 
-                    # Calculate where to place this note based on step number
-                    start_time = step * seconds_per_step
+                    # Calculate where to place this note based on position (supports fractional positions)
+                    start_time = position * seconds_per_step
                     start_sample = int(start_time * sample_rate)
                     end_sample = min(start_sample + len(x), total_samples)
                     segment_len = end_sample - start_sample
@@ -3556,6 +3597,10 @@ class OscilloscopeGUI:
         record_check = ttk.Checkbutton(seq_controls, text="Record pads to selected track",
                                       variable=recording_var)
         record_check.pack(anchor=tk.W, pady=2)
+
+        # Clear step button
+        ttk.Button(seq_controls, text="Clear Selected Step", command=clear_current_step).pack(
+            anchor=tk.W, pady=2, fill=tk.X)
 
         # Override play_pad to add to sequence when recording
         original_play_pad = play_pad
