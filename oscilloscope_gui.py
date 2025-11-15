@@ -226,7 +226,7 @@ class OscilloscopeGUI:
                        variable=self.reflections_var,
                        command=self.effect_changed).pack(anchor=tk.W, pady=5)
         
-        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
         
         # Y-Axis Fade Sequence
         self.y_fade_var = tk.BooleanVar(value=False)
@@ -252,7 +252,7 @@ class OscilloscopeGUI:
                    command=self.effect_changed)
         self.y_fade_speed_spin.pack(anchor=tk.W, padx=20)
         
-        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
         
         # X-Axis Fade Sequence
         self.x_fade_var = tk.BooleanVar(value=False)
@@ -284,7 +284,7 @@ class OscilloscopeGUI:
                        variable=self.alternate_xy_fade_var,
                        command=self.effect_changed).pack(anchor=tk.W, pady=(5,0))
 
-        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
 
         # Shrink/Unshrink (scale both X and Y together)
         self.shrink_var = tk.BooleanVar(value=False)
@@ -310,7 +310,7 @@ class OscilloscopeGUI:
                    command=self.effect_changed)
         self.shrink_speed_spin.pack(anchor=tk.W, padx=20)
 
-        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
 
         # Noise Effects
         noise_frame = ctk.CTkFrame(effects_frame)
@@ -342,7 +342,7 @@ class OscilloscopeGUI:
                  variable=self.y_noise_amp,
                  command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
 
-        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
 
         # Wavy Effects
         wavy_frame = ctk.CTkFrame(effects_frame)
@@ -420,7 +420,7 @@ class OscilloscopeGUI:
                  variable=self.y_wavy_freq,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
-        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
 
         # Rotation
         rotation_frame = ctk.CTkFrame(effects_frame)
@@ -457,7 +457,7 @@ class OscilloscopeGUI:
         self.n_repeat_var.trace('w', self.update_rotation_info)
         self.rotation_speed.trace('w', self.update_rotation_info)
 
-        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
 
         # Tremolo Effect (Amplitude Modulation)
         tremolo_frame = ctk.CTkFrame(effects_frame)
@@ -507,7 +507,7 @@ class OscilloscopeGUI:
         ctk.CTkRadioButton(waveform_row, text="Triangle", variable=self.tremolo_wave_var, value="triangle").pack(side=tk.LEFT, padx=5)
         ctk.CTkRadioButton(waveform_row, text="Square", variable=self.tremolo_wave_var, value="square").pack(side=tk.LEFT, padx=5)
 
-        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
 
         # Ring Modulation Effect
         ring_frame = ctk.CTkFrame(effects_frame)
@@ -548,7 +548,7 @@ class OscilloscopeGUI:
                  variable=self.ring_mix,
                  command=lambda v: self.ring_mix_label.config(text=f"{self.ring_mix.get():.0f}")).pack(fill=tk.X, padx=20)
 
-        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
 
         # Echo/Delay Effect
         echo_frame = ctk.CTkFrame(effects_frame)
@@ -603,7 +603,7 @@ class OscilloscopeGUI:
                  variable=self.echo_delay,
                  command=lambda v: self.echo_delay_label.config(text=f"{self.echo_delay.get():.0f}")).pack(fill=tk.X, padx=20)
 
-        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
 
         # Kaleidoscope Effect
         kaleido_frame = ctk.CTkFrame(effects_frame)
@@ -639,7 +639,7 @@ class OscilloscopeGUI:
         ctk.CTkLabel(kaleido_frame, text="Creates symmetrical copies around center",
                  font=('Arial', 7, 'italic'), text_color='gray').pack(anchor=tk.W, padx=20, pady=(5,0))
 
-        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, height=2).pack(fill=tk.X, pady=5)
 
         # Distortion/Clipping Effect
         distortion_frame = ctk.CTkFrame(effects_frame)
@@ -706,7 +706,7 @@ class OscilloscopeGUI:
         self.status_label.pack(fill=tk.X)
         
         # Live Preview Toggle
-        ctk.CTkFrame(status_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(status_frame, height=2).pack(fill=tk.X, pady=5)
 
         ctk.CTkLabel(status_frame, text="Display Mode:",
                  font=('Arial', 9, 'bold')).pack(anchor=tk.W, pady=(5,2))
@@ -3927,7 +3927,7 @@ class OscilloscopeGUI:
         ctk.CTkLabel(mode1_frame, text="• Phase shifts: 0-1000",
                  font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
 
-        ctk.CTkFrame(mode_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=10)
+        ctk.CTkFrame(mode_frame, height=2).pack(fill=tk.X, pady=10)
 
         # Mode 2: Mirrored (sin/cos swap)
         mode2_frame = ctk.CTkFrame(mode_frame)
@@ -3943,7 +3943,7 @@ class OscilloscopeGUI:
         ctk.CTkLabel(mode2_frame, text="• Creates symmetrical Lissajous patterns",
                  font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
 
-        ctk.CTkFrame(mode_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=10)
+        ctk.CTkFrame(mode_frame, height=2).pack(fill=tk.X, pady=10)
 
         # Mode 3: Mirrored with Frequency Sweep
         mode3_frame = ctk.CTkFrame(mode_frame)
@@ -3957,7 +3957,7 @@ class OscilloscopeGUI:
         ctk.CTkLabel(mode3_frame, text="• Creates morphing animated patterns",
                  font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
 
-        ctk.CTkFrame(mode_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=10)
+        ctk.CTkFrame(mode_frame, height=2).pack(fill=tk.X, pady=10)
 
         # Mode 4: Mirrored with Phase Sweep
         mode4_frame = ctk.CTkFrame(mode_frame)
@@ -3971,7 +3971,7 @@ class OscilloscopeGUI:
         ctk.CTkLabel(mode4_frame, text="• Creates rotating Lissajous patterns",
                  font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
 
-        ctk.CTkFrame(mode_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=10)
+        ctk.CTkFrame(mode_frame, height=2).pack(fill=tk.X, pady=10)
 
         # Mode 5: Mirrored with Frequency and Phase Sweep
         mode5_frame = ctk.CTkFrame(mode_frame)
