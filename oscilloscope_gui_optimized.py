@@ -75,7 +75,9 @@ class OscilloscopeGUI:
 
         # Start update loops
         self.root.after(50, self.check_updates)
-        self.root.after(40, self.update_live_preview)  # 25 FPS preview update (reduced from 50 FPS)
+        fps = self.fps_var.get()
+        delay_ms = int(1000 / fps)
+        self.root.after(delay_ms, self.update_live_preview)  # Preview update based on FPS slider
     
     def create_widgets(self):
         """Create all GUI widgets"""
@@ -722,6 +724,20 @@ class OscilloscopeGUI:
         ttk.Label(preview_control_frame, text="samples",
                  font=('Arial', 8)).pack(side=tk.LEFT, padx=(5,0))
 
+        # Frame refresh rate control
+        fps_control_frame = ttk.Frame(status_frame)
+        fps_control_frame.pack(fill=tk.X, pady=(5,0))
+        ttk.Label(fps_control_frame, text="Frame Rate:",
+                 font=('Arial', 8)).pack(side=tk.LEFT, padx=(15,5))
+        self.fps_var = tk.IntVar(value=25)
+        self.fps_slider = ttk.Scale(fps_control_frame, from_=5, to=60,
+                                    orient=tk.HORIZONTAL, variable=self.fps_var,
+                                    command=self.update_fps)
+        self.fps_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        self.fps_label = ttk.Label(fps_control_frame, text="25 FPS",
+                                   font=('Arial', 8), width=7)
+        self.fps_label.pack(side=tk.LEFT, padx=(0,5))
+
         # Bind Enter key to all spinbox fields to trigger Apply & Generate
         self.bind_enter_to_apply()
     
@@ -1226,7 +1242,12 @@ class OscilloscopeGUI:
             self.buffer_valid_count = 0
             # Invalidate cached background
             self.blit_background = None
-    
+
+    def update_fps(self, *args):
+        """Update frame refresh rate"""
+        fps = int(self.fps_var.get())
+        self.fps_label.config(text=f"{fps} FPS")
+
     def update_live_preview(self):
         """OPTIMIZED: Update display using blitting and circular buffers for 10-100x speedup"""
         try:
@@ -1328,9 +1349,11 @@ class OscilloscopeGUI:
                 except Exception as e:
                     pass  # Silently ignore preview errors
 
-            # Schedule next update (25 FPS)
+            # Schedule next update based on FPS slider
             if self.root.winfo_exists():
-                self.root.after(40, self.update_live_preview)
+                fps = self.fps_var.get()
+                delay_ms = int(1000 / fps)
+                self.root.after(delay_ms, self.update_live_preview)
         except Exception:
             pass  # Window destroyed, stop scheduling
 
