@@ -54,7 +54,7 @@ class OscilloscopeGUI:
 
         # Start update loops
         self.root.after(50, self.check_updates)
-        self.root.after(20, self.update_live_preview)  # 50 FPS preview update
+        self.root.after(40, self.update_live_preview)  # 25 FPS preview update (reduced from 50 FPS)
     
     def create_widgets(self):
         """Create all GUI widgets"""
@@ -1253,9 +1253,9 @@ class OscilloscopeGUI:
                 except Exception as e:
                     pass  # Silently ignore preview errors
 
-            # Schedule next update (50 FPS)
+            # Schedule next update (25 FPS)
             if self.root.winfo_exists():
-                self.root.after(20, self.update_live_preview)
+                self.root.after(40, self.update_live_preview)
         except Exception:
             pass  # Window destroyed, stop scheduling
     
