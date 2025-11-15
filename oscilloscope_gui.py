@@ -2938,59 +2938,99 @@ class OscilloscopeGUI:
             sample_rate = 44100
             t = np.linspace(0, duration, int(sample_rate * duration))
 
-            # Apply warp effect by modulating frequency
-            if abs(warp) > 0.01:
-                warp_freq = 5 + abs(warp) * 20  # Warp modulation frequency
-                warp_depth = abs(warp) * note_freq * 0.3  # Warp depth
-                freq_mod = note_freq + warp_depth * np.sin(2 * np.pi * warp_freq * t)
-                # Calculate instantaneous phase for warped sound
-                phase = np.cumsum(freq_mod) / sample_rate
+            # Drums ignore note_freq and warp
+            if instrument in ["kick", "snare", "hihat", "tom"]:
+                if instrument == "kick":
+                    # Kick drum - pitch sweep down with fast decay
+                    freq_sweep = np.linspace(150, 40, len(t))
+                    phase = np.cumsum(freq_sweep) / sample_rate
+                    signal = np.sin(2 * np.pi * phase)
+                    envelope = np.exp(-8 * t)
+                    signal = signal * envelope
+                elif instrument == "snare":
+                    # Snare - mix of noise and tone
+                    tone_freq = 200
+                    tone = np.sin(2 * np.pi * tone_freq * t)
+                    noise = np.random.uniform(-1, 1, len(t))
+                    signal = 0.3 * tone + 0.7 * noise
+                    envelope = np.exp(-15 * t)
+                    signal = signal * envelope
+                elif instrument == "hihat":
+                    # Hi-hat - filtered noise with very fast decay
+                    noise = np.random.uniform(-1, 1, len(t))
+                    # Simple high-pass filter effect
+                    signal = noise - np.concatenate([[0], noise[:-1]])
+                    envelope = np.exp(-25 * t)
+                    signal = signal * envelope
+                elif instrument == "tom":
+                    # Tom drum - pitch sweep with medium decay
+                    freq_sweep = np.linspace(note_freq * 1.5, note_freq * 0.7, len(t))
+                    phase = np.cumsum(freq_sweep) / sample_rate
+                    signal = np.sin(2 * np.pi * phase)
+                    envelope = np.exp(-6 * t)
+                    signal = signal * envelope
             else:
-                # No warp - use linear phase
-                phase = note_freq * t
+                # Apply warp effect by modulating frequency (for non-drum instruments)
+                if abs(warp) > 0.01:
+                    warp_freq = 5 + abs(warp) * 20  # Warp modulation frequency
+                    warp_depth = abs(warp) * note_freq * 0.3  # Warp depth
+                    freq_mod = note_freq + warp_depth * np.sin(2 * np.pi * warp_freq * t)
+                    # Calculate instantaneous phase for warped sound
+                    phase = np.cumsum(freq_mod) / sample_rate
+                else:
+                    # No warp - use linear phase
+                    phase = note_freq * t
 
-            if instrument == "sine":
-                # Pure sine wave
-                signal = np.sin(2 * np.pi * phase)
-            elif instrument == "square":
-                # Square wave
-                signal = np.sign(np.sin(2 * np.pi * phase))
-            elif instrument == "saw":
-                # Sawtooth wave
-                signal = 2 * (phase - np.floor(0.5 + phase))
-            elif instrument == "triangle":
-                # Triangle wave
-                signal = 2 * np.abs(2 * (phase - np.floor(phase + 0.5))) - 1
-            elif instrument == "piano":
-                # Piano-like sound (sine with harmonics and envelope)
-                signal = (np.sin(2 * np.pi * phase) +
-                         0.5 * np.sin(2 * np.pi * phase * 2) +
-                         0.25 * np.sin(2 * np.pi * phase * 3))
-                envelope = np.exp(-3 * t)
-                signal = signal * envelope
-            elif instrument == "organ":
-                # Organ-like sound (multiple harmonics)
-                signal = (np.sin(2 * np.pi * phase) +
-                         0.8 * np.sin(2 * np.pi * phase * 2) +
-                         0.6 * np.sin(2 * np.pi * phase * 3) +
-                         0.4 * np.sin(2 * np.pi * phase * 4))
-            elif instrument == "bell":
-                # Bell-like sound (inharmonic partials)
-                signal = (np.sin(2 * np.pi * phase) +
-                         0.7 * np.sin(2 * np.pi * phase * 2.76) +
-                         0.5 * np.sin(2 * np.pi * phase * 5.40))
-                envelope = np.exp(-4 * t)
-                signal = signal * envelope
-            else:
-                signal = np.sin(2 * np.pi * phase)
+                if instrument == "sine":
+                    # Pure sine wave
+                    signal = np.sin(2 * np.pi * phase)
+                elif instrument == "square":
+                    # Square wave - use modulo approach for proper warping
+                    phase_wrapped = phase % 1.0
+                    signal = np.where(phase_wrapped < 0.5, 1.0, -1.0)
+                elif instrument == "saw":
+                    # Sawtooth wave
+                    phase_wrapped = phase % 1.0
+                    signal = 2 * phase_wrapped - 1
+                elif instrument == "triangle":
+                    # Triangle wave
+                    phase_wrapped = phase % 1.0
+                    signal = np.where(phase_wrapped < 0.5,
+                                    4 * phase_wrapped - 1,
+                                    3 - 4 * phase_wrapped)
+                elif instrument == "piano":
+                    # Piano-like sound (sine with harmonics and envelope)
+                    signal = (np.sin(2 * np.pi * phase) +
+                             0.5 * np.sin(2 * np.pi * phase * 2) +
+                             0.25 * np.sin(2 * np.pi * phase * 3))
+                    envelope = np.exp(-3 * t)
+                    signal = signal * envelope
+                elif instrument == "organ":
+                    # Organ-like sound (multiple harmonics)
+                    signal = (np.sin(2 * np.pi * phase) +
+                             0.8 * np.sin(2 * np.pi * phase * 2) +
+                             0.6 * np.sin(2 * np.pi * phase * 3) +
+                             0.4 * np.sin(2 * np.pi * phase * 4))
+                elif instrument == "bell":
+                    # Bell-like sound (inharmonic partials)
+                    signal = (np.sin(2 * np.pi * phase) +
+                             0.7 * np.sin(2 * np.pi * phase * 2.76) +
+                             0.5 * np.sin(2 * np.pi * phase * 5.40))
+                    envelope = np.exp(-4 * t)
+                    signal = signal * envelope
+                else:
+                    signal = np.sin(2 * np.pi * phase)
 
             # Normalize
             signal = signal / (np.max(np.abs(signal)) + 1e-10)
 
             # Create Lissajous pattern (X and Y from same signal with phase shift)
             x = signal
-            # Generate Y with same warp characteristics
-            if abs(warp) > 0.01:
+            # Generate Y with phase shift
+            if instrument in ["kick", "snare", "hihat", "tom"]:
+                # For drums, create phase-shifted version of same signal
+                y = np.concatenate([signal[len(signal)//4:], signal[:len(signal)//4]])
+            elif abs(warp) > 0.01:
                 y = np.sin(2 * np.pi * phase + np.pi/2)
             else:
                 y = np.sin(2 * np.pi * note_freq * t + np.pi/2)
@@ -3013,14 +3053,15 @@ class OscilloscopeGUI:
             self.update_display()
             self.status_label.config(text=f"Pad {pad_idx+1} - {note_freq:.1f} Hz")
 
-            # Apply parameters and play
-            self.apply_parameters()
+            # Play sound once (not looping) using sounddevice directly
+            stereo_audio = np.column_stack([x, y]).astype(np.float32)
+            sd.play(stereo_audio, 44100, blocking=False)
 
             # Visual feedback
             button = pad_buttons[(row, col)]
             original_color = button['background'] if 'background' in button.keys() else 'SystemButtonFace'
             button.config(bg='#4CAF50')
-            dialog.after(200, lambda: button.config(bg=original_color))
+            dialog.after(500, lambda: button.config(bg=original_color))
 
         # Create pad buttons
         for row in range(4):
@@ -3060,7 +3101,11 @@ class OscilloscopeGUI:
                       ("Triangle", "triangle"),
                       ("Piano", "piano"),
                       ("Organ", "organ"),
-                      ("Bell", "bell")]
+                      ("Bell", "bell"),
+                      ("Kick Drum", "kick"),
+                      ("Snare Drum", "snare"),
+                      ("Hi-Hat", "hihat"),
+                      ("Tom Drum", "tom")]
 
         for name, value in instruments:
             ttk.Radiobutton(instrument_frame, text=name,
@@ -3146,8 +3191,9 @@ class OscilloscopeGUI:
             self.update_display()
             self.status_label.config(text=f"Playing sequence ({len(sequence)} notes)")
 
-            # Apply parameters and play
-            self.apply_parameters()
+            # Play sequence once (not looping) using sounddevice directly
+            stereo_audio = np.column_stack([x_full, y_full]).astype(np.float32)
+            sd.play(stereo_audio, 44100, blocking=False)
 
         # Sequencer controls
         seq_controls = ttk.Frame(sequencer_frame)
