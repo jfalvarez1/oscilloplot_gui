@@ -130,7 +130,8 @@ class OscilloscopeGUI:
         row = 0
         
         # === FILE CONTROLS ===
-        file_frame = ctk.CTkFrame(parent, text="Data Source")
+        file_frame = ctk.CTkFrame(parent)
+        ctk.CTkLabel(file_frame, text="Data Source", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         file_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
@@ -159,7 +160,8 @@ class OscilloscopeGUI:
         self.data_info_label.pack(pady=5)
         
         # === AUDIO PARAMETERS ===
-        audio_frame = ctk.CTkFrame(parent, text="Audio Parameters")
+        audio_frame = ctk.CTkFrame(parent)
+        ctk.CTkLabel(audio_frame, text="Audio Parameters", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         audio_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
@@ -207,7 +209,8 @@ class OscilloscopeGUI:
         self.sample_rate_var.trace('w', self.update_rate_label)
         
         # === EFFECTS ===
-        effects_frame = ctk.CTkFrame(parent, text="Effects")
+        effects_frame = ctk.CTkFrame(parent)
+        ctk.CTkLabel(effects_frame, text="Effects", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         effects_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
@@ -304,7 +307,9 @@ class OscilloscopeGUI:
         ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Noise Effects
-        noise_frame = ctk.CTkFrame(effects_frame, text="Noise")
+        noise_frame = ctk.CTkFrame(effects_frame)
+        noise_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(noise_frame, text="Noise", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         noise_frame.pack(fill=tk.X, pady=5)
 
         self.x_noise_var = tk.BooleanVar(value=False)
@@ -334,7 +339,9 @@ class OscilloscopeGUI:
         ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Wavy Effects
-        wavy_frame = ctk.CTkFrame(effects_frame, text="Wavy Effect")
+        wavy_frame = ctk.CTkFrame(effects_frame)
+        wavy_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(wavy_frame, text="Wavy Effect", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         wavy_frame.pack(fill=tk.X, pady=5)
 
         self.x_wavy_var = tk.BooleanVar(value=False)
@@ -410,7 +417,9 @@ class OscilloscopeGUI:
         ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Rotation
-        rotation_frame = ctk.CTkFrame(effects_frame, text="Rotation")
+        rotation_frame = ctk.CTkFrame(effects_frame)
+        rotation_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(rotation_frame, text="Rotation", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         rotation_frame.pack(fill=tk.X, pady=5)
         
         self.rotation_mode_var = tk.StringVar(value="Off")
@@ -445,7 +454,9 @@ class OscilloscopeGUI:
         ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Tremolo Effect (Amplitude Modulation)
-        tremolo_frame = ctk.CTkFrame(effects_frame, text="Tremolo (Amplitude Modulation)")
+        tremolo_frame = ctk.CTkFrame(effects_frame)
+        tremolo_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(tremolo_frame, text="Tremolo (Amplitude Modulation)", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         tremolo_frame.pack(fill=tk.X, pady=5)
 
         self.tremolo_var = tk.BooleanVar(value=False)
@@ -493,7 +504,9 @@ class OscilloscopeGUI:
         ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Ring Modulation Effect
-        ring_frame = ctk.CTkFrame(effects_frame, text="Ring Modulation")
+        ring_frame = ctk.CTkFrame(effects_frame)
+        ring_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(ring_frame, text="Ring Modulation", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         ring_frame.pack(fill=tk.X, pady=5)
 
         self.ring_mod_var = tk.BooleanVar(value=False)
@@ -532,7 +545,9 @@ class OscilloscopeGUI:
         ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Echo/Delay Effect
-        echo_frame = ctk.CTkFrame(effects_frame, text="Echo/Delay")
+        echo_frame = ctk.CTkFrame(effects_frame)
+        echo_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(echo_frame, text="Echo/Delay", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         echo_frame.pack(fill=tk.X, pady=5)
 
         self.echo_var = tk.BooleanVar(value=False)
@@ -585,7 +600,9 @@ class OscilloscopeGUI:
         ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Kaleidoscope Effect
-        kaleido_frame = ctk.CTkFrame(effects_frame, text="Kaleidoscope")
+        kaleido_frame = ctk.CTkFrame(effects_frame)
+        kaleido_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(kaleido_frame, text="Kaleidoscope", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         kaleido_frame.pack(fill=tk.X, pady=5)
 
         self.kaleido_var = tk.BooleanVar(value=False)
@@ -619,7 +636,9 @@ class OscilloscopeGUI:
         ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Distortion/Clipping Effect
-        distortion_frame = ctk.CTkFrame(effects_frame, text="Distortion")
+        distortion_frame = ctk.CTkFrame(effects_frame)
+        distortion_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(distortion_frame, text="Distortion", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         distortion_frame.pack(fill=tk.X, pady=5)
 
         self.distortion_var = tk.BooleanVar(value=False)
@@ -671,7 +690,8 @@ class OscilloscopeGUI:
                   command=self.save_to_wav).pack(fill=tk.X, pady=2)
         
         # === STATUS ===
-        status_frame = ctk.CTkFrame(parent, text="Status")
+        status_frame = ctk.CTkFrame(parent)
+        ctk.CTkLabel(status_frame, text="Status", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         status_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
@@ -2322,7 +2342,9 @@ class OscilloscopeGUI:
         y_terms = []
 
         # X Channel (Left)
-        x_frame = ctk.CTkFrame(main_frame, text="X Channel (Left)")
+        x_frame = ctk.CTkFrame(main_frame)
+        x_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(x_frame, text="X Channel (Left)", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         x_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
         # X terms display
@@ -2338,7 +2360,9 @@ class OscilloscopeGUI:
         x_scrollbar.pack(side="right", fill="y")
 
         # Y Channel (Right)
-        y_frame = ctk.CTkFrame(main_frame, text="Y Channel (Right)")
+        y_frame = ctk.CTkFrame(main_frame)
+        y_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(y_frame, text="Y Channel (Right)", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         y_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
 
         # Y terms display
@@ -2457,7 +2481,9 @@ class OscilloscopeGUI:
                               command=remove_y_term).pack(side=tk.RIGHT, padx=2, pady=2)
 
         # Add term controls for X
-        x_add_frame = ctk.CTkFrame(x_frame, text="Add Term")
+        x_add_frame = ctk.CTkFrame(x_frame)
+        x_add_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(x_add_frame, text="Add Term", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         x_add_frame.pack(fill=tk.X, pady=(10, 0))
 
         # Row 1: Type selection
@@ -2540,7 +2566,9 @@ class OscilloscopeGUI:
         ctk.CTkButton(x_button_row, text="Add Term to X Channel", command=add_x_term).pack(fill=tk.X, padx=5)
 
         # Add term controls for Y
-        y_add_frame = ctk.CTkFrame(y_frame, text="Add Term")
+        y_add_frame = ctk.CTkFrame(y_frame)
+        y_add_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(y_add_frame, text="Add Term", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         y_add_frame.pack(fill=tk.X, pady=(10, 0))
 
         # Row 1: Type selection
@@ -2793,7 +2821,9 @@ class OscilloscopeGUI:
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # X Channel (Left)
-        x_frame = ctk.CTkFrame(main_frame, text="X Channel (Left)")
+        x_frame = ctk.CTkFrame(main_frame)
+        x_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(x_frame, text="X Channel (Left)", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         x_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
         # X parameters
@@ -2838,7 +2868,9 @@ class OscilloscopeGUI:
         x_formula_label.pack(pady=10)
 
         # Y Channel (Right)
-        y_frame = ctk.CTkFrame(main_frame, text="Y Channel (Right)")
+        y_frame = ctk.CTkFrame(main_frame)
+        y_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(y_frame, text="Y Channel (Right)", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         y_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
 
         # Y parameters
@@ -2883,7 +2915,9 @@ class OscilloscopeGUI:
         y_formula_label.pack(pady=10)
 
         # Chaser Effect Options
-        chaser_frame = ctk.CTkFrame(dialog, text="Chaser Effect (Optional)")
+        chaser_frame = ctk.CTkFrame(dialog)
+        chaser_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(chaser_frame, text="Chaser Effect (Optional)", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         chaser_frame.pack(fill=tk.X, padx=10, pady=10)
 
         # Enable chaser checkbox
@@ -3303,7 +3337,9 @@ class OscilloscopeGUI:
         right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(10, 0))
 
         # Instrument selection
-        instrument_frame = ctk.CTkFrame(right_panel, text="Instrument")
+        instrument_frame = ctk.CTkFrame(right_panel)
+        instrument_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(instrument_frame, text="Instrument", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         instrument_frame.pack(fill=tk.X, pady=(0, 10))
 
         instruments = [("Sine Wave", "sine"),
@@ -3325,7 +3361,9 @@ class OscilloscopeGUI:
                           value=value).pack(anchor=tk.W, pady=2)
 
         # Warp control
-        warp_frame = ctk.CTkFrame(right_panel, text="Warp Effect")
+        warp_frame = ctk.CTkFrame(right_panel)
+        warp_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(warp_frame, text="Warp Effect", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         warp_frame.pack(fill=tk.X, pady=(0, 10))
 
         warp_label_frame = ctk.CTkFrame(warp_frame)
@@ -3343,7 +3381,9 @@ class OscilloscopeGUI:
                  font=('Arial', 8, 'italic'), text_color='gray').pack()
 
         # Sequencer - 3 Track System
-        sequencer_frame = ctk.CTkFrame(right_panel, text="3-Track Sequencer")
+        sequencer_frame = ctk.CTkFrame(right_panel)
+        sequencer_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(sequencer_frame, text="3-Track Sequencer", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         sequencer_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
         ctk.CTkLabel(sequencer_frame, text="Layer drum patterns across 3 tracks:",
@@ -3401,7 +3441,9 @@ class OscilloscopeGUI:
                  text_color='gray').grid(row=1, column=5, padx=5, sticky='w', pady=(5,0))
 
         # Visual step grid for selecting time slots
-        step_grid_frame = ctk.CTkFrame(sequencer_frame, text="Time Slots (Click to select)")
+        step_grid_frame = ctk.CTkFrame(sequencer_frame)
+        step_grid_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(step_grid_frame, text="Time Slots (Click to select)", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         step_grid_frame.pack(fill=tk.X, pady=5)
 
         step_buttons = {}
@@ -3711,7 +3753,9 @@ class OscilloscopeGUI:
             side=tk.LEFT, padx=2, expand=True, fill=tk.X)
 
         # Grid Settings Panel with Scrollbar
-        grid_settings_frame = ctk.CTkFrame(right_panel, text="Sound Pad Grid Settings")
+        grid_settings_frame = ctk.CTkFrame(right_panel)
+        grid_settings_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(grid_settings_frame, text="Sound Pad Grid Settings", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         grid_settings_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 10))
 
         # Create a canvas and scrollbar for grid settings
@@ -3856,7 +3900,9 @@ class OscilloscopeGUI:
         dialog.protocol("WM_DELETE_WINDOW", cleanup_mousewheel)
 
         # Mode selection (now inside scrollable_frame)
-        mode_frame = ctk.CTkFrame(scrollable_frame, text="Generation Mode")
+        mode_frame = ctk.CTkFrame(scrollable_frame)
+        mode_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(mode_frame, text="Generation Mode", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         mode_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         mode_var = tk.StringVar(value="random")
@@ -3934,7 +3980,9 @@ class OscilloscopeGUI:
                  font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
 
         # Terms control section (outside scrollable area, fixed at bottom)
-        terms_frame = ctk.CTkFrame(dialog, text="Number of Terms")
+        terms_frame = ctk.CTkFrame(dialog)
+        terms_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(terms_frame, text="Number of Terms", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         terms_frame.pack(fill=tk.X, padx=10, pady=10)
 
         random_terms_var = tk.BooleanVar(value=True)
@@ -3971,7 +4019,9 @@ class OscilloscopeGUI:
                  font=('Arial', 8), text_color='gray').pack(side=tk.LEFT, padx=5)
 
         # Preview area (inside scrollable_frame)
-        preview_frame = ctk.CTkFrame(scrollable_frame, text="Last Generated")
+        preview_frame = ctk.CTkFrame(scrollable_frame)
+        preview_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(preview_frame, text="Last Generated", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         preview_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         preview_text = tk.Text(preview_frame, height=8, width=60, font=('Courier', 8), state=tk.DISABLED)
