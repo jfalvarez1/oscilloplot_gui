@@ -1313,9 +1313,10 @@ class OscilloscopeGUI:
 
         # Update plot - both line and points for realistic oscilloscope effect
         self.line.set_data(x_display, y_display)
-        self.points.set_offsets(np.column_stack((x_display, y_display)))
-        # Apply density-based coloring to points
-        self.points.set_color(colors)
+
+        # Clear old scatter plot and create new one (prevents ghosting/persistence)
+        self.points.remove()
+        self.points = self.ax.scatter(x_display, y_display, c=colors, s=1.5)
 
         # Update limits if needed
         margin = 0.1
