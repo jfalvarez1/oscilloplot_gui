@@ -119,15 +119,31 @@ class OscilloscopeGUI:
         branding_frame = tk.Frame(display_container, bg='white')
         branding_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
-        # Main JUANTRONIX label in deep blue
-        juantronix_label = tk.Label(
-            branding_frame,
-            text="JUANTRONIX",
-            font=("Arial", 32, "bold"),
-            fg="#003D7A",  # Deep blue (TEKTRONIX blue)
-            bg="white"
-        )
-        juantronix_label.pack()
+        # Main JUANTRONIX label in deep blue - using Canvas for extra bold effect
+        canvas_height = 60
+        branding_canvas = tk.Canvas(branding_frame, width=400, height=canvas_height,
+                                     bg='white', highlightthickness=0)
+        branding_canvas.pack()
+
+        # Draw text multiple times with slight offsets to create super bold effect
+        text = "JUANTRONIX"
+        font_spec = ("Arial", 36, "bold")
+        color = "#003D7A"  # Deep blue (TEKTRONIX blue)
+
+        # Center position
+        x_center = 200
+        y_center = 25
+
+        # Draw shadow/bold layers
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                branding_canvas.create_text(
+                    x_center + dx, y_center + dy,
+                    text=text,
+                    font=font_spec,
+                    fill=color,
+                    anchor=tk.CENTER
+                )
 
         # Subtitle in smaller text
         model_label = tk.Label(
