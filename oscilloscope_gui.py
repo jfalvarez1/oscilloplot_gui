@@ -109,15 +109,45 @@ class OscilloscopeGUI:
         control_canvas.bind_all("<Button-4>", lambda e: control_canvas.yview_scroll(-1, "units"))  # Linux up
         control_canvas.bind_all("<Button-5>", lambda e: control_canvas.yview_scroll(1, "units"))   # Linux down
         
-        # Right panel - Display
-        display_frame = ttk.LabelFrame(main_container, text="Oscilloscope Display", padding="10")
-        display_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # Right panel - Display with JUANTRONIX branding
+        display_container = ttk.Frame(main_container, padding="10")
+        display_container.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
+        display_container.columnconfigure(0, weight=1)
+        display_container.rowconfigure(1, weight=1)  # Row 1 for display (row 0 for branding)
+
+        # JUANTRONIX branding - TEKTRONIX style from the 90s
+        branding_frame = tk.Frame(display_container, bg='white')
+        branding_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        # Main JUANTRONIX label in deep blue
+        juantronix_label = tk.Label(
+            branding_frame,
+            text="JUANTRONIX",
+            font=("Arial", 32, "bold"),
+            fg="#003D7A",  # Deep blue (TEKTRONIX blue)
+            bg="white"
+        )
+        juantronix_label.pack()
+
+        # Subtitle in smaller text
+        model_label = tk.Label(
+            branding_frame,
+            text="XY AUDIO OSCILLOSCOPE",
+            font=("Arial", 10),
+            fg="#666666",
+            bg="white"
+        )
+        model_label.pack()
+
+        # Display frame for the oscilloscope
+        display_frame = ttk.LabelFrame(display_container, text="Display", padding="10")
+        display_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         display_frame.columnconfigure(0, weight=1)
         display_frame.rowconfigure(0, weight=1)
-        
+
         # Create controls
         self.create_control_panel(control_frame)
-        
+
         # Create display
         self.create_display(display_frame)
     
