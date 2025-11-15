@@ -796,22 +796,24 @@ class OscilloscopeGUI:
         import matplotlib as mpl
         mpl.rcParams['agg.path.chunksize'] = 10000
 
-        # Create figure
+        # Create figure - Classic CRT oscilloscope appearance
         self.fig = Figure(figsize=(8, 8), dpi=100)
-        self.fig.patch.set_facecolor('white')
+        self.fig.patch.set_facecolor('#1a1a1a')  # Dark gray background
 
-        self.ax = self.fig.add_subplot(111, facecolor='white')
+        self.ax = self.fig.add_subplot(111, facecolor='#000000')  # Black screen
         self.ax.set_xlim(-1.2, 1.2)
         self.ax.set_ylim(-1.2, 1.2)
         self.ax.set_aspect('equal')
-        self.ax.grid(True, color='gray', alpha=0.3, linestyle='--')
-        self.ax.set_xlabel('X (Left Channel)', color='black')
-        self.ax.set_ylabel('Y (Right Channel)', color='black')
-        self.ax.tick_params(colors='black')
+        self.ax.grid(True, color='#00ff00', alpha=0.3, linestyle='--')  # Green grid
+        self.ax.set_xlabel('X (Left Channel)', color='#00ff00')  # Green labels
+        self.ax.set_ylabel('Y (Right Channel)', color='#00ff00')
+        self.ax.tick_params(colors='#00ff00')  # Green ticks
 
-        # Initial plot - use both lines and points
-        self.line, = self.ax.plot([], [], color='blue', linewidth=1.0, alpha=0.6)
-        self.points = self.ax.scatter([], [], color='blue', s=2, alpha=0.8)
+        # Initial plot - Classic green phosphor trace
+        # Very light connecting lines (almost invisible)
+        self.line, = self.ax.plot([], [], color='#00ff00', linewidth=0.5, alpha=0.15)
+        # Bright points for the actual beam positions
+        self.points = self.ax.scatter([], [], color='#00ff00', s=1.5, alpha=0.9)
 
         # Embed in tkinter
         self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
