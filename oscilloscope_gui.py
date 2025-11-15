@@ -3016,13 +3016,20 @@ class OscilloscopeGUI:
         # Sound pad state
         pad_notes = {}  # Maps (row, col) to frequency
         # 3 independent sequence timelines for layered drum patterns
-        track1_sequence = []  # Track 1: Drum/Kick line
-        track2_sequence = []  # Track 2: Snare line
-        track3_sequence = []  # Track 3: Beat/HiHat line
+        # Changed to dictionaries mapping time_slot -> (pad_idx, duration)
+        track1_sequence = {}  # Track 1: Drum/Kick line
+        track2_sequence = {}  # Track 2: Snare line
+        track3_sequence = {}  # Track 3: Beat/HiHat line
         current_track = tk.IntVar(value=1)  # Which track is being recorded
         is_playing_live = False
         current_instrument = tk.StringVar(value="sine")
         current_warp = tk.DoubleVar(value=0.0)
+
+        # Time slot / step sequencer settings
+        tempo_bpm = tk.IntVar(value=120)  # BPM for playback
+        num_steps = tk.IntVar(value=16)  # Number of time slots per pattern
+        current_step = tk.IntVar(value=0)  # Currently selected time slot for recording
+        note_duration = tk.DoubleVar(value=0.25)  # Duration of each note in seconds
 
         # Note frequencies (chromatic scale starting from C3)
         base_notes = [130.81, 138.59, 146.83, 155.56,  # C3, C#3, D3, D#3
@@ -3262,12 +3269,84 @@ class OscilloscopeGUI:
         track_select_frame = ttk.Frame(sequencer_frame)
         track_select_frame.pack(fill=tk.X, pady=5)
         ttk.Label(track_select_frame, text="Record to:", font=('Arial', 8, 'bold')).pack(side=tk.LEFT, padx=5)
+
+        def on_track_change(*args):
+            """Update step grid when track changes"""
+            update_step_grid()
+
+        current_track.trace_add('write', on_track_change)
+
         ttk.Radiobutton(track_select_frame, text="Track 1 (Drum)",
                        variable=current_track, value=1).pack(side=tk.LEFT, padx=5)
         ttk.Radiobutton(track_select_frame, text="Track 2 (Snare)",
                        variable=current_track, value=2).pack(side=tk.LEFT, padx=5)
         ttk.Radiobutton(track_select_frame, text="Track 3 (Beat)",
                        variable=current_track, value=3).pack(side=tk.LEFT, padx=5)
+
+        # Tempo and timing controls
+        tempo_frame = ttk.Frame(sequencer_frame)
+        tempo_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Label(tempo_frame, text="BPM:", font=('Arial', 8, 'bold')).grid(row=0, column=0, padx=5, sticky='w')
+        tempo_spinbox = ttk.Spinbox(tempo_frame, from_=60, to=200, textvariable=tempo_bpm, width=6)
+        tempo_spinbox.grid(row=0, column=1, padx=5)
+
+        ttk.Label(tempo_frame, text="Steps:", font=('Arial', 8, 'bold')).grid(row=0, column=2, padx=5, sticky='w')
+        steps_spinbox = ttk.Spinbox(tempo_frame, from_=8, to=32, textvariable=num_steps, width=6,
+                                    command=lambda: (update_sequence_displays(), update_step_grid()))
+        steps_spinbox.grid(row=0, column=3, padx=5)
+
+        ttk.Label(tempo_frame, text="Note Duration (s):", font=('Arial', 8, 'bold')).grid(row=0, column=4, padx=5, sticky='w')
+        duration_spinbox = ttk.Spinbox(tempo_frame, from_=0.1, to=2.0, increment=0.05,
+                                      textvariable=note_duration, width=6, format="%.2f")
+        duration_spinbox.grid(row=0, column=5, padx=5)
+
+        # Visual step grid for selecting time slots
+        step_grid_frame = ttk.LabelFrame(sequencer_frame, text="Time Slots (Click to select)", padding="5")
+        step_grid_frame.pack(fill=tk.X, pady=5)
+
+        step_buttons = {}
+
+        def update_step_grid():
+            """Update the visual step grid to show current state"""
+            for step_num, btn in step_buttons.items():
+                # Check if this step has a note in the current track
+                track_num = current_track.get()
+                track_seq = None
+                if track_num == 1:
+                    track_seq = track1_sequence
+                elif track_num == 2:
+                    track_seq = track2_sequence
+                elif track_num == 3:
+                    track_seq = track3_sequence
+
+                # Update button appearance
+                if step_num == current_step.get():
+                    # Selected step
+                    btn.config(relief=tk.SUNKEN, bg='#2196F3', fg='white')
+                elif track_seq and step_num in track_seq:
+                    # Step has a note
+                    btn.config(relief=tk.RAISED, bg='#4CAF50', fg='white')
+                else:
+                    # Empty step
+                    btn.config(relief=tk.RAISED, bg='#E0E0E0', fg='black')
+
+        def select_step(step_num):
+            """Select a time slot for recording"""
+            current_step.set(step_num)
+            update_step_grid()
+
+        # Create step buttons grid
+        steps_grid_container = ttk.Frame(step_grid_frame)
+        steps_grid_container.pack(fill=tk.X)
+
+        for i in range(16):  # Default 16 steps, will update dynamically
+            btn = tk.Button(steps_grid_container, text=str(i+1), width=3, height=1,
+                          font=('Arial', 8), command=lambda step=i: select_step(step))
+            btn.grid(row=i // 8, column=i % 8, padx=2, pady=2)
+            step_buttons[i] = btn
+
+        update_step_grid()
 
         # 3 Sequence displays
         tracks_display_frame = ttk.Frame(sequencer_frame)
@@ -3303,7 +3382,7 @@ class OscilloscopeGUI:
         tracks_display_frame.columnconfigure(0, weight=1)
 
         def update_sequence_displays():
-            """Update all 3 track displays"""
+            """Update all 3 track displays with time slot visualization"""
             note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
             # Update Track 1
@@ -3312,9 +3391,20 @@ class OscilloscopeGUI:
             if not track1_sequence:
                 track1_text.insert('1.0', "Empty")
             else:
-                notes_str = " ".join([f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
-                                     for pad_idx, _ in track1_sequence])
-                track1_text.insert('1.0', notes_str)
+                # Create a grid visualization showing notes in time slots
+                grid_str = ""
+                for step in range(num_steps.get()):
+                    if step in track1_sequence:
+                        pad_idx, _ = track1_sequence[step]
+                        note = f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
+                        grid_str += f"[{note}]"
+                    else:
+                        grid_str += "[ - ]"
+                    if (step + 1) % 8 == 0:  # Line break every 8 steps
+                        grid_str += "\n"
+                    else:
+                        grid_str += " "
+                track1_text.insert('1.0', grid_str.strip())
             track1_text.config(state=tk.DISABLED)
 
             # Update Track 2
@@ -3323,9 +3413,19 @@ class OscilloscopeGUI:
             if not track2_sequence:
                 track2_text.insert('1.0', "Empty")
             else:
-                notes_str = " ".join([f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
-                                     for pad_idx, _ in track2_sequence])
-                track2_text.insert('1.0', notes_str)
+                grid_str = ""
+                for step in range(num_steps.get()):
+                    if step in track2_sequence:
+                        pad_idx, _ = track2_sequence[step]
+                        note = f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
+                        grid_str += f"[{note}]"
+                    else:
+                        grid_str += "[ - ]"
+                    if (step + 1) % 8 == 0:
+                        grid_str += "\n"
+                    else:
+                        grid_str += " "
+                track2_text.insert('1.0', grid_str.strip())
             track2_text.config(state=tk.DISABLED)
 
             # Update Track 3
@@ -3334,25 +3434,37 @@ class OscilloscopeGUI:
             if not track3_sequence:
                 track3_text.insert('1.0', "Empty")
             else:
-                notes_str = " ".join([f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
-                                     for pad_idx, _ in track3_sequence])
-                track3_text.insert('1.0', notes_str)
+                grid_str = ""
+                for step in range(num_steps.get()):
+                    if step in track3_sequence:
+                        pad_idx, _ = track3_sequence[step]
+                        note = f"{note_names[pad_idx % 12]}{3 + pad_idx // 12}"
+                        grid_str += f"[{note}]"
+                    else:
+                        grid_str += "[ - ]"
+                    if (step + 1) % 8 == 0:
+                        grid_str += "\n"
+                    else:
+                        grid_str += " "
+                track3_text.insert('1.0', grid_str.strip())
             track3_text.config(state=tk.DISABLED)
 
         def add_to_sequence(row, col):
-            """Add pad to current track sequence"""
+            """Add pad to current track sequence at the selected time slot"""
             pad_idx = row * 4 + col
-            duration = 0.5
+            duration = note_duration.get()
+            step = current_step.get()
 
             track_num = current_track.get()
             if track_num == 1:
-                track1_sequence.append((pad_idx, duration))
+                track1_sequence[step] = (pad_idx, duration)
             elif track_num == 2:
-                track2_sequence.append((pad_idx, duration))
+                track2_sequence[step] = (pad_idx, duration)
             elif track_num == 3:
-                track3_sequence.append((pad_idx, duration))
+                track3_sequence[step] = (pad_idx, duration)
 
             update_sequence_displays()
+            update_step_grid()
 
         def clear_current_track():
             """Clear the currently selected track"""
@@ -3373,22 +3485,25 @@ class OscilloscopeGUI:
             update_sequence_displays()
 
         def merge_and_apply():
-            """Merge all 3 tracks together and apply to main oscilloscope"""
+            """Merge all 3 tracks together and apply to main oscilloscope with time-based positioning"""
             if not (track1_sequence or track2_sequence or track3_sequence):
                 messagebox.showwarning("Empty Tracks", "All tracks are empty. Add notes first.")
                 return
 
             sample_rate = 44100
+            bpm = tempo_bpm.get()
+            steps = num_steps.get()
 
-            # Calculate total duration needed (longest track)
-            def calc_track_duration(seq):
-                return sum(dur for _, dur in seq) if seq else 0
+            # Calculate duration of one step based on BPM
+            # At 120 BPM: 60/120 = 0.5 seconds per beat
+            # For 16 steps per bar (4 beats): 0.5/4 = 0.125 seconds per step
+            beats_per_bar = 4
+            seconds_per_beat = 60.0 / bpm
+            seconds_per_step = (seconds_per_beat * beats_per_bar) / steps
 
-            max_duration = max(calc_track_duration(track1_sequence),
-                             calc_track_duration(track2_sequence),
-                             calc_track_duration(track3_sequence))
-
-            total_samples = int(sample_rate * max_duration)
+            # Total duration based on number of steps
+            total_duration = seconds_per_step * steps
+            total_samples = int(sample_rate * total_duration)
 
             # Initialize mixed output buffers
             x_mixed = np.zeros(total_samples, dtype=np.float32)
@@ -3399,22 +3514,21 @@ class OscilloscopeGUI:
                 if not track_seq:
                     continue
 
-                current_pos = 0
-                for pad_idx, duration in track_seq:
+                for step, (pad_idx, duration) in track_seq.items():
                     note_freq = base_notes[pad_idx]
                     x, y = generate_pad_sound(note_freq, current_instrument.get(),
                                             current_warp.get(), duration=duration)
 
-                    # Calculate where to place this note
-                    start_sample = current_pos
+                    # Calculate where to place this note based on step number
+                    start_time = step * seconds_per_step
+                    start_sample = int(start_time * sample_rate)
                     end_sample = min(start_sample + len(x), total_samples)
                     segment_len = end_sample - start_sample
 
                     # Mix into output buffers
-                    x_mixed[start_sample:end_sample] += x[:segment_len]
-                    y_mixed[start_sample:end_sample] += y[:segment_len]
-
-                    current_pos += len(x)
+                    if start_sample < total_samples:
+                        x_mixed[start_sample:end_sample] += x[:segment_len]
+                        y_mixed[start_sample:end_sample] += y[:segment_len]
 
             # Normalize mixed output
             max_val = max(np.max(np.abs(x_mixed)), np.max(np.abs(y_mixed)))
@@ -3429,7 +3543,7 @@ class OscilloscopeGUI:
             self.update_display()
 
             total_notes = len(track1_sequence) + len(track2_sequence) + len(track3_sequence)
-            self.status_label.config(text=f"Merged 3 tracks ({total_notes} notes, {max_duration:.1f}s)")
+            self.status_label.config(text=f"Merged 3 tracks ({total_notes} notes, {total_duration:.1f}s, {bpm} BPM)")
 
             # Apply to generate audio for playback
             self.apply_parameters()
@@ -3467,6 +3581,85 @@ class OscilloscopeGUI:
             side=tk.LEFT, padx=2, expand=True, fill=tk.X)
         ttk.Button(clear_btn_frame, text="Clear All", command=clear_all_tracks).pack(
             side=tk.LEFT, padx=2, expand=True, fill=tk.X)
+
+        # Grid Settings Panel with Scrollbar
+        grid_settings_frame = ttk.LabelFrame(right_panel, text="Sound Pad Grid Settings", padding="5")
+        grid_settings_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 10))
+
+        # Create a canvas and scrollbar for grid settings
+        settings_canvas = tk.Canvas(grid_settings_frame, highlightthickness=0, height=120)
+        settings_scrollbar = ttk.Scrollbar(grid_settings_frame, orient="vertical", command=settings_canvas.yview)
+
+        # Create a frame inside the canvas for settings content
+        settings_content = ttk.Frame(settings_canvas)
+
+        # Bind the frame to update scroll region when it changes size
+        settings_content.bind("<Configure>",
+                            lambda e: settings_canvas.configure(scrollregion=settings_canvas.bbox("all")))
+
+        settings_canvas.create_window((0, 0), window=settings_content, anchor='nw')
+        settings_canvas.configure(yscrollcommand=settings_scrollbar.set)
+
+        settings_canvas.pack(side="left", fill="both", expand=True)
+        settings_scrollbar.pack(side="right", fill="y")
+
+        # Grid settings controls inside scrollable area
+        grid_rows_var = tk.IntVar(value=4)
+        grid_cols_var = tk.IntVar(value=4)
+        pad_spacing_x = tk.IntVar(value=5)
+        pad_spacing_y = tk.IntVar(value=5)
+
+        ttk.Label(settings_content, text="Grid Dimensions:", font=('Arial', 9, 'bold')).grid(
+            row=0, column=0, columnspan=2, sticky='w', pady=(5, 2))
+
+        ttk.Label(settings_content, text="Rows:").grid(row=1, column=0, sticky='w', padx=5)
+        ttk.Spinbox(settings_content, from_=2, to=8, textvariable=grid_rows_var, width=8).grid(
+            row=1, column=1, sticky='w', padx=5, pady=2)
+
+        ttk.Label(settings_content, text="Columns:").grid(row=2, column=0, sticky='w', padx=5)
+        ttk.Spinbox(settings_content, from_=2, to=8, textvariable=grid_cols_var, width=8).grid(
+            row=2, column=1, sticky='w', padx=5, pady=2)
+
+        ttk.Label(settings_content, text="Pad Spacing:", font=('Arial', 9, 'bold')).grid(
+            row=3, column=0, columnspan=2, sticky='w', pady=(10, 2))
+
+        ttk.Label(settings_content, text="Horizontal (px):").grid(row=4, column=0, sticky='w', padx=5)
+        ttk.Spinbox(settings_content, from_=0, to=20, textvariable=pad_spacing_x, width=8).grid(
+            row=4, column=1, sticky='w', padx=5, pady=2)
+
+        ttk.Label(settings_content, text="Vertical (px):").grid(row=5, column=0, sticky='w', padx=5)
+        ttk.Spinbox(settings_content, from_=0, to=20, textvariable=pad_spacing_y, width=8).grid(
+            row=5, column=1, sticky='w', padx=5, pady=2)
+
+        ttk.Label(settings_content, text="Appearance:", font=('Arial', 9, 'bold')).grid(
+            row=6, column=0, columnspan=2, sticky='w', pady=(10, 2))
+
+        ttk.Label(settings_content, text="Border Width:").grid(row=7, column=0, sticky='w', padx=5)
+        border_width_var = tk.IntVar(value=3)
+        ttk.Spinbox(settings_content, from_=1, to=10, textvariable=border_width_var, width=8).grid(
+            row=7, column=1, sticky='w', padx=5, pady=2)
+
+        ttk.Label(settings_content, text="Font Size:").grid(row=8, column=0, sticky='w', padx=5)
+        font_size_var = tk.IntVar(value=10)
+        ttk.Spinbox(settings_content, from_=6, to=16, textvariable=font_size_var, width=8).grid(
+            row=8, column=1, sticky='w', padx=5, pady=2)
+
+        def apply_grid_settings():
+            """Apply grid settings (for future implementation)"""
+            messagebox.showinfo("Grid Settings",
+                              f"Grid: {grid_rows_var.get()}x{grid_cols_var.get()}\n"
+                              f"Spacing: {pad_spacing_x.get()}x{pad_spacing_y.get()} px\n"
+                              f"Border: {border_width_var.get()} px\n"
+                              f"Font: {font_size_var.get()} pt\n\n"
+                              "Note: Grid reconstruction not yet implemented.\n"
+                              "Close and reopen Sound Pad to apply changes.")
+
+        ttk.Button(settings_content, text="Apply Settings", command=apply_grid_settings).grid(
+            row=9, column=0, columnspan=2, pady=(10, 5), sticky='ew', padx=5)
+
+        ttk.Label(settings_content, text="(Settings shown for demonstration)",
+                 font=('Arial', 7, 'italic'), foreground='gray').grid(
+            row=10, column=0, columnspan=2, pady=(0, 5))
 
         # Bottom buttons
         bottom_frame = ttk.Frame(right_panel)
