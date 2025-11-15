@@ -1282,16 +1282,16 @@ class OscilloscopeGUI:
         # Normalize densities to [0, 1] with gamma correction for better visibility
         if densities.max() > 0:
             normalized = densities / densities.max()
-            # Apply gamma to enhance mid-range values
-            gamma = 0.5  # Lower gamma = more contrast
+            # Apply gamma to reduce contrast (higher gamma = less dramatic differences)
+            gamma = 0.8  # Reduced from 0.5 for subtler effect
             normalized = np.power(normalized, gamma)
         else:
             normalized = np.ones_like(densities)
 
-        # Convert to colors (RGBA) - green with varying alpha and brightness
+        # Convert to colors (RGBA) - green with subtle varying alpha and brightness
         colors = np.zeros((len(normalized), 4))
-        colors[:, 1] = normalized  # Green channel - brighter where more dense
-        colors[:, 3] = 0.3 + 0.7 * normalized  # Alpha - more opaque where more dense
+        colors[:, 1] = 0.5 + 0.5 * normalized  # Green channel - subtle variation (0.5 to 1.0)
+        colors[:, 3] = 0.7 + 0.3 * normalized  # Alpha - subtle variation (0.7 to 1.0)
 
         return colors
 
