@@ -739,7 +739,7 @@ class OscilloscopeGUI:
                  font=('Arial', 8)).pack(side=tk.LEFT, padx=(15,5))
         self.fps_var = tk.IntVar(value=25)
         self.fps_slider = ctk.CTkSlider(fps_control_frame, from_=5, to=60,
-                                    orient=tk.HORIZONTAL, variable=self.fps_var,
+                                    variable=self.fps_var,
                                     command=self.update_fps)
         self.fps_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
         self.fps_label = ctk.CTkLabel(fps_control_frame, text="25 FPS",
@@ -1359,7 +1359,7 @@ class OscilloscopeGUI:
         x_display, y_display = self.apply_effects(x_norm, y_norm)
 
         # Check if CW/CCW rotation is enabled - if so, hide scatter plot to prevent overlay
-        rotation_mode = self.rotation_mode_var.get()
+        rotation_mode = self.rotation_mode_var.get() if hasattr(self, 'rotation_mode_var') else "Off"
         if rotation_mode in ["CW", "CCW"]:
             # Hide scatter plot when rotation animation is active
             # (live preview will show the rotating pattern)
