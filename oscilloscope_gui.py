@@ -3511,7 +3511,13 @@ class OscilloscopeGUI:
         def generate_pattern():
             """Generate pattern based on selected mode"""
             mode = mode_var.get()
-            num_points = 1000
+
+            # Use fewer points for sweep modes to prevent preview flooding
+            if mode in ["freq_sweep", "phase_sweep", "freq_phase_sweep"]:
+                num_points = 400  # Reduced from 1000 to prevent sluggishness
+            else:
+                num_points = 1000
+
             t = np.linspace(0, 2*np.pi, num_points)
 
             # Determine number of terms
@@ -3624,7 +3630,7 @@ class OscilloscopeGUI:
             elif mode == "freq_sweep":
                 # Mode 3: Mirrored with Frequency Sweep
                 # num_terms already set above based on random/manual choice
-                num_sweep_steps = 20  # Number of frames for sweep
+                num_sweep_steps = 10  # Reduced from 20 to prevent preview flooding
 
                 # Generate shared parameters
                 terms = []
@@ -3687,7 +3693,7 @@ class OscilloscopeGUI:
             elif mode == "phase_sweep":
                 # Mode 4: Mirrored with Phase Sweep
                 # num_terms already set above based on random/manual choice
-                num_sweep_steps = 20  # Number of frames for sweep
+                num_sweep_steps = 10  # Reduced from 20 to prevent preview flooding
 
                 # Generate shared parameters
                 terms = []
@@ -3750,7 +3756,7 @@ class OscilloscopeGUI:
             elif mode == "freq_phase_sweep":
                 # Mode 5: Mirrored with both Frequency and Phase Sweep
                 # num_terms already set above based on random/manual choice
-                num_sweep_steps = 20  # Number of frames for sweep
+                num_sweep_steps = 10  # Reduced from 20 to prevent preview flooding
 
                 # Generate shared parameters
                 terms = []
