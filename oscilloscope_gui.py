@@ -2938,55 +2938,62 @@ class OscilloscopeGUI:
             sample_rate = 44100
             t = np.linspace(0, duration, int(sample_rate * duration))
 
-            if instrument == "sine":
-                # Pure sine wave
-                signal = np.sin(2 * np.pi * note_freq * t)
-            elif instrument == "square":
-                # Square wave
-                signal = np.sign(np.sin(2 * np.pi * note_freq * t))
-            elif instrument == "saw":
-                # Sawtooth wave
-                signal = 2 * (t * note_freq - np.floor(0.5 + t * note_freq))
-            elif instrument == "triangle":
-                # Triangle wave
-                signal = 2 * np.abs(2 * (t * note_freq - np.floor(t * note_freq + 0.5))) - 1
-            elif instrument == "piano":
-                # Piano-like sound (sine with harmonics and envelope)
-                signal = (np.sin(2 * np.pi * note_freq * t) +
-                         0.5 * np.sin(2 * np.pi * note_freq * 2 * t) +
-                         0.25 * np.sin(2 * np.pi * note_freq * 3 * t))
-                envelope = np.exp(-3 * t)
-                signal = signal * envelope
-            elif instrument == "organ":
-                # Organ-like sound (multiple harmonics)
-                signal = (np.sin(2 * np.pi * note_freq * t) +
-                         0.8 * np.sin(2 * np.pi * note_freq * 2 * t) +
-                         0.6 * np.sin(2 * np.pi * note_freq * 3 * t) +
-                         0.4 * np.sin(2 * np.pi * note_freq * 4 * t))
-            elif instrument == "bell":
-                # Bell-like sound (inharmonic partials)
-                signal = (np.sin(2 * np.pi * note_freq * t) +
-                         0.7 * np.sin(2 * np.pi * note_freq * 2.76 * t) +
-                         0.5 * np.sin(2 * np.pi * note_freq * 5.40 * t))
-                envelope = np.exp(-4 * t)
-                signal = signal * envelope
-            else:
-                signal = np.sin(2 * np.pi * note_freq * t)
-
-            # Apply warp effect (frequency modulation)
+            # Apply warp effect by modulating frequency
             if abs(warp) > 0.01:
                 warp_freq = 5 + abs(warp) * 20  # Warp modulation frequency
                 warp_depth = abs(warp) * note_freq * 0.3  # Warp depth
                 freq_mod = note_freq + warp_depth * np.sin(2 * np.pi * warp_freq * t)
-                phase = np.cumsum(freq_mod) * 2 * np.pi / sample_rate
-                signal = np.sin(phase)
+                # Calculate instantaneous phase for warped sound
+                phase = np.cumsum(freq_mod) / sample_rate
+            else:
+                # No warp - use linear phase
+                phase = note_freq * t
+
+            if instrument == "sine":
+                # Pure sine wave
+                signal = np.sin(2 * np.pi * phase)
+            elif instrument == "square":
+                # Square wave
+                signal = np.sign(np.sin(2 * np.pi * phase))
+            elif instrument == "saw":
+                # Sawtooth wave
+                signal = 2 * (phase - np.floor(0.5 + phase))
+            elif instrument == "triangle":
+                # Triangle wave
+                signal = 2 * np.abs(2 * (phase - np.floor(phase + 0.5))) - 1
+            elif instrument == "piano":
+                # Piano-like sound (sine with harmonics and envelope)
+                signal = (np.sin(2 * np.pi * phase) +
+                         0.5 * np.sin(2 * np.pi * phase * 2) +
+                         0.25 * np.sin(2 * np.pi * phase * 3))
+                envelope = np.exp(-3 * t)
+                signal = signal * envelope
+            elif instrument == "organ":
+                # Organ-like sound (multiple harmonics)
+                signal = (np.sin(2 * np.pi * phase) +
+                         0.8 * np.sin(2 * np.pi * phase * 2) +
+                         0.6 * np.sin(2 * np.pi * phase * 3) +
+                         0.4 * np.sin(2 * np.pi * phase * 4))
+            elif instrument == "bell":
+                # Bell-like sound (inharmonic partials)
+                signal = (np.sin(2 * np.pi * phase) +
+                         0.7 * np.sin(2 * np.pi * phase * 2.76) +
+                         0.5 * np.sin(2 * np.pi * phase * 5.40))
+                envelope = np.exp(-4 * t)
+                signal = signal * envelope
+            else:
+                signal = np.sin(2 * np.pi * phase)
 
             # Normalize
             signal = signal / (np.max(np.abs(signal)) + 1e-10)
 
             # Create Lissajous pattern (X and Y from same signal with phase shift)
             x = signal
-            y = np.sin(2 * np.pi * note_freq * t + np.pi/2)  # 90 degree phase shift
+            # Generate Y with same warp characteristics
+            if abs(warp) > 0.01:
+                y = np.sin(2 * np.pi * phase + np.pi/2)
+            else:
+                y = np.sin(2 * np.pi * note_freq * t + np.pi/2)
 
             return x, y
 
