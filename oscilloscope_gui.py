@@ -1250,8 +1250,44 @@ class OscilloscopeGUI:
         except Exception:
             pass  # Window destroyed, stop scheduling
     
+    def calculate_density_colors(self, x_data, y_data, bins=200):
+        """Calculate colors based on point density - brighter where beam repeats more"""
+        # Create 2D histogram to count how many times each region is visited
+        hist, x_edges, y_edges = np.histogram2d(
+            x_data, y_data,
+            bins=bins,
+            range=[[-1.5, 1.5], [-1.5, 1.5]]
+        )
+
+        # Find which bin each point belongs to
+        x_indices = np.digitize(x_data, x_edges) - 1
+        y_indices = np.digitize(y_data, y_edges) - 1
+
+        # Clamp indices to valid range
+        x_indices = np.clip(x_indices, 0, bins - 1)
+        y_indices = np.clip(y_indices, 0, bins - 1)
+
+        # Get density value for each point
+        densities = hist[x_indices, y_indices]
+
+        # Normalize densities to [0, 1] with gamma correction for better visibility
+        if densities.max() > 0:
+            normalized = densities / densities.max()
+            # Apply gamma to enhance mid-range values
+            gamma = 0.5  # Lower gamma = more contrast
+            normalized = np.power(normalized, gamma)
+        else:
+            normalized = np.ones_like(densities)
+
+        # Convert to colors (RGBA) - green with varying alpha and brightness
+        colors = np.zeros((len(normalized), 4))
+        colors[:, 1] = normalized  # Green channel - brighter where more dense
+        colors[:, 3] = 0.3 + 0.7 * normalized  # Alpha - more opaque where more dense
+
+        return colors
+
     def update_display(self):
-        """Update the oscilloscope display"""
+        """Update the oscilloscope display with density-based brightness"""
         # Normalize data
         x_norm = self.normalize_data(self.x_data)
         y_norm = self.normalize_data(self.y_data)
@@ -1272,22 +1308,27 @@ class OscilloscopeGUI:
             x_display = x_display[::step]
             y_display = y_display[::step]
 
+        # Calculate density-based colors for realistic phosphor effect
+        colors = self.calculate_density_colors(x_display, y_display)
+
         # Update plot - both line and points for realistic oscilloscope effect
         self.line.set_data(x_display, y_display)
         self.points.set_offsets(np.column_stack((x_display, y_display)))
+        # Apply density-based coloring to points
+        self.points.set_color(colors)
 
         # Update limits if needed
         margin = 0.1
         x_range = [x_display.min() - margin, x_display.max() + margin]
         y_range = [y_display.min() - margin, y_display.max() + margin]
-        
+
         max_range = max(x_range[1] - x_range[0], y_range[1] - y_range[0])
         center_x = (x_range[0] + x_range[1]) / 2
         center_y = (y_range[0] + y_range[1]) / 2
-        
+
         self.ax.set_xlim(center_x - max_range/2, center_x + max_range/2)
         self.ax.set_ylim(center_y - max_range/2, center_y + max_range/2)
-        
+
         self.canvas.draw_idle()
     
     def generate_audio(self):

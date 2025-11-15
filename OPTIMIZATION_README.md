@@ -138,6 +138,17 @@ All original features are fully preserved:
 ✅ All GUI controls and effects
 ✅ Static preview fallback
 
+## New Feature: Density-Based Rendering
+
+**Realistic phosphor effect** - The oscilloscope display now accurately reflects real oscilloscope behavior:
+
+✨ **Brighter spots** where the beam repeats more often
+✨ **Dimmer areas** where the beam passes only occasionally
+✨ **Gradient opacity** based on point density
+✨ **Gamma correction** for enhanced visibility of mid-range values
+
+This makes patterns with varying speeds and repetitions look much more realistic, similar to a real analog oscilloscope's phosphor screen.
+
 ## Technical Details
 
 ### Buffer Management
