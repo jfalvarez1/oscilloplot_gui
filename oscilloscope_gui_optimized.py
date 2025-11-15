@@ -3564,9 +3564,9 @@ class OscilloscopeGUI:
         ttk.Label(manual_frame, text="(0 = single sin/cos pair)",
                  font=('Arial', 8), foreground='gray').pack(side=tk.LEFT, padx=5)
 
-        # Preview area
-        preview_frame = ttk.LabelFrame(dialog, text="Last Generated", padding="10")
-        preview_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Preview area (inside scrollable_frame)
+        preview_frame = ttk.LabelFrame(scrollable_frame, text="Last Generated", padding="10")
+        preview_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         preview_text = tk.Text(preview_frame, height=8, width=60, font=('Courier', 8), state=tk.DISABLED)
         preview_text.pack(fill=tk.BOTH, expand=True)
@@ -3912,9 +3912,9 @@ class OscilloscopeGUI:
             # Apply parameters and generate audio
             self.apply_parameters()
 
-        # Buttons
-        button_frame = ttk.Frame(dialog)
-        button_frame.pack(fill=tk.X, padx=10, pady=10)
+        # Buttons (inside scrollable_frame)
+        button_frame = ttk.Frame(scrollable_frame)
+        button_frame.pack(fill=tk.X, padx=5, pady=10)
 
         ttk.Button(button_frame, text="Generate", command=generate_pattern).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
