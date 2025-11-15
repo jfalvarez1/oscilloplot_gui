@@ -7,12 +7,17 @@ Features live visualization, parameter controls, and various effects
 import numpy as np
 import sounddevice as sd
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog, messagebox
+import customtkinter as ctk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import threading
 import queue
+
+# Set CustomTkinter appearance
+ctk.set_appearance_mode("dark")  # Dark mode
+ctk.set_default_color_theme("blue")  # Color theme
 
 
 class OscilloscopeGUI:
@@ -61,57 +66,55 @@ class OscilloscopeGUI:
     
     def create_widgets(self):
         """Create all GUI widgets"""
-        
+
         # Main container
-        main_container = ttk.Frame(self.root, padding="10")
-        main_container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
+        main_container = ctk.CTkFrame(self.root)
+        main_container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=10, pady=10)
+
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_container.columnconfigure(1, weight=1)
         main_container.rowconfigure(0, weight=1)
-        
+
         # Left panel - Controls (with scrollbar)
-        control_container = ttk.Frame(main_container, width=300)
+        control_container = ctk.CTkFrame(main_container, width=300)
         control_container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
         control_container.grid_propagate(False)
 
-        # Create canvas and scrollbar for controls
-        control_canvas = tk.Canvas(control_container, highlightthickness=0, bg='#f0f0f0')
-        scrollbar = ttk.Scrollbar(control_container, orient="vertical", command=control_canvas.yview)
-        control_frame = ttk.LabelFrame(control_canvas, text="Controls", padding="10")
+        # Create scrollable frame for controls
+        control_scrollable = ctk.CTkScrollableFrame(control_container, width=280)
+        control_scrollable.pack(fill=tk.BOTH, expand=True)
+        control_frame = control_scrollable
 
-        control_canvas.configure(yscrollcommand=scrollbar.set)
+        # Right panel - Display with JUANTRONIX branding
+        display_container = ctk.CTkFrame(main_container)
+        display_container.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
+        display_container.columnconfigure(0, weight=1)
+        display_container.rowconfigure(1, weight=1)  # Row 1 for display (row 0 for branding)
 
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        control_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # JUANTRONIX branding in oscilloscope style
+        branding_frame = ctk.CTkFrame(display_container, fg_color="transparent")
+        branding_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
 
-        # Create window in canvas
-        canvas_frame = control_canvas.create_window((0, 0), window=control_frame, anchor=tk.NW)
+        juantronix_label = ctk.CTkLabel(
+            branding_frame,
+            text="JUANTRONIX",
+            font=("Courier New", 28, "bold"),
+            text_color="#00FF00"  # Classic oscilloscope green
+        )
+        juantronix_label.pack()
 
-        # Configure scrolling
-        def configure_scroll_region(event):
-            control_canvas.configure(scrollregion=control_canvas.bbox("all"))
+        model_label = ctk.CTkLabel(
+            branding_frame,
+            text="XY AUDIO OSCILLOSCOPE",
+            font=("Courier New", 10),
+            text_color="#808080"  # Gray
+        )
+        model_label.pack()
 
-        def configure_canvas_width(event):
-            # Update canvas window width to match canvas width (minus scrollbar)
-            canvas_width = control_canvas.winfo_width()
-            control_canvas.itemconfig(canvas_frame, width=canvas_width)
-
-        control_frame.bind("<Configure>", configure_scroll_region)
-        control_canvas.bind("<Configure>", configure_canvas_width)
-
-        # Mouse wheel scrolling
-        def on_mousewheel(event):
-            control_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-
-        control_canvas.bind_all("<MouseWheel>", on_mousewheel)  # Windows
-        control_canvas.bind_all("<Button-4>", lambda e: control_canvas.yview_scroll(-1, "units"))  # Linux up
-        control_canvas.bind_all("<Button-5>", lambda e: control_canvas.yview_scroll(1, "units"))   # Linux down
-        
-        # Right panel - Display
-        display_frame = ttk.LabelFrame(main_container, text="Oscilloscope Display", padding="10")
-        display_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # Display frame
+        display_frame = ctk.CTkFrame(display_container)
+        display_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         display_frame.columnconfigure(0, weight=1)
         display_frame.rowconfigure(0, weight=1)
         
@@ -127,76 +130,76 @@ class OscilloscopeGUI:
         row = 0
         
         # === FILE CONTROLS ===
-        file_frame = ttk.LabelFrame(parent, text="Data Source", padding="5")
+        file_frame = ctk.CTkFrame(parent, text="Data Source")
         file_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
-        ttk.Button(file_frame, text="Load MATLAB File (.m)", 
+        ctk.CTkButton(file_frame, text="Load MATLAB File (.m)", 
                   command=self.load_matlab_file).pack(fill=tk.X, pady=2)
-        ttk.Button(file_frame, text="Load Text File (.txt)", 
+        ctk.CTkButton(file_frame, text="Load Text File (.txt)", 
                   command=self.load_txt_file).pack(fill=tk.X, pady=2)
-        ttk.Button(file_frame, text="Load NumPy File (.npz)",
+        ctk.CTkButton(file_frame, text="Load NumPy File (.npz)",
                   command=self.load_numpy_file).pack(fill=tk.X, pady=2)
-        ttk.Button(file_frame, text="Generate Test Pattern",
+        ctk.CTkButton(file_frame, text="Generate Test Pattern",
                   command=self.generate_test_pattern).pack(fill=tk.X, pady=2)
-        ttk.Button(file_frame, text="Draw Pattern",
+        ctk.CTkButton(file_frame, text="Draw Pattern",
                   command=self.open_drawing_canvas).pack(fill=tk.X, pady=2)
-        ttk.Button(file_frame, text="Sum of Harmonics",
+        ctk.CTkButton(file_frame, text="Sum of Harmonics",
                   command=self.open_harmonic_sum).pack(fill=tk.X, pady=2)
-        ttk.Button(file_frame, text="Archimedean Spiral",
+        ctk.CTkButton(file_frame, text="Archimedean Spiral",
                   command=self.open_archimedean_spiral).pack(fill=tk.X, pady=2)
-        ttk.Button(file_frame, text="Sound Pad",
+        ctk.CTkButton(file_frame, text="Sound Pad",
                   command=self.open_sound_pad).pack(fill=tk.X, pady=2)
-        ttk.Button(file_frame, text="Random Harmonics",
+        ctk.CTkButton(file_frame, text="Random Harmonics",
                   command=self.generate_random_harmonics).pack(fill=tk.X, pady=2)
 
         # Data info
-        self.data_info_label = ttk.Label(file_frame, text="Points: 3", 
+        self.data_info_label = ctk.CTkLabel(file_frame, text="Points: 3", 
                                          font=('Arial', 9, 'italic'))
         self.data_info_label.pack(pady=5)
         
         # === AUDIO PARAMETERS ===
-        audio_frame = ttk.LabelFrame(parent, text="Audio Parameters", padding="5")
+        audio_frame = ctk.CTkFrame(parent, text="Audio Parameters")
         audio_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
         # Sample Rate
-        ttk.Label(audio_frame, text="Base Sample Rate (Hz):").grid(row=0, column=0, sticky=tk.W)
+        ctk.CTkLabel(audio_frame, text="Base Sample Rate (Hz):").grid(row=0, column=0, sticky=tk.W)
         self.sample_rate_var = tk.IntVar(value=1000)
-        self.sample_rate_spin = ttk.Spinbox(audio_frame, from_=100, to=10000, 
+        self.sample_rate_spin = tk.Spinbox(audio_frame, from_=100, to=10000, 
                                            textvariable=self.sample_rate_var, width=10)
         self.sample_rate_spin.grid(row=0, column=1, pady=2)
         
         # Playback Multiplier (Frequency)
-        ttk.Label(audio_frame, text="Playback Multiplier:").grid(row=1, column=0, sticky=tk.W)
+        ctk.CTkLabel(audio_frame, text="Playback Multiplier:").grid(row=1, column=0, sticky=tk.W)
         self.freq_mult_var = tk.IntVar(value=100)
-        self.freq_mult_spin = ttk.Spinbox(audio_frame, from_=10, to=500, 
+        self.freq_mult_spin = tk.Spinbox(audio_frame, from_=10, to=500, 
                                          textvariable=self.freq_mult_var, width=10)
         self.freq_mult_spin.grid(row=1, column=1, pady=2)
         
-        ttk.Label(audio_frame, text="→ Actual Rate:").grid(row=2, column=0, sticky=tk.W)
-        self.actual_rate_label = ttk.Label(audio_frame, text="100 kHz", 
+        ctk.CTkLabel(audio_frame, text="→ Actual Rate:").grid(row=2, column=0, sticky=tk.W)
+        self.actual_rate_label = ctk.CTkLabel(audio_frame, text="100 kHz", 
                                           font=('Arial', 9, 'bold'))
         self.actual_rate_label.grid(row=2, column=1, pady=2)
         
         # Duration
-        ttk.Label(audio_frame, text="Duration (seconds):").grid(row=3, column=0, sticky=tk.W)
+        ctk.CTkLabel(audio_frame, text="Duration (seconds):").grid(row=3, column=0, sticky=tk.W)
         self.duration_var = tk.IntVar(value=15)
-        self.duration_spin = ttk.Spinbox(audio_frame, from_=5, to=120, 
+        self.duration_spin = tk.Spinbox(audio_frame, from_=5, to=120, 
                                         textvariable=self.duration_var, width=10)
         self.duration_spin.grid(row=3, column=1, pady=2)
         
         # N Repeat
-        ttk.Label(audio_frame, text="Pattern Repeats:").grid(row=4, column=0, sticky=tk.W)
+        ctk.CTkLabel(audio_frame, text="Pattern Repeats:").grid(row=4, column=0, sticky=tk.W)
         self.n_repeat_var = tk.IntVar(value=200)  # Increased default for full rotations
-        self.n_repeat_spin = ttk.Spinbox(audio_frame, from_=1, to=2000, 
+        self.n_repeat_spin = tk.Spinbox(audio_frame, from_=1, to=2000, 
                                         textvariable=self.n_repeat_var, width=10)
         self.n_repeat_spin.grid(row=4, column=1, pady=2)
         
         # Rotation info label
-        self.rotation_info_label = ttk.Label(audio_frame, text="",
+        self.rotation_info_label = ctk.CTkLabel(audio_frame, text="",
                                             font=('Arial', 8, 'italic'),
-                                            foreground='blue')
+                                            text_color='blue')
         self.rotation_info_label.grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(2,5))
 
         # Update rate label on change
@@ -204,517 +207,517 @@ class OscilloscopeGUI:
         self.sample_rate_var.trace('w', self.update_rate_label)
         
         # === EFFECTS ===
-        effects_frame = ttk.LabelFrame(parent, text="Effects", padding="5")
+        effects_frame = ctk.CTkFrame(parent, text="Effects")
         effects_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
         # Enable Reflections
         self.reflections_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(effects_frame, text="Enable Mirror Reflections", 
+        ctk.CTkCheckBox(effects_frame, text="Enable Mirror Reflections", 
                        variable=self.reflections_var,
                        command=self.effect_changed).pack(anchor=tk.W, pady=5)
         
-        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
         
         # Y-Axis Fade Sequence
         self.y_fade_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(effects_frame, text="Y-Axis Fade Sequence", 
+        ctk.CTkCheckBox(effects_frame, text="Y-Axis Fade Sequence", 
                        variable=self.y_fade_var,
                        command=self.effect_changed).pack(anchor=tk.W)
         
-        ttk.Label(effects_frame, text="Y Fade Steps:",
+        ctk.CTkLabel(effects_frame, text="Y Fade Steps:",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.y_fade_steps = tk.IntVar(value=10)
         self.y_fade_steps.trace('w', lambda *args: self.effect_changed())
-        self.y_fade_steps_spin = ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
+        self.y_fade_steps_spin = tk.Spinbox(effects_frame, from_=2, to=50, width=8,
                    textvariable=self.y_fade_steps,
                    command=self.effect_changed)
         self.y_fade_steps_spin.pack(anchor=tk.W, padx=20)
 
-        ttk.Label(effects_frame, text="Y Fade Speed (repeats/step):",
+        ctk.CTkLabel(effects_frame, text="Y Fade Speed (repeats/step):",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.y_fade_speed = tk.IntVar(value=1)
         self.y_fade_speed.trace('w', lambda *args: self.effect_changed())
-        self.y_fade_speed_spin = ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
+        self.y_fade_speed_spin = tk.Spinbox(effects_frame, from_=1, to=20, width=8,
                    textvariable=self.y_fade_speed,
                    command=self.effect_changed)
         self.y_fade_speed_spin.pack(anchor=tk.W, padx=20)
         
-        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
         
         # X-Axis Fade Sequence
         self.x_fade_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(effects_frame, text="X-Axis Fade Sequence", 
+        ctk.CTkCheckBox(effects_frame, text="X-Axis Fade Sequence", 
                        variable=self.x_fade_var,
                        command=self.effect_changed).pack(anchor=tk.W)
         
-        ttk.Label(effects_frame, text="X Fade Steps:",
+        ctk.CTkLabel(effects_frame, text="X Fade Steps:",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.x_fade_steps = tk.IntVar(value=10)
         self.x_fade_steps.trace('w', lambda *args: self.effect_changed())
-        self.x_fade_steps_spin = ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
+        self.x_fade_steps_spin = tk.Spinbox(effects_frame, from_=2, to=50, width=8,
                    textvariable=self.x_fade_steps,
                    command=self.effect_changed)
         self.x_fade_steps_spin.pack(anchor=tk.W, padx=20)
 
-        ttk.Label(effects_frame, text="X Fade Speed (repeats/step):",
+        ctk.CTkLabel(effects_frame, text="X Fade Speed (repeats/step):",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.x_fade_speed = tk.IntVar(value=1)
         self.x_fade_speed.trace('w', lambda *args: self.effect_changed())
-        self.x_fade_speed_spin = ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
+        self.x_fade_speed_spin = tk.Spinbox(effects_frame, from_=1, to=20, width=8,
                    textvariable=self.x_fade_speed,
                    command=self.effect_changed)
         self.x_fade_speed_spin.pack(anchor=tk.W, padx=20)
 
         # Alternate X/Y Fade option
         self.alternate_xy_fade_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(effects_frame, text="Alternate X/Y Fade (X first, then Y, repeat)",
+        ctk.CTkCheckBox(effects_frame, text="Alternate X/Y Fade (X first, then Y, repeat)",
                        variable=self.alternate_xy_fade_var,
                        command=self.effect_changed).pack(anchor=tk.W, pady=(5,0))
 
-        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Shrink/Unshrink (scale both X and Y together)
         self.shrink_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(effects_frame, text="Shrink/Unshrink (Scale X & Y together)",
+        ctk.CTkCheckBox(effects_frame, text="Shrink/Unshrink (Scale X & Y together)",
                        variable=self.shrink_var,
                        command=self.effect_changed).pack(anchor=tk.W)
 
-        ttk.Label(effects_frame, text="Shrink Steps:",
+        ctk.CTkLabel(effects_frame, text="Shrink Steps:",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.shrink_steps = tk.IntVar(value=10)
         self.shrink_steps.trace('w', lambda *args: self.effect_changed())
-        self.shrink_steps_spin = ttk.Spinbox(effects_frame, from_=2, to=50, width=8,
+        self.shrink_steps_spin = tk.Spinbox(effects_frame, from_=2, to=50, width=8,
                    textvariable=self.shrink_steps,
                    command=self.effect_changed)
         self.shrink_steps_spin.pack(anchor=tk.W, padx=20)
 
-        ttk.Label(effects_frame, text="Shrink Speed (repeats/step):",
+        ctk.CTkLabel(effects_frame, text="Shrink Speed (repeats/step):",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.shrink_speed = tk.IntVar(value=1)
         self.shrink_speed.trace('w', lambda *args: self.effect_changed())
-        self.shrink_speed_spin = ttk.Spinbox(effects_frame, from_=1, to=20, width=8,
+        self.shrink_speed_spin = tk.Spinbox(effects_frame, from_=1, to=20, width=8,
                    textvariable=self.shrink_speed,
                    command=self.effect_changed)
         self.shrink_speed_spin.pack(anchor=tk.W, padx=20)
 
-        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Noise Effects
-        noise_frame = ttk.LabelFrame(effects_frame, text="Noise", padding="5")
+        noise_frame = ctk.CTkFrame(effects_frame, text="Noise")
         noise_frame.pack(fill=tk.X, pady=5)
 
         self.x_noise_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(noise_frame, text="Add X-Channel Noise",
+        ctk.CTkCheckBox(noise_frame, text="Add X-Channel Noise",
                        variable=self.x_noise_var,
                        command=self.effect_changed).pack(anchor=tk.W)
 
-        ttk.Label(noise_frame, text="X Noise Amplitude:",
+        ctk.CTkLabel(noise_frame, text="X Noise Amplitude:",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.x_noise_amp = tk.DoubleVar(value=0.05)
-        ttk.Scale(noise_frame, from_=0.001, to=0.3, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(noise_frame, from_=0.001, to=0.3, orient=tk.HORIZONTAL,
                  variable=self.x_noise_amp,
                  command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
 
         self.y_noise_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(noise_frame, text="Add Y-Channel Noise",
+        ctk.CTkCheckBox(noise_frame, text="Add Y-Channel Noise",
                        variable=self.y_noise_var,
                        command=self.effect_changed).pack(anchor=tk.W, pady=(10,0))
 
-        ttk.Label(noise_frame, text="Y Noise Amplitude:",
+        ctk.CTkLabel(noise_frame, text="Y Noise Amplitude:",
                  font=('Arial', 8)).pack(anchor=tk.W, padx=20)
         self.y_noise_amp = tk.DoubleVar(value=0.05)
-        ttk.Scale(noise_frame, from_=0.001, to=0.3, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(noise_frame, from_=0.001, to=0.3, orient=tk.HORIZONTAL,
                  variable=self.y_noise_amp,
                  command=lambda v: self.effect_changed()).pack(fill=tk.X, padx=20)
 
-        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Wavy Effects
-        wavy_frame = ttk.LabelFrame(effects_frame, text="Wavy Effect", padding="5")
+        wavy_frame = ctk.CTkFrame(effects_frame, text="Wavy Effect")
         wavy_frame.pack(fill=tk.X, pady=5)
 
         self.x_wavy_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(wavy_frame, text="Add X-Channel Wavy",
+        ctk.CTkCheckBox(wavy_frame, text="Add X-Channel Wavy",
                        variable=self.x_wavy_var,
                        command=self.effect_changed).pack(anchor=tk.W)
 
         # X Amplitude with value label
-        x_amp_frame = ttk.Frame(wavy_frame)
+        x_amp_frame = ctk.CTkFrame(wavy_frame)
         x_amp_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(x_amp_frame, text="X Amplitude (K):",
+        ctk.CTkLabel(x_amp_frame, text="X Amplitude (K):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.x_wavy_amp_label = ttk.Label(x_amp_frame, text="0.200",
+        self.x_wavy_amp_label = ctk.CTkLabel(x_amp_frame, text="0.200",
                  font=('Arial', 8, 'bold'))
         self.x_wavy_amp_label.pack(side=tk.RIGHT)
 
         self.x_wavy_amp = tk.DoubleVar(value=0.2)
-        ttk.Scale(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
                  variable=self.x_wavy_amp,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
         # X Frequency with value label and entry
-        x_freq_frame = ttk.Frame(wavy_frame)
+        x_freq_frame = ctk.CTkFrame(wavy_frame)
         x_freq_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(x_freq_frame, text="X Angular Frequency (ω):",
+        ctk.CTkLabel(x_freq_frame, text="X Angular Frequency (ω):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
         self.x_wavy_freq = tk.DoubleVar(value=10.0)
-        x_freq_entry = ttk.Entry(x_freq_frame, textvariable=self.x_wavy_freq, width=12)
+        x_freq_entry = ctk.CTkEntry(x_freq_frame, textvariable=self.x_wavy_freq, width=12)
         x_freq_entry.pack(side=tk.RIGHT, padx=5)
-        self.x_wavy_freq_label = ttk.Label(x_freq_frame, text="10.0",
+        self.x_wavy_freq_label = ctk.CTkLabel(x_freq_frame, text="10.0",
                  font=('Arial', 8, 'bold'))
         self.x_wavy_freq_label.pack(side=tk.RIGHT)
 
-        ttk.Scale(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
                  variable=self.x_wavy_freq,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
         self.y_wavy_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(wavy_frame, text="Add Y-Channel Wavy",
+        ctk.CTkCheckBox(wavy_frame, text="Add Y-Channel Wavy",
                        variable=self.y_wavy_var,
                        command=self.effect_changed).pack(anchor=tk.W, pady=(10,0))
 
         # Y Amplitude with value label
-        y_amp_frame = ttk.Frame(wavy_frame)
+        y_amp_frame = ctk.CTkFrame(wavy_frame)
         y_amp_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(y_amp_frame, text="Y Amplitude (K):",
+        ctk.CTkLabel(y_amp_frame, text="Y Amplitude (K):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.y_wavy_amp_label = ttk.Label(y_amp_frame, text="0.200",
+        self.y_wavy_amp_label = ctk.CTkLabel(y_amp_frame, text="0.200",
                  font=('Arial', 8, 'bold'))
         self.y_wavy_amp_label.pack(side=tk.RIGHT)
 
         self.y_wavy_amp = tk.DoubleVar(value=0.2)
-        ttk.Scale(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(wavy_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
                  variable=self.y_wavy_amp,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
         # Y Frequency with value label and entry
-        y_freq_frame = ttk.Frame(wavy_frame)
+        y_freq_frame = ctk.CTkFrame(wavy_frame)
         y_freq_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(y_freq_frame, text="Y Angular Frequency (ω):",
+        ctk.CTkLabel(y_freq_frame, text="Y Angular Frequency (ω):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
         self.y_wavy_freq = tk.DoubleVar(value=10.0)
-        y_freq_entry = ttk.Entry(y_freq_frame, textvariable=self.y_wavy_freq, width=12)
+        y_freq_entry = ctk.CTkEntry(y_freq_frame, textvariable=self.y_wavy_freq, width=12)
         y_freq_entry.pack(side=tk.RIGHT, padx=5)
-        self.y_wavy_freq_label = ttk.Label(y_freq_frame, text="10.0",
+        self.y_wavy_freq_label = ctk.CTkLabel(y_freq_frame, text="10.0",
                  font=('Arial', 8, 'bold'))
         self.y_wavy_freq_label.pack(side=tk.RIGHT)
 
-        ttk.Scale(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(wavy_frame, from_=1.0, to=1000000.0, orient=tk.HORIZONTAL,
                  variable=self.y_wavy_freq,
                  command=lambda v: self.update_wavy_labels()).pack(fill=tk.X, padx=20)
 
-        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Rotation
-        rotation_frame = ttk.LabelFrame(effects_frame, text="Rotation", padding="5")
+        rotation_frame = ctk.CTkFrame(effects_frame, text="Rotation")
         rotation_frame.pack(fill=tk.X, pady=5)
         
         self.rotation_mode_var = tk.StringVar(value="Off")
-        ttk.Radiobutton(rotation_frame, text="Off", variable=self.rotation_mode_var, 
+        ctk.CTkRadioButton(rotation_frame, text="Off", variable=self.rotation_mode_var, 
                        value="Off", command=self.rotation_mode_changed).pack(anchor=tk.W)
-        ttk.Radiobutton(rotation_frame, text="Static Angle", variable=self.rotation_mode_var, 
+        ctk.CTkRadioButton(rotation_frame, text="Static Angle", variable=self.rotation_mode_var, 
                        value="Static", command=self.rotation_mode_changed).pack(anchor=tk.W)
-        ttk.Radiobutton(rotation_frame, text="Rotate Clockwise (CW)", variable=self.rotation_mode_var, 
+        ctk.CTkRadioButton(rotation_frame, text="Rotate Clockwise (CW)", variable=self.rotation_mode_var, 
                        value="CW", command=self.rotation_mode_changed).pack(anchor=tk.W)
-        ttk.Radiobutton(rotation_frame, text="Rotate Counter-Clockwise (CCW)", variable=self.rotation_mode_var, 
+        ctk.CTkRadioButton(rotation_frame, text="Rotate Counter-Clockwise (CCW)", variable=self.rotation_mode_var, 
                        value="CCW", command=self.rotation_mode_changed).pack(anchor=tk.W)
         
-        ttk.Label(rotation_frame, text="Static Angle (degrees):").pack(anchor=tk.W, pady=(5,0))
+        ctk.CTkLabel(rotation_frame, text="Static Angle (degrees):").pack(anchor=tk.W, pady=(5,0))
         self.rotation_angle = tk.DoubleVar(value=0.0)
-        ttk.Scale(rotation_frame, from_=-180, to=180, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(rotation_frame, from_=-180, to=180, orient=tk.HORIZONTAL,
                  variable=self.rotation_angle,
                  command=lambda v: self.rotation_mode_changed()).pack(fill=tk.X)
         
-        ttk.Label(rotation_frame, text="Rotation Speed (degrees/cycle):").pack(anchor=tk.W, pady=(5,0))
+        ctk.CTkLabel(rotation_frame, text="Rotation Speed (degrees/cycle):").pack(anchor=tk.W, pady=(5,0))
         self.rotation_speed = tk.DoubleVar(value=5.0)
-        ttk.Scale(rotation_frame, from_=0.5, to=45, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(rotation_frame, from_=0.5, to=45, orient=tk.HORIZONTAL,
                  variable=self.rotation_speed,
                  command=lambda v: self.rotation_mode_changed()).pack(fill=tk.X)
 
-        ttk.Label(rotation_frame, text="Tip: 360° ÷ speed = steps per rotation\nMore Pattern Repeats = more rotations",
-                 font=('Arial', 7, 'italic'), foreground='gray').pack(anchor=tk.W, pady=(5,0))
+        ctk.CTkLabel(rotation_frame, text="Tip: 360° ÷ speed = steps per rotation\nMore Pattern Repeats = more rotations",
+                 font=('Arial', 7, 'italic'), text_color='gray').pack(anchor=tk.W, pady=(5,0))
 
         # Update rotation info when values change (set up after all variables are created)
         self.n_repeat_var.trace('w', self.update_rotation_info)
         self.rotation_speed.trace('w', self.update_rotation_info)
 
-        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Tremolo Effect (Amplitude Modulation)
-        tremolo_frame = ttk.LabelFrame(effects_frame, text="Tremolo (Amplitude Modulation)", padding="5")
+        tremolo_frame = ctk.CTkFrame(effects_frame, text="Tremolo (Amplitude Modulation)")
         tremolo_frame.pack(fill=tk.X, pady=5)
 
         self.tremolo_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(tremolo_frame, text="Enable Tremolo",
+        ctk.CTkCheckBox(tremolo_frame, text="Enable Tremolo",
                        variable=self.tremolo_var,
                        command=self.effect_changed).pack(anchor=tk.W)
 
         # Depth control
-        depth_frame = ttk.Frame(tremolo_frame)
+        depth_frame = ctk.CTkFrame(tremolo_frame)
         depth_frame.pack(fill=tk.X, padx=20, pady=(5,0))
-        ttk.Label(depth_frame, text="Depth (%):",
+        ctk.CTkLabel(depth_frame, text="Depth (%):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.tremolo_depth_label = ttk.Label(depth_frame, text="50",
+        self.tremolo_depth_label = ctk.CTkLabel(depth_frame, text="50",
                  font=('Arial', 8, 'bold'))
         self.tremolo_depth_label.pack(side=tk.RIGHT)
 
         self.tremolo_depth = tk.DoubleVar(value=50.0)
-        ttk.Scale(tremolo_frame, from_=0.0, to=100.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(tremolo_frame, from_=0.0, to=100.0, orient=tk.HORIZONTAL,
                  variable=self.tremolo_depth,
                  command=lambda v: self.tremolo_depth_label.config(text=f"{self.tremolo_depth.get():.0f}")).pack(fill=tk.X, padx=20)
 
         # Rate control
-        rate_frame = ttk.Frame(tremolo_frame)
+        rate_frame = ctk.CTkFrame(tremolo_frame)
         rate_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(rate_frame, text="Rate (Hz):",
+        ctk.CTkLabel(rate_frame, text="Rate (Hz):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.tremolo_rate_label = ttk.Label(rate_frame, text="2.0",
+        self.tremolo_rate_label = ctk.CTkLabel(rate_frame, text="2.0",
                  font=('Arial', 8, 'bold'))
         self.tremolo_rate_label.pack(side=tk.RIGHT)
 
         self.tremolo_rate = tk.DoubleVar(value=2.0)
-        ttk.Scale(tremolo_frame, from_=0.1, to=20.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(tremolo_frame, from_=0.1, to=20.0, orient=tk.HORIZONTAL,
                  variable=self.tremolo_rate,
                  command=lambda v: self.tremolo_rate_label.config(text=f"{self.tremolo_rate.get():.1f}")).pack(fill=tk.X, padx=20)
 
         # Waveform type
-        waveform_row = ttk.Frame(tremolo_frame)
+        waveform_row = ctk.CTkFrame(tremolo_frame)
         waveform_row.pack(fill=tk.X, padx=20, pady=5)
-        ttk.Label(waveform_row, text="Waveform:", font=('Arial', 8)).pack(side=tk.LEFT, padx=(0, 10))
+        ctk.CTkLabel(waveform_row, text="Waveform:", font=('Arial', 8)).pack(side=tk.LEFT, padx=(0, 10))
         self.tremolo_wave_var = tk.StringVar(value="sine")
-        ttk.Radiobutton(waveform_row, text="Sine", variable=self.tremolo_wave_var, value="sine").pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(waveform_row, text="Triangle", variable=self.tremolo_wave_var, value="triangle").pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(waveform_row, text="Square", variable=self.tremolo_wave_var, value="square").pack(side=tk.LEFT, padx=5)
+        ctk.CTkRadioButton(waveform_row, text="Sine", variable=self.tremolo_wave_var, value="sine").pack(side=tk.LEFT, padx=5)
+        ctk.CTkRadioButton(waveform_row, text="Triangle", variable=self.tremolo_wave_var, value="triangle").pack(side=tk.LEFT, padx=5)
+        ctk.CTkRadioButton(waveform_row, text="Square", variable=self.tremolo_wave_var, value="square").pack(side=tk.LEFT, padx=5)
 
-        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Ring Modulation Effect
-        ring_frame = ttk.LabelFrame(effects_frame, text="Ring Modulation", padding="5")
+        ring_frame = ctk.CTkFrame(effects_frame, text="Ring Modulation")
         ring_frame.pack(fill=tk.X, pady=5)
 
         self.ring_mod_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(ring_frame, text="Enable Ring Modulation",
+        ctk.CTkCheckBox(ring_frame, text="Enable Ring Modulation",
                        variable=self.ring_mod_var,
                        command=self.effect_changed).pack(anchor=tk.W)
 
         # Carrier Frequency control
-        carrier_frame = ttk.Frame(ring_frame)
+        carrier_frame = ctk.CTkFrame(ring_frame)
         carrier_frame.pack(fill=tk.X, padx=20, pady=(5,0))
-        ttk.Label(carrier_frame, text="Carrier Freq (Hz):",
+        ctk.CTkLabel(carrier_frame, text="Carrier Freq (Hz):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.ring_carrier_label = ttk.Label(carrier_frame, text="200",
+        self.ring_carrier_label = ctk.CTkLabel(carrier_frame, text="200",
                  font=('Arial', 8, 'bold'))
         self.ring_carrier_label.pack(side=tk.RIGHT)
 
         self.ring_carrier_freq = tk.DoubleVar(value=200.0)
-        ttk.Scale(ring_frame, from_=10.0, to=2000.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(ring_frame, from_=10.0, to=2000.0, orient=tk.HORIZONTAL,
                  variable=self.ring_carrier_freq,
                  command=lambda v: self.ring_carrier_label.config(text=f"{self.ring_carrier_freq.get():.0f}")).pack(fill=tk.X, padx=20)
 
         # Depth control
-        ring_depth_frame = ttk.Frame(ring_frame)
+        ring_depth_frame = ctk.CTkFrame(ring_frame)
         ring_depth_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(ring_depth_frame, text="Mix (%):",
+        ctk.CTkLabel(ring_depth_frame, text="Mix (%):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.ring_mix_label = ttk.Label(ring_depth_frame, text="50",
+        self.ring_mix_label = ctk.CTkLabel(ring_depth_frame, text="50",
                  font=('Arial', 8, 'bold'))
         self.ring_mix_label.pack(side=tk.RIGHT)
 
         self.ring_mix = tk.DoubleVar(value=50.0)
-        ttk.Scale(ring_frame, from_=0.0, to=100.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(ring_frame, from_=0.0, to=100.0, orient=tk.HORIZONTAL,
                  variable=self.ring_mix,
                  command=lambda v: self.ring_mix_label.config(text=f"{self.ring_mix.get():.0f}")).pack(fill=tk.X, padx=20)
 
-        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Echo/Delay Effect
-        echo_frame = ttk.LabelFrame(effects_frame, text="Echo/Delay", padding="5")
+        echo_frame = ctk.CTkFrame(effects_frame, text="Echo/Delay")
         echo_frame.pack(fill=tk.X, pady=5)
 
         self.echo_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(echo_frame, text="Enable Echo",
+        ctk.CTkCheckBox(echo_frame, text="Enable Echo",
                        variable=self.echo_var,
                        command=self.effect_changed).pack(anchor=tk.W)
 
         # Number of echoes
-        echoes_frame = ttk.Frame(echo_frame)
+        echoes_frame = ctk.CTkFrame(echo_frame)
         echoes_frame.pack(fill=tk.X, padx=20, pady=(5,0))
-        ttk.Label(echoes_frame, text="Number of Echoes:",
+        ctk.CTkLabel(echoes_frame, text="Number of Echoes:",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.echo_count_label = ttk.Label(echoes_frame, text="3",
+        self.echo_count_label = ctk.CTkLabel(echoes_frame, text="3",
                  font=('Arial', 8, 'bold'))
         self.echo_count_label.pack(side=tk.RIGHT)
 
         self.echo_count = tk.IntVar(value=3)
-        ttk.Scale(echo_frame, from_=1, to=10, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(echo_frame, from_=1, to=10, orient=tk.HORIZONTAL,
                  variable=self.echo_count,
                  command=lambda v: self.echo_count_label.config(text=f"{self.echo_count.get():.0f}")).pack(fill=tk.X, padx=20)
 
         # Decay control
-        decay_frame = ttk.Frame(echo_frame)
+        decay_frame = ctk.CTkFrame(echo_frame)
         decay_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(decay_frame, text="Decay Factor:",
+        ctk.CTkLabel(decay_frame, text="Decay Factor:",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.echo_decay_label = ttk.Label(decay_frame, text="0.70",
+        self.echo_decay_label = ctk.CTkLabel(decay_frame, text="0.70",
                  font=('Arial', 8, 'bold'))
         self.echo_decay_label.pack(side=tk.RIGHT)
 
         self.echo_decay = tk.DoubleVar(value=0.7)
-        ttk.Scale(echo_frame, from_=0.1, to=0.95, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(echo_frame, from_=0.1, to=0.95, orient=tk.HORIZONTAL,
                  variable=self.echo_decay,
                  command=lambda v: self.echo_decay_label.config(text=f"{self.echo_decay.get():.2f}")).pack(fill=tk.X, padx=20)
 
         # Delay time (as percentage of pattern length)
-        delay_frame = ttk.Frame(echo_frame)
+        delay_frame = ctk.CTkFrame(echo_frame)
         delay_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(delay_frame, text="Delay Time (%):",
+        ctk.CTkLabel(delay_frame, text="Delay Time (%):",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.echo_delay_label = ttk.Label(delay_frame, text="10",
+        self.echo_delay_label = ctk.CTkLabel(delay_frame, text="10",
                  font=('Arial', 8, 'bold'))
         self.echo_delay_label.pack(side=tk.RIGHT)
 
         self.echo_delay = tk.DoubleVar(value=10.0)
-        ttk.Scale(echo_frame, from_=1.0, to=50.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(echo_frame, from_=1.0, to=50.0, orient=tk.HORIZONTAL,
                  variable=self.echo_delay,
                  command=lambda v: self.echo_delay_label.config(text=f"{self.echo_delay.get():.0f}")).pack(fill=tk.X, padx=20)
 
-        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Kaleidoscope Effect
-        kaleido_frame = ttk.LabelFrame(effects_frame, text="Kaleidoscope", padding="5")
+        kaleido_frame = ctk.CTkFrame(effects_frame, text="Kaleidoscope")
         kaleido_frame.pack(fill=tk.X, pady=5)
 
         self.kaleido_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(kaleido_frame, text="Enable Kaleidoscope",
+        ctk.CTkCheckBox(kaleido_frame, text="Enable Kaleidoscope",
                        variable=self.kaleido_var,
                        command=self.effect_changed).pack(anchor=tk.W)
 
         # Number of symmetry sections
-        sections_frame = ttk.Frame(kaleido_frame)
+        sections_frame = ctk.CTkFrame(kaleido_frame)
         sections_frame.pack(fill=tk.X, padx=20, pady=(5,0))
-        ttk.Label(sections_frame, text="Symmetry Sections:",
+        ctk.CTkLabel(sections_frame, text="Symmetry Sections:",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.kaleido_sections_label = ttk.Label(sections_frame, text="6",
+        self.kaleido_sections_label = ctk.CTkLabel(sections_frame, text="6",
                  font=('Arial', 8, 'bold'))
         self.kaleido_sections_label.pack(side=tk.RIGHT)
 
         self.kaleido_sections = tk.IntVar(value=6)
-        ttk.Scale(kaleido_frame, from_=2, to=12, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(kaleido_frame, from_=2, to=12, orient=tk.HORIZONTAL,
                  variable=self.kaleido_sections,
                  command=lambda v: self.kaleido_sections_label.config(text=f"{self.kaleido_sections.get():.0f}")).pack(fill=tk.X, padx=20)
 
         # Mirror option
         self.kaleido_mirror_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(kaleido_frame, text="Mirror Reflections",
+        ctk.CTkCheckBox(kaleido_frame, text="Mirror Reflections",
                        variable=self.kaleido_mirror_var,
                        command=self.effect_changed).pack(anchor=tk.W, padx=20)
 
-        ttk.Label(kaleido_frame, text="Creates symmetrical copies around center",
-                 font=('Arial', 7, 'italic'), foreground='gray').pack(anchor=tk.W, padx=20, pady=(5,0))
+        ctk.CTkLabel(kaleido_frame, text="Creates symmetrical copies around center",
+                 font=('Arial', 7, 'italic'), text_color='gray').pack(anchor=tk.W, padx=20, pady=(5,0))
 
-        ttk.Separator(effects_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(effects_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
         # Distortion/Clipping Effect
-        distortion_frame = ttk.LabelFrame(effects_frame, text="Distortion", padding="5")
+        distortion_frame = ctk.CTkFrame(effects_frame, text="Distortion")
         distortion_frame.pack(fill=tk.X, pady=5)
 
         self.distortion_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(distortion_frame, text="Enable Distortion",
+        ctk.CTkCheckBox(distortion_frame, text="Enable Distortion",
                        variable=self.distortion_var,
                        command=self.effect_changed).pack(anchor=tk.W)
 
         # Distortion type
-        dist_type_row = ttk.Frame(distortion_frame)
+        dist_type_row = ctk.CTkFrame(distortion_frame)
         dist_type_row.pack(fill=tk.X, padx=20, pady=5)
-        ttk.Label(dist_type_row, text="Type:", font=('Arial', 8)).pack(side=tk.LEFT, padx=(0, 10))
+        ctk.CTkLabel(dist_type_row, text="Type:", font=('Arial', 8)).pack(side=tk.LEFT, padx=(0, 10))
         self.distortion_type_var = tk.StringVar(value="soft")
-        ttk.Radiobutton(dist_type_row, text="Soft Clip", variable=self.distortion_type_var, value="soft").pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(dist_type_row, text="Hard Clip", variable=self.distortion_type_var, value="hard").pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(dist_type_row, text="Fold", variable=self.distortion_type_var, value="fold").pack(side=tk.LEFT, padx=5)
+        ctk.CTkRadioButton(dist_type_row, text="Soft Clip", variable=self.distortion_type_var, value="soft").pack(side=tk.LEFT, padx=5)
+        ctk.CTkRadioButton(dist_type_row, text="Hard Clip", variable=self.distortion_type_var, value="hard").pack(side=tk.LEFT, padx=5)
+        ctk.CTkRadioButton(dist_type_row, text="Fold", variable=self.distortion_type_var, value="fold").pack(side=tk.LEFT, padx=5)
 
         # Threshold control
-        threshold_frame = ttk.Frame(distortion_frame)
+        threshold_frame = ctk.CTkFrame(distortion_frame)
         threshold_frame.pack(fill=tk.X, padx=20)
-        ttk.Label(threshold_frame, text="Threshold:",
+        ctk.CTkLabel(threshold_frame, text="Threshold:",
                  font=('Arial', 8)).pack(side=tk.LEFT)
-        self.distortion_threshold_label = ttk.Label(threshold_frame, text="0.50",
+        self.distortion_threshold_label = ctk.CTkLabel(threshold_frame, text="0.50",
                  font=('Arial', 8, 'bold'))
         self.distortion_threshold_label.pack(side=tk.RIGHT)
 
         self.distortion_threshold = tk.DoubleVar(value=0.5)
-        ttk.Scale(distortion_frame, from_=0.1, to=2.0, orient=tk.HORIZONTAL,
+        ctk.CTkSlider(distortion_frame, from_=0.1, to=2.0, orient=tk.HORIZONTAL,
                  variable=self.distortion_threshold,
                  command=lambda v: self.distortion_threshold_label.config(text=f"{self.distortion_threshold.get():.2f}")).pack(fill=tk.X, padx=20)
 
         # === ACTION BUTTONS ===
-        button_frame = ttk.Frame(parent)
+        button_frame = ctk.CTkFrame(parent)
         button_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=10)
         row += 1
 
-        self.apply_btn = ttk.Button(button_frame, text="Apply & Generate",
+        self.apply_btn = ctk.CTkButton(button_frame, text="Apply & Generate",
                                     command=self.apply_parameters,
                                     style='Accent.TButton')
         self.apply_btn.pack(fill=tk.X, pady=2)
 
-        self.play_btn = ttk.Button(button_frame, text="▶ Play Audio",
+        self.play_btn = ctk.CTkButton(button_frame, text="▶ Play Audio",
                                    command=self.toggle_playback)
         self.play_btn.pack(fill=tk.X, pady=2)
 
-        ttk.Button(button_frame, text="Reset Effects",
+        ctk.CTkButton(button_frame, text="Reset Effects",
                   command=self.reset_effects).pack(fill=tk.X, pady=2)
 
-        ttk.Button(button_frame, text="Save to WAV",
+        ctk.CTkButton(button_frame, text="Save to WAV",
                   command=self.save_to_wav).pack(fill=tk.X, pady=2)
         
         # === STATUS ===
-        status_frame = ttk.LabelFrame(parent, text="Status", padding="5")
+        status_frame = ctk.CTkFrame(parent, text="Status")
         status_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
-        self.status_label = ttk.Label(status_frame, text="Ready", 
+        self.status_label = ctk.CTkLabel(status_frame, text="Ready", 
                                       wraplength=200, justify=tk.LEFT)
         self.status_label.pack(fill=tk.X)
         
         # Live Preview Toggle
-        ttk.Separator(status_frame, orient='horizontal').pack(fill=tk.X, pady=5)
+        ctk.CTkFrame(status_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=5)
 
-        ttk.Label(status_frame, text="Display Mode:",
+        ctk.CTkLabel(status_frame, text="Display Mode:",
                  font=('Arial', 9, 'bold')).pack(anchor=tk.W, pady=(5,2))
 
         self.live_preview_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(status_frame, text="Live Preview",
+        ctk.CTkCheckBox(status_frame, text="Live Preview",
                        variable=self.live_preview_var,
                        command=self.toggle_live_preview).pack(anchor=tk.W)
 
-        ttk.Label(status_frame, text="Shows real-time output during playback",
+        ctk.CTkLabel(status_frame, text="Shows real-time output during playback",
                  font=('Arial', 7, 'italic'),
-                 foreground='gray').pack(anchor=tk.W, padx=(20,0))
+                 text_color='gray').pack(anchor=tk.W, padx=(20,0))
 
         # Preview window size control
-        preview_control_frame = ttk.Frame(status_frame)
+        preview_control_frame = ctk.CTkFrame(status_frame)
         preview_control_frame.pack(fill=tk.X, pady=(5,0))
-        ttk.Label(preview_control_frame, text="Window Size:",
+        ctk.CTkLabel(preview_control_frame, text="Window Size:",
                  font=('Arial', 8)).pack(side=tk.LEFT, padx=(15,5))
         self.preview_size_var = tk.IntVar(value=5000)
-        self.preview_size_spin = ttk.Spinbox(preview_control_frame, from_=100, to=50000,
+        self.preview_size_spin = tk.Spinbox(preview_control_frame, from_=100, to=50000,
                                        width=8, textvariable=self.preview_size_var,
                                        command=self.update_preview_size)
         self.preview_size_spin.pack(side=tk.LEFT)
-        ttk.Label(preview_control_frame, text="samples",
+        ctk.CTkLabel(preview_control_frame, text="samples",
                  font=('Arial', 8)).pack(side=tk.LEFT, padx=(5,0))
 
         # Frame refresh rate control
-        fps_control_frame = ttk.Frame(status_frame)
+        fps_control_frame = ctk.CTkFrame(status_frame)
         fps_control_frame.pack(fill=tk.X, pady=(5,0))
-        ttk.Label(fps_control_frame, text="Frame Rate:",
+        ctk.CTkLabel(fps_control_frame, text="Frame Rate:",
                  font=('Arial', 8)).pack(side=tk.LEFT, padx=(15,5))
         self.fps_var = tk.IntVar(value=25)
-        self.fps_slider = ttk.Scale(fps_control_frame, from_=5, to=60,
+        self.fps_slider = ctk.CTkSlider(fps_control_frame, from_=5, to=60,
                                     orient=tk.HORIZONTAL, variable=self.fps_var,
                                     command=self.update_fps)
         self.fps_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        self.fps_label = ttk.Label(fps_control_frame, text="25 FPS",
+        self.fps_label = ctk.CTkLabel(fps_control_frame, text="25 FPS",
                                    font=('Arial', 8), width=7)
         self.fps_label.pack(side=tk.LEFT, padx=(0,5))
 
@@ -2113,17 +2116,17 @@ class OscilloscopeGUI:
         dialog.title("Select Test Pattern")
         dialog.geometry("380x550")
 
-        ttk.Label(dialog, text="Choose a parametric pattern:",
+        ctk.CTkLabel(dialog, text="Choose a parametric pattern:",
                  font=('Arial', 10, 'bold')).pack(pady=10)
 
         # Create frame for scrollable area
-        scroll_container = ttk.Frame(dialog)
+        scroll_container = ctk.CTkFrame(dialog)
         scroll_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
         # Create canvas with scrollbar - set explicit height to ensure scrollbar shows
         canvas = tk.Canvas(scroll_container, highlightthickness=0, height=400)
         scrollbar = ttk.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        scrollable_frame = ctk.CTkFrame(canvas)
 
         scrollable_frame.bind(
             "<Configure>",
@@ -2148,10 +2151,10 @@ class OscilloscopeGUI:
         }
 
         for category, pattern_names in categories.items():
-            ttk.Label(scrollable_frame, text=category,
+            ctk.CTkLabel(scrollable_frame, text=category,
                      font=('Arial', 9, 'bold')).pack(anchor=tk.W, padx=10, pady=(10, 5))
             for name in pattern_names:
-                ttk.Radiobutton(scrollable_frame, text=name, variable=selected,
+                ctk.CTkRadioButton(scrollable_frame, text=name, variable=selected,
                                value=name).pack(anchor=tk.W, padx=30)
 
         canvas.pack(side="left", fill="both", expand=True)
@@ -2163,7 +2166,7 @@ class OscilloscopeGUI:
         canvas.bind("<MouseWheel>", on_mousewheel)
 
         # Button frame at bottom (always visible)
-        button_frame = ttk.Frame(dialog)
+        button_frame = ctk.CTkFrame(dialog)
         button_frame.pack(fill=tk.X, padx=10, pady=10)
 
         def apply():
@@ -2187,8 +2190,8 @@ class OscilloscopeGUI:
             self.status_label.config(text=f"Generated {pattern_name} pattern")
             dialog.destroy()
 
-        ttk.Button(button_frame, text="Generate Pattern", command=apply).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ctk.CTkButton(button_frame, text="Generate Pattern", command=apply).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
+        ctk.CTkButton(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
 
     def open_drawing_canvas(self):
         """Open a canvas for drawing custom patterns"""
@@ -2197,15 +2200,15 @@ class OscilloscopeGUI:
         dialog.geometry("550x650")
 
         # Instructions
-        instruction_frame = ttk.Frame(dialog)
+        instruction_frame = ctk.CTkFrame(dialog)
         instruction_frame.pack(pady=10)
-        ttk.Label(instruction_frame, text="Draw your pattern below:",
+        ctk.CTkLabel(instruction_frame, text="Draw your pattern below:",
                  font=('Arial', 10, 'bold')).pack()
-        ttk.Label(instruction_frame, text="Click and drag to draw • The path will be traced in order",
-                 font=('Arial', 8), foreground='gray').pack()
+        ctk.CTkLabel(instruction_frame, text="Click and drag to draw • The path will be traced in order",
+                 font=('Arial', 8), text_color='gray').pack()
 
         # Drawing canvas (square aspect ratio to match oscilloscope display)
-        canvas_frame = ttk.Frame(dialog)
+        canvas_frame = ctk.CTkFrame(dialog)
         canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         canvas = tk.Canvas(canvas_frame, width=500, height=500, bg='white',
@@ -2284,14 +2287,14 @@ class OscilloscopeGUI:
         canvas.bind("<ButtonRelease-1>", stop_drawing)
 
         # Button frame
-        button_frame = ttk.Frame(dialog)
+        button_frame = ctk.CTkFrame(dialog)
         button_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        ttk.Button(button_frame, text="Clear", command=clear_canvas).pack(
+        ctk.CTkButton(button_frame, text="Clear", command=clear_canvas).pack(
             side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Apply Drawing", command=apply_drawing).pack(
+        ctk.CTkButton(button_frame, text="Apply Drawing", command=apply_drawing).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+        ctk.CTkButton(button_frame, text="Cancel", command=dialog.destroy).pack(
             side=tk.LEFT, padx=5)
 
     def open_harmonic_sum(self):
@@ -2301,15 +2304,15 @@ class OscilloscopeGUI:
         dialog.geometry("700x600")
 
         # Instructions
-        instruction_frame = ttk.Frame(dialog)
+        instruction_frame = ctk.CTkFrame(dialog)
         instruction_frame.pack(pady=10, padx=10, fill=tk.X)
-        ttk.Label(instruction_frame, text="Create pattern from sum of sinusoidal terms",
+        ctk.CTkLabel(instruction_frame, text="Create pattern from sum of sinusoidal terms",
                  font=('Arial', 10, 'bold')).pack()
-        ttk.Label(instruction_frame, text="X(t) = Σ A_n·sin(ω_n·t + φ_n)  or  A_n·cos(ω_n·t + φ_n)",
-                 font=('Arial', 8), foreground='gray').pack()
+        ctk.CTkLabel(instruction_frame, text="X(t) = Σ A_n·sin(ω_n·t + φ_n)  or  A_n·cos(ω_n·t + φ_n)",
+                 font=('Arial', 8), text_color='gray').pack()
 
         # Main container with two columns
-        main_frame = ttk.Frame(dialog)
+        main_frame = ctk.CTkFrame(dialog)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Storage for terms
@@ -2319,13 +2322,13 @@ class OscilloscopeGUI:
         y_terms = []
 
         # X Channel (Left)
-        x_frame = ttk.LabelFrame(main_frame, text="X Channel (Left)", padding="10")
+        x_frame = ctk.CTkFrame(main_frame, text="X Channel (Left)")
         x_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
         # X terms display
         x_canvas = tk.Canvas(x_frame, height=300, highlightthickness=1, highlightbackground='gray')
         x_scrollbar = ttk.Scrollbar(x_frame, orient="vertical", command=x_canvas.yview)
-        x_scrollable = ttk.Frame(x_canvas)
+        x_scrollable = ctk.CTkFrame(x_canvas)
 
         x_scrollable.bind("<Configure>", lambda e: x_canvas.configure(scrollregion=x_canvas.bbox("all")))
         x_canvas.create_window((0, 0), window=x_scrollable, anchor="nw")
@@ -2335,13 +2338,13 @@ class OscilloscopeGUI:
         x_scrollbar.pack(side="right", fill="y")
 
         # Y Channel (Right)
-        y_frame = ttk.LabelFrame(main_frame, text="Y Channel (Right)", padding="10")
+        y_frame = ctk.CTkFrame(main_frame, text="Y Channel (Right)")
         y_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
 
         # Y terms display
         y_canvas = tk.Canvas(y_frame, height=300, highlightthickness=1, highlightbackground='gray')
         y_scrollbar = ttk.Scrollbar(y_frame, orient="vertical", command=y_canvas.yview)
-        y_scrollable = ttk.Frame(y_canvas)
+        y_scrollable = ctk.CTkFrame(y_canvas)
 
         y_scrollable.bind("<Configure>", lambda e: y_canvas.configure(scrollregion=y_canvas.bbox("all")))
         y_canvas.create_window((0, 0), window=y_scrollable, anchor="nw")
@@ -2393,11 +2396,11 @@ class OscilloscopeGUI:
                 widget.destroy()
 
             if not x_terms:
-                ttk.Label(x_scrollable, text="No terms added yet",
-                         font=('Arial', 8, 'italic'), foreground='gray').pack(pady=10)
+                ctk.CTkLabel(x_scrollable, text="No terms added yet",
+                         font=('Arial', 8, 'italic'), text_color='gray').pack(pady=10)
             else:
                 for i, term in enumerate(x_terms):
-                    term_frame = ttk.Frame(x_scrollable, relief='solid', borderwidth=1)
+                    term_frame = ctk.CTkFrame(x_scrollable, relief='solid', borderwidth=1)
                     term_frame.pack(fill=tk.X, pady=2, padx=2)
 
                     # Term label
@@ -2408,7 +2411,7 @@ class OscilloscopeGUI:
                         if term.get('phase_start', 0) != 0:
                             term_text += f" + {term['phase_start']:.2f}"
                     term_text += ")"
-                    ttk.Label(term_frame, text=f"Term {i+1}: {term_text}",
+                    ctk.CTkLabel(term_frame, text=f"Term {i+1}: {term_text}",
                              font=('Arial', 8)).pack(side=tk.LEFT, padx=5, pady=2)
 
                     # Remove button
@@ -2417,7 +2420,7 @@ class OscilloscopeGUI:
                         refresh_x_display()
                         update_preview()
 
-                    ttk.Button(term_frame, text="✕", width=3,
+                    ctk.CTkButton(term_frame, text="✕", width=3,
                               command=remove_x_term).pack(side=tk.RIGHT, padx=2, pady=2)
 
         def refresh_y_display():
@@ -2426,11 +2429,11 @@ class OscilloscopeGUI:
                 widget.destroy()
 
             if not y_terms:
-                ttk.Label(y_scrollable, text="No terms added yet",
-                         font=('Arial', 8, 'italic'), foreground='gray').pack(pady=10)
+                ctk.CTkLabel(y_scrollable, text="No terms added yet",
+                         font=('Arial', 8, 'italic'), text_color='gray').pack(pady=10)
             else:
                 for i, term in enumerate(y_terms):
-                    term_frame = ttk.Frame(y_scrollable, relief='solid', borderwidth=1)
+                    term_frame = ctk.CTkFrame(y_scrollable, relief='solid', borderwidth=1)
                     term_frame.pack(fill=tk.X, pady=2, padx=2)
 
                     # Term label
@@ -2441,7 +2444,7 @@ class OscilloscopeGUI:
                         if term.get('phase_start', 0) != 0:
                             term_text += f" + {term['phase_start']:.2f}"
                     term_text += ")"
-                    ttk.Label(term_frame, text=f"Term {i+1}: {term_text}",
+                    ctk.CTkLabel(term_frame, text=f"Term {i+1}: {term_text}",
                              font=('Arial', 8)).pack(side=tk.LEFT, padx=5, pady=2)
 
                     # Remove button
@@ -2450,71 +2453,71 @@ class OscilloscopeGUI:
                         refresh_y_display()
                         update_preview()
 
-                    ttk.Button(term_frame, text="✕", width=3,
+                    ctk.CTkButton(term_frame, text="✕", width=3,
                               command=remove_y_term).pack(side=tk.RIGHT, padx=2, pady=2)
 
         # Add term controls for X
-        x_add_frame = ttk.LabelFrame(x_frame, text="Add Term", padding="5")
+        x_add_frame = ctk.CTkFrame(x_frame, text="Add Term")
         x_add_frame.pack(fill=tk.X, pady=(10, 0))
 
         # Row 1: Type selection
-        x_type_row = ttk.Frame(x_add_frame)
+        x_type_row = ctk.CTkFrame(x_add_frame)
         x_type_row.pack(fill=tk.X, pady=2)
         x_type_var = tk.StringVar(value="sin")
-        ttk.Radiobutton(x_type_row, text="sin", variable=x_type_var, value="sin").pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(x_type_row, text="cos", variable=x_type_var, value="cos").pack(side=tk.LEFT, padx=5)
+        ctk.CTkRadioButton(x_type_row, text="sin", variable=x_type_var, value="sin").pack(side=tk.LEFT, padx=5)
+        ctk.CTkRadioButton(x_type_row, text="cos", variable=x_type_var, value="cos").pack(side=tk.LEFT, padx=5)
 
         # Row 2: Parameters
-        x_param_row = ttk.Frame(x_add_frame)
+        x_param_row = ctk.CTkFrame(x_add_frame)
         x_param_row.pack(fill=tk.X, pady=2)
-        ttk.Label(x_param_row, text="A:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(x_param_row, text="A:").pack(side=tk.LEFT, padx=(5, 2))
         x_amp_var = tk.DoubleVar(value=1.0)
-        ttk.Entry(x_param_row, textvariable=x_amp_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(x_param_row, textvariable=x_amp_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(x_param_row, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(x_param_row, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
         x_freq_var = tk.DoubleVar(value=1.0)
-        ttk.Entry(x_param_row, textvariable=x_freq_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(x_param_row, textvariable=x_freq_var, width=8).pack(side=tk.LEFT, padx=2)
 
         # Row 3: Phase sweep options
         x_phase_sweep_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(x_add_frame, text="Phase Sweep",
+        ctk.CTkCheckBox(x_add_frame, text="Phase Sweep",
                        variable=x_phase_sweep_var).pack(anchor=tk.W, pady=2)
 
-        x_phase_row = ttk.Frame(x_add_frame)
+        x_phase_row = ctk.CTkFrame(x_add_frame)
         x_phase_row.pack(fill=tk.X, pady=2)
-        ttk.Label(x_phase_row, text="φ start:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(x_phase_row, text="φ start:").pack(side=tk.LEFT, padx=(5, 2))
         x_phase_start_var = tk.DoubleVar(value=0.0)
-        ttk.Entry(x_phase_row, textvariable=x_phase_start_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(x_phase_row, textvariable=x_phase_start_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(x_phase_row, text="φ end:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(x_phase_row, text="φ end:").pack(side=tk.LEFT, padx=(5, 2))
         x_phase_end_var = tk.DoubleVar(value=6.28)  # 2π
-        ttk.Entry(x_phase_row, textvariable=x_phase_end_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(x_phase_row, textvariable=x_phase_end_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(x_phase_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(x_phase_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
         x_sweep_steps_var = tk.IntVar(value=20)
-        ttk.Entry(x_phase_row, textvariable=x_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(x_phase_row, textvariable=x_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
 
         # Frequency sweep options
         x_freq_sweep_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(x_add_frame, text="Frequency Sweep",
+        ctk.CTkCheckBox(x_add_frame, text="Frequency Sweep",
                        variable=x_freq_sweep_var).pack(anchor=tk.W, pady=2)
 
-        x_freq_sweep_row = ttk.Frame(x_add_frame)
+        x_freq_sweep_row = ctk.CTkFrame(x_add_frame)
         x_freq_sweep_row.pack(fill=tk.X, pady=2)
-        ttk.Label(x_freq_sweep_row, text="ω start:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(x_freq_sweep_row, text="ω start:").pack(side=tk.LEFT, padx=(5, 2))
         x_freq_start_var = tk.DoubleVar(value=1.0)
-        ttk.Entry(x_freq_sweep_row, textvariable=x_freq_start_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(x_freq_sweep_row, textvariable=x_freq_start_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(x_freq_sweep_row, text="ω end:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(x_freq_sweep_row, text="ω end:").pack(side=tk.LEFT, padx=(5, 2))
         x_freq_end_var = tk.DoubleVar(value=5.0)
-        ttk.Entry(x_freq_sweep_row, textvariable=x_freq_end_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(x_freq_sweep_row, textvariable=x_freq_end_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(x_freq_sweep_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(x_freq_sweep_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
         x_freq_sweep_steps_var = tk.IntVar(value=20)
-        ttk.Entry(x_freq_sweep_row, textvariable=x_freq_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(x_freq_sweep_row, textvariable=x_freq_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
 
         # Row 4: Add button
-        x_button_row = ttk.Frame(x_add_frame)
+        x_button_row = ctk.CTkFrame(x_add_frame)
         x_button_row.pack(fill=tk.X, pady=(5, 0))
 
         def add_x_term():
@@ -2534,70 +2537,70 @@ class OscilloscopeGUI:
             refresh_x_display()
             update_preview()
 
-        ttk.Button(x_button_row, text="Add Term to X Channel", command=add_x_term).pack(fill=tk.X, padx=5)
+        ctk.CTkButton(x_button_row, text="Add Term to X Channel", command=add_x_term).pack(fill=tk.X, padx=5)
 
         # Add term controls for Y
-        y_add_frame = ttk.LabelFrame(y_frame, text="Add Term", padding="5")
+        y_add_frame = ctk.CTkFrame(y_frame, text="Add Term")
         y_add_frame.pack(fill=tk.X, pady=(10, 0))
 
         # Row 1: Type selection
-        y_type_row = ttk.Frame(y_add_frame)
+        y_type_row = ctk.CTkFrame(y_add_frame)
         y_type_row.pack(fill=tk.X, pady=2)
         y_type_var = tk.StringVar(value="sin")
-        ttk.Radiobutton(y_type_row, text="sin", variable=y_type_var, value="sin").pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(y_type_row, text="cos", variable=y_type_var, value="cos").pack(side=tk.LEFT, padx=5)
+        ctk.CTkRadioButton(y_type_row, text="sin", variable=y_type_var, value="sin").pack(side=tk.LEFT, padx=5)
+        ctk.CTkRadioButton(y_type_row, text="cos", variable=y_type_var, value="cos").pack(side=tk.LEFT, padx=5)
 
         # Row 2: Parameters
-        y_param_row = ttk.Frame(y_add_frame)
+        y_param_row = ctk.CTkFrame(y_add_frame)
         y_param_row.pack(fill=tk.X, pady=2)
-        ttk.Label(y_param_row, text="A:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(y_param_row, text="A:").pack(side=tk.LEFT, padx=(5, 2))
         y_amp_var = tk.DoubleVar(value=1.0)
-        ttk.Entry(y_param_row, textvariable=y_amp_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(y_param_row, textvariable=y_amp_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(y_param_row, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(y_param_row, text="ω:").pack(side=tk.LEFT, padx=(5, 2))
         y_freq_var = tk.DoubleVar(value=1.0)
-        ttk.Entry(y_param_row, textvariable=y_freq_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(y_param_row, textvariable=y_freq_var, width=8).pack(side=tk.LEFT, padx=2)
 
         # Row 3: Phase sweep options
         y_phase_sweep_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(y_add_frame, text="Phase Sweep",
+        ctk.CTkCheckBox(y_add_frame, text="Phase Sweep",
                        variable=y_phase_sweep_var).pack(anchor=tk.W, pady=2)
 
-        y_phase_row = ttk.Frame(y_add_frame)
+        y_phase_row = ctk.CTkFrame(y_add_frame)
         y_phase_row.pack(fill=tk.X, pady=2)
-        ttk.Label(y_phase_row, text="φ start:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(y_phase_row, text="φ start:").pack(side=tk.LEFT, padx=(5, 2))
         y_phase_start_var = tk.DoubleVar(value=0.0)
-        ttk.Entry(y_phase_row, textvariable=y_phase_start_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(y_phase_row, textvariable=y_phase_start_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(y_phase_row, text="φ end:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(y_phase_row, text="φ end:").pack(side=tk.LEFT, padx=(5, 2))
         y_phase_end_var = tk.DoubleVar(value=6.28)  # 2π
-        ttk.Entry(y_phase_row, textvariable=y_phase_end_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(y_phase_row, textvariable=y_phase_end_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(y_phase_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(y_phase_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
         y_sweep_steps_var = tk.IntVar(value=20)
-        ttk.Entry(y_phase_row, textvariable=y_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(y_phase_row, textvariable=y_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
 
         # Frequency sweep options
         y_freq_sweep_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(y_add_frame, text="Frequency Sweep",
+        ctk.CTkCheckBox(y_add_frame, text="Frequency Sweep",
                        variable=y_freq_sweep_var).pack(anchor=tk.W, pady=2)
 
-        y_freq_sweep_row = ttk.Frame(y_add_frame)
+        y_freq_sweep_row = ctk.CTkFrame(y_add_frame)
         y_freq_sweep_row.pack(fill=tk.X, pady=2)
-        ttk.Label(y_freq_sweep_row, text="ω start:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(y_freq_sweep_row, text="ω start:").pack(side=tk.LEFT, padx=(5, 2))
         y_freq_start_var = tk.DoubleVar(value=1.0)
-        ttk.Entry(y_freq_sweep_row, textvariable=y_freq_start_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(y_freq_sweep_row, textvariable=y_freq_start_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(y_freq_sweep_row, text="ω end:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(y_freq_sweep_row, text="ω end:").pack(side=tk.LEFT, padx=(5, 2))
         y_freq_end_var = tk.DoubleVar(value=5.0)
-        ttk.Entry(y_freq_sweep_row, textvariable=y_freq_end_var, width=8).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(y_freq_sweep_row, textvariable=y_freq_end_var, width=8).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(y_freq_sweep_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
+        ctk.CTkLabel(y_freq_sweep_row, text="steps:").pack(side=tk.LEFT, padx=(5, 2))
         y_freq_sweep_steps_var = tk.IntVar(value=20)
-        ttk.Entry(y_freq_sweep_row, textvariable=y_freq_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
+        ctk.CTkEntry(y_freq_sweep_row, textvariable=y_freq_sweep_steps_var, width=6).pack(side=tk.LEFT, padx=2)
 
         # Row 4: Add button
-        y_button_row = ttk.Frame(y_add_frame)
+        y_button_row = ctk.CTkFrame(y_add_frame)
         y_button_row.pack(fill=tk.X, pady=(5, 0))
 
         def add_y_term():
@@ -2617,7 +2620,7 @@ class OscilloscopeGUI:
             refresh_y_display()
             update_preview()
 
-        ttk.Button(y_button_row, text="Add Term to Y Channel", command=add_y_term).pack(fill=tk.X, padx=5)
+        ctk.CTkButton(y_button_row, text="Add Term to Y Channel", command=add_y_term).pack(fill=tk.X, padx=5)
 
         # Initialize displays
         refresh_x_display()
@@ -2763,12 +2766,12 @@ class OscilloscopeGUI:
             self.apply_parameters()
 
         # Button frame
-        button_frame = ttk.Frame(dialog)
+        button_frame = ctk.CTkFrame(dialog)
         button_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        ttk.Button(button_frame, text="Apply & Generate", command=apply_harmonic_sum).pack(
+        ctk.CTkButton(button_frame, text="Apply & Generate", command=apply_harmonic_sum).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+        ctk.CTkButton(button_frame, text="Cancel", command=dialog.destroy).pack(
             side=tk.LEFT, padx=5)
 
     def open_archimedean_spiral(self):
@@ -2778,143 +2781,143 @@ class OscilloscopeGUI:
         dialog.geometry("600x600")
 
         # Instructions
-        instruction_frame = ttk.Frame(dialog)
+        instruction_frame = ctk.CTkFrame(dialog)
         instruction_frame.pack(pady=10, padx=10, fill=tk.X)
-        ttk.Label(instruction_frame, text="Create Archimedean Spiral Pattern",
+        ctk.CTkLabel(instruction_frame, text="Create Archimedean Spiral Pattern",
                  font=('Arial', 10, 'bold')).pack()
-        ttk.Label(instruction_frame, text="X(t) = a·t·sin(b·t)    Y(t) = a·t·cos(b·t)",
-                 font=('Arial', 8), foreground='gray').pack()
+        ctk.CTkLabel(instruction_frame, text="X(t) = a·t·sin(b·t)    Y(t) = a·t·cos(b·t)",
+                 font=('Arial', 8), text_color='gray').pack()
 
         # Main container with two columns
-        main_frame = ttk.Frame(dialog)
+        main_frame = ctk.CTkFrame(dialog)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # X Channel (Left)
-        x_frame = ttk.LabelFrame(main_frame, text="X Channel (Left)", padding="10")
+        x_frame = ctk.CTkFrame(main_frame, text="X Channel (Left)")
         x_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
         # X parameters
-        x_params_frame = ttk.Frame(x_frame)
+        x_params_frame = ctk.CTkFrame(x_frame)
         x_params_frame.pack(fill=tk.X, pady=10)
 
-        ttk.Label(x_params_frame, text="Parameter 'a' (amplitude):").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ctk.CTkLabel(x_params_frame, text="Parameter 'a' (amplitude):").grid(row=0, column=0, sticky=tk.W, pady=5)
         x_a_var = tk.DoubleVar(value=1.0)
-        x_a_scale = ttk.Scale(x_params_frame, from_=0.1, to=5.0, variable=x_a_var, orient=tk.HORIZONTAL)
+        x_a_scale = ctk.CTkSlider(x_params_frame, from_=0.1, to=5.0, variable=x_a_var, orient=tk.HORIZONTAL)
         x_a_scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
-        x_a_entry = ttk.Entry(x_params_frame, textvariable=x_a_var, width=10)
+        x_a_entry = ctk.CTkEntry(x_params_frame, textvariable=x_a_var, width=10)
         x_a_entry.grid(row=0, column=2, padx=5)
 
-        ttk.Label(x_params_frame, text="Parameter 'b' (frequency):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ctk.CTkLabel(x_params_frame, text="Parameter 'b' (frequency):").grid(row=1, column=0, sticky=tk.W, pady=5)
         x_b_var = tk.DoubleVar(value=1.0)
-        x_b_scale = ttk.Scale(x_params_frame, from_=0.1, to=10.0, variable=x_b_var, orient=tk.HORIZONTAL)
+        x_b_scale = ctk.CTkSlider(x_params_frame, from_=0.1, to=10.0, variable=x_b_var, orient=tk.HORIZONTAL)
         x_b_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
-        x_b_entry = ttk.Entry(x_params_frame, textvariable=x_b_var, width=10)
+        x_b_entry = ctk.CTkEntry(x_params_frame, textvariable=x_b_var, width=10)
         x_b_entry.grid(row=1, column=2, padx=5)
 
         x_params_frame.columnconfigure(1, weight=1)
 
         # X frequency sweep option
         x_sweep_enabled_var = tk.BooleanVar(value=False)
-        x_sweep_check = ttk.Checkbutton(x_frame, text="Enable Frequency Sweep",
+        x_sweep_check = ctk.CTkCheckBox(x_frame, text="Enable Frequency Sweep",
                                         variable=x_sweep_enabled_var)
         x_sweep_check.pack(anchor=tk.W, pady=5)
 
-        x_sweep_frame = ttk.Frame(x_frame)
+        x_sweep_frame = ctk.CTkFrame(x_frame)
         x_sweep_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Label(x_sweep_frame, text="Start Freq:").grid(row=0, column=0, sticky=tk.W, padx=5)
+        ctk.CTkLabel(x_sweep_frame, text="Start Freq:").grid(row=0, column=0, sticky=tk.W, padx=5)
         x_sweep_start_var = tk.DoubleVar(value=0.1)
-        ttk.Entry(x_sweep_frame, textvariable=x_sweep_start_var, width=8).grid(row=0, column=1, padx=5)
+        ctk.CTkEntry(x_sweep_frame, textvariable=x_sweep_start_var, width=8).grid(row=0, column=1, padx=5)
 
-        ttk.Label(x_sweep_frame, text="End Freq:").grid(row=0, column=2, sticky=tk.W, padx=5)
+        ctk.CTkLabel(x_sweep_frame, text="End Freq:").grid(row=0, column=2, sticky=tk.W, padx=5)
         x_sweep_end_var = tk.DoubleVar(value=10.0)
-        ttk.Entry(x_sweep_frame, textvariable=x_sweep_end_var, width=8).grid(row=0, column=3, padx=5)
+        ctk.CTkEntry(x_sweep_frame, textvariable=x_sweep_end_var, width=8).grid(row=0, column=3, padx=5)
 
         # X formula display
-        x_formula_label = ttk.Label(x_frame, text="", font=('Arial', 9, 'italic'), foreground='blue')
+        x_formula_label = ctk.CTkLabel(x_frame, text="", font=('Arial', 9, 'italic'), text_color='blue')
         x_formula_label.pack(pady=10)
 
         # Y Channel (Right)
-        y_frame = ttk.LabelFrame(main_frame, text="Y Channel (Right)", padding="10")
+        y_frame = ctk.CTkFrame(main_frame, text="Y Channel (Right)")
         y_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
 
         # Y parameters
-        y_params_frame = ttk.Frame(y_frame)
+        y_params_frame = ctk.CTkFrame(y_frame)
         y_params_frame.pack(fill=tk.X, pady=10)
 
-        ttk.Label(y_params_frame, text="Parameter 'a' (amplitude):").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ctk.CTkLabel(y_params_frame, text="Parameter 'a' (amplitude):").grid(row=0, column=0, sticky=tk.W, pady=5)
         y_a_var = tk.DoubleVar(value=1.0)
-        y_a_scale = ttk.Scale(y_params_frame, from_=0.1, to=5.0, variable=y_a_var, orient=tk.HORIZONTAL)
+        y_a_scale = ctk.CTkSlider(y_params_frame, from_=0.1, to=5.0, variable=y_a_var, orient=tk.HORIZONTAL)
         y_a_scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
-        y_a_entry = ttk.Entry(y_params_frame, textvariable=y_a_var, width=10)
+        y_a_entry = ctk.CTkEntry(y_params_frame, textvariable=y_a_var, width=10)
         y_a_entry.grid(row=0, column=2, padx=5)
 
-        ttk.Label(y_params_frame, text="Parameter 'b' (frequency):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ctk.CTkLabel(y_params_frame, text="Parameter 'b' (frequency):").grid(row=1, column=0, sticky=tk.W, pady=5)
         y_b_var = tk.DoubleVar(value=1.0)
-        y_b_scale = ttk.Scale(y_params_frame, from_=0.1, to=10.0, variable=y_b_var, orient=tk.HORIZONTAL)
+        y_b_scale = ctk.CTkSlider(y_params_frame, from_=0.1, to=10.0, variable=y_b_var, orient=tk.HORIZONTAL)
         y_b_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
-        y_b_entry = ttk.Entry(y_params_frame, textvariable=y_b_var, width=10)
+        y_b_entry = ctk.CTkEntry(y_params_frame, textvariable=y_b_var, width=10)
         y_b_entry.grid(row=1, column=2, padx=5)
 
         y_params_frame.columnconfigure(1, weight=1)
 
         # Y frequency sweep option
         y_sweep_enabled_var = tk.BooleanVar(value=False)
-        y_sweep_check = ttk.Checkbutton(y_frame, text="Enable Frequency Sweep",
+        y_sweep_check = ctk.CTkCheckBox(y_frame, text="Enable Frequency Sweep",
                                         variable=y_sweep_enabled_var)
         y_sweep_check.pack(anchor=tk.W, pady=5)
 
-        y_sweep_frame = ttk.Frame(y_frame)
+        y_sweep_frame = ctk.CTkFrame(y_frame)
         y_sweep_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Label(y_sweep_frame, text="Start Freq:").grid(row=0, column=0, sticky=tk.W, padx=5)
+        ctk.CTkLabel(y_sweep_frame, text="Start Freq:").grid(row=0, column=0, sticky=tk.W, padx=5)
         y_sweep_start_var = tk.DoubleVar(value=0.1)
-        ttk.Entry(y_sweep_frame, textvariable=y_sweep_start_var, width=8).grid(row=0, column=1, padx=5)
+        ctk.CTkEntry(y_sweep_frame, textvariable=y_sweep_start_var, width=8).grid(row=0, column=1, padx=5)
 
-        ttk.Label(y_sweep_frame, text="End Freq:").grid(row=0, column=2, sticky=tk.W, padx=5)
+        ctk.CTkLabel(y_sweep_frame, text="End Freq:").grid(row=0, column=2, sticky=tk.W, padx=5)
         y_sweep_end_var = tk.DoubleVar(value=10.0)
-        ttk.Entry(y_sweep_frame, textvariable=y_sweep_end_var, width=8).grid(row=0, column=3, padx=5)
+        ctk.CTkEntry(y_sweep_frame, textvariable=y_sweep_end_var, width=8).grid(row=0, column=3, padx=5)
 
         # Y formula display
-        y_formula_label = ttk.Label(y_frame, text="", font=('Arial', 9, 'italic'), foreground='blue')
+        y_formula_label = ctk.CTkLabel(y_frame, text="", font=('Arial', 9, 'italic'), text_color='blue')
         y_formula_label.pack(pady=10)
 
         # Chaser Effect Options
-        chaser_frame = ttk.LabelFrame(dialog, text="Chaser Effect (Optional)", padding="10")
+        chaser_frame = ctk.CTkFrame(dialog, text="Chaser Effect (Optional)")
         chaser_frame.pack(fill=tk.X, padx=10, pady=10)
 
         # Enable chaser checkbox
         chaser_enabled_var = tk.BooleanVar(value=False)
-        chaser_check = ttk.Checkbutton(chaser_frame, text="Enable Chaser Effect",
+        chaser_check = ctk.CTkCheckBox(chaser_frame, text="Enable Chaser Effect",
                                        variable=chaser_enabled_var)
         chaser_check.pack(anchor=tk.W, pady=5)
 
         # Chaser parameters frame
-        chaser_params_frame = ttk.Frame(chaser_frame)
+        chaser_params_frame = ctk.CTkFrame(chaser_frame)
         chaser_params_frame.pack(fill=tk.X, pady=5)
 
         # Trail length parameter (number of points)
-        ttk.Label(chaser_params_frame, text="Trail Length (points):").grid(row=0, column=0, sticky=tk.W, pady=5, padx=5)
+        ctk.CTkLabel(chaser_params_frame, text="Trail Length (points):").grid(row=0, column=0, sticky=tk.W, pady=5, padx=5)
         trail_length_var = tk.IntVar(value=100)
-        trail_scale = ttk.Scale(chaser_params_frame, from_=5, to=500, variable=trail_length_var, orient=tk.HORIZONTAL)
+        trail_scale = ctk.CTkSlider(chaser_params_frame, from_=5, to=500, variable=trail_length_var, orient=tk.HORIZONTAL)
         trail_scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
-        trail_entry = ttk.Entry(chaser_params_frame, textvariable=trail_length_var, width=10)
+        trail_entry = ctk.CTkEntry(chaser_params_frame, textvariable=trail_length_var, width=10)
         trail_entry.grid(row=0, column=2, padx=5)
 
         # Point repetitions parameter (controls speed)
-        ttk.Label(chaser_params_frame, text="Point Repetitions (speed):").grid(row=1, column=0, sticky=tk.W, pady=5, padx=5)
+        ctk.CTkLabel(chaser_params_frame, text="Point Repetitions (speed):").grid(row=1, column=0, sticky=tk.W, pady=5, padx=5)
         point_reps_var = tk.IntVar(value=10)
-        reps_scale = ttk.Scale(chaser_params_frame, from_=1, to=100, variable=point_reps_var, orient=tk.HORIZONTAL)
+        reps_scale = ctk.CTkSlider(chaser_params_frame, from_=1, to=100, variable=point_reps_var, orient=tk.HORIZONTAL)
         reps_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
-        reps_entry = ttk.Entry(chaser_params_frame, textvariable=point_reps_var, width=10)
+        reps_entry = ctk.CTkEntry(chaser_params_frame, textvariable=point_reps_var, width=10)
         reps_entry.grid(row=1, column=2, padx=5)
 
         chaser_params_frame.columnconfigure(1, weight=1)
 
         # Info label
-        chaser_info = ttk.Label(chaser_frame,
+        chaser_info = ctk.CTkLabel(chaser_frame,
                                text="Higher repetitions = slower movement. Each point repeated N times.",
-                               font=('Arial', 8, 'italic'), foreground='gray')
+                               font=('Arial', 8, 'italic'), text_color='gray')
         chaser_info.pack(pady=5)
 
         def update_formula_labels():
@@ -3065,12 +3068,12 @@ class OscilloscopeGUI:
             self.apply_parameters()
 
         # Button frame
-        button_frame = ttk.Frame(dialog)
+        button_frame = ctk.CTkFrame(dialog)
         button_frame.pack(fill=tk.X, padx=10, pady=10)
 
-        ttk.Button(button_frame, text="Apply & Generate", command=apply_spiral).pack(
+        ctk.CTkButton(button_frame, text="Apply & Generate", command=apply_spiral).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
+        ctk.CTkButton(button_frame, text="Cancel", command=dialog.destroy).pack(
             side=tk.LEFT, padx=5)
 
     def open_sound_pad(self):
@@ -3105,17 +3108,17 @@ class OscilloscopeGUI:
                       261.63, 277.18, 293.66, 311.13]  # C4, C#4, D4, D#4
 
         # Main container
-        main_frame = ttk.Frame(dialog)
+        main_frame = ctk.CTkFrame(dialog)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Left panel: Pad grid
-        left_panel = ttk.Frame(main_frame)
+        left_panel = ctk.CTkFrame(main_frame)
         left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
 
-        ttk.Label(left_panel, text="Sound Pad Grid", font=('Arial', 12, 'bold')).pack(pady=(0, 10))
+        ctk.CTkLabel(left_panel, text="Sound Pad Grid", font=('Arial', 12, 'bold')).pack(pady=(0, 10))
 
         # Create 4x4 grid of pads
-        pad_grid = ttk.Frame(left_panel)
+        pad_grid = ctk.CTkFrame(left_panel)
         pad_grid.pack(fill=tk.BOTH, expand=True)
 
         pad_buttons = {}
@@ -3282,11 +3285,11 @@ class OscilloscopeGUI:
             pad_grid.columnconfigure(i, weight=1)
 
         # Right panel: Controls
-        right_panel = ttk.Frame(main_frame)
+        right_panel = ctk.CTkFrame(main_frame)
         right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(10, 0))
 
         # Instrument selection
-        instrument_frame = ttk.LabelFrame(right_panel, text="Instrument", padding="10")
+        instrument_frame = ctk.CTkFrame(right_panel, text="Instrument")
         instrument_frame.pack(fill=tk.X, pady=(0, 10))
 
         instruments = [("Sine Wave", "sine"),
@@ -3303,39 +3306,39 @@ class OscilloscopeGUI:
                       ("Tom Drum", "tom")]
 
         for name, value in instruments:
-            ttk.Radiobutton(instrument_frame, text=name,
+            ctk.CTkRadioButton(instrument_frame, text=name,
                           variable=current_instrument,
                           value=value).pack(anchor=tk.W, pady=2)
 
         # Warp control
-        warp_frame = ttk.LabelFrame(right_panel, text="Warp Effect", padding="10")
+        warp_frame = ctk.CTkFrame(right_panel, text="Warp Effect")
         warp_frame.pack(fill=tk.X, pady=(0, 10))
 
-        warp_label_frame = ttk.Frame(warp_frame)
+        warp_label_frame = ctk.CTkFrame(warp_frame)
         warp_label_frame.pack(fill=tk.X)
-        ttk.Label(warp_label_frame, text="Warp Amount:").pack(side=tk.LEFT)
-        warp_value_label = ttk.Label(warp_label_frame, text="0.0", font=('Arial', 9, 'bold'))
+        ctk.CTkLabel(warp_label_frame, text="Warp Amount:").pack(side=tk.LEFT)
+        warp_value_label = ctk.CTkLabel(warp_label_frame, text="0.0", font=('Arial', 9, 'bold'))
         warp_value_label.pack(side=tk.RIGHT)
 
-        warp_scale = ttk.Scale(warp_frame, from_=-1.0, to=1.0, orient=tk.HORIZONTAL,
+        warp_scale = ctk.CTkSlider(warp_frame, from_=-1.0, to=1.0, orient=tk.HORIZONTAL,
                               variable=current_warp,
                               command=lambda v: warp_value_label.config(text=f"{current_warp.get():.2f}"))
         warp_scale.pack(fill=tk.X, pady=5)
 
-        ttk.Label(warp_frame, text="Adds frequency modulation",
-                 font=('Arial', 8, 'italic'), foreground='gray').pack()
+        ctk.CTkLabel(warp_frame, text="Adds frequency modulation",
+                 font=('Arial', 8, 'italic'), text_color='gray').pack()
 
         # Sequencer - 3 Track System
-        sequencer_frame = ttk.LabelFrame(right_panel, text="3-Track Sequencer", padding="10")
+        sequencer_frame = ctk.CTkFrame(right_panel, text="3-Track Sequencer")
         sequencer_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
-        ttk.Label(sequencer_frame, text="Layer drum patterns across 3 tracks:",
+        ctk.CTkLabel(sequencer_frame, text="Layer drum patterns across 3 tracks:",
                  font=('Arial', 9, 'bold')).pack(anchor=tk.W)
 
         # Track selector
-        track_select_frame = ttk.Frame(sequencer_frame)
+        track_select_frame = ctk.CTkFrame(sequencer_frame)
         track_select_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(track_select_frame, text="Record to:", font=('Arial', 8, 'bold')).pack(side=tk.LEFT, padx=5)
+        ctk.CTkLabel(track_select_frame, text="Record to:", font=('Arial', 8, 'bold')).pack(side=tk.LEFT, padx=5)
 
         def on_track_change(*args):
             """Update step grid when track changes"""
@@ -3343,48 +3346,48 @@ class OscilloscopeGUI:
 
         current_track.trace_add('write', on_track_change)
 
-        ttk.Radiobutton(track_select_frame, text="Track 1 (Drum)",
+        ctk.CTkRadioButton(track_select_frame, text="Track 1 (Drum)",
                        variable=current_track, value=1).pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(track_select_frame, text="Track 2 (Snare)",
+        ctk.CTkRadioButton(track_select_frame, text="Track 2 (Snare)",
                        variable=current_track, value=2).pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(track_select_frame, text="Track 3 (Beat)",
+        ctk.CTkRadioButton(track_select_frame, text="Track 3 (Beat)",
                        variable=current_track, value=3).pack(side=tk.LEFT, padx=5)
 
         # Tempo and timing controls
-        tempo_frame = ttk.Frame(sequencer_frame)
+        tempo_frame = ctk.CTkFrame(sequencer_frame)
         tempo_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Label(tempo_frame, text="BPM:", font=('Arial', 8, 'bold')).grid(row=0, column=0, padx=5, sticky='w')
-        tempo_spinbox = ttk.Spinbox(tempo_frame, from_=60, to=200, textvariable=tempo_bpm, width=6)
+        ctk.CTkLabel(tempo_frame, text="BPM:", font=('Arial', 8, 'bold')).grid(row=0, column=0, padx=5, sticky='w')
+        tempo_spinbox = tk.Spinbox(tempo_frame, from_=60, to=200, textvariable=tempo_bpm, width=6)
         tempo_spinbox.grid(row=0, column=1, padx=5)
 
-        ttk.Label(tempo_frame, text="Steps:", font=('Arial', 8, 'bold')).grid(row=0, column=2, padx=5, sticky='w')
-        steps_spinbox = ttk.Spinbox(tempo_frame, from_=8, to=32, textvariable=num_steps, width=6,
+        ctk.CTkLabel(tempo_frame, text="Steps:", font=('Arial', 8, 'bold')).grid(row=0, column=2, padx=5, sticky='w')
+        steps_spinbox = tk.Spinbox(tempo_frame, from_=8, to=32, textvariable=num_steps, width=6,
                                     command=lambda: (update_sequence_displays(), update_step_grid()))
         steps_spinbox.grid(row=0, column=3, padx=5)
 
-        ttk.Label(tempo_frame, text="Note Duration (s):", font=('Arial', 8, 'bold')).grid(row=0, column=4, padx=5, sticky='w')
-        duration_spinbox = ttk.Spinbox(tempo_frame, from_=0.1, to=2.0, increment=0.05,
+        ctk.CTkLabel(tempo_frame, text="Note Duration (s):", font=('Arial', 8, 'bold')).grid(row=0, column=4, padx=5, sticky='w')
+        duration_spinbox = tk.Spinbox(tempo_frame, from_=0.1, to=2.0, increment=0.05,
                                       textvariable=note_duration, width=6, format="%.2f")
         duration_spinbox.grid(row=0, column=5, padx=5)
 
         # Position offset control (second row)
-        ttk.Label(tempo_frame, text="Position Offset:", font=('Arial', 8, 'bold')).grid(row=1, column=0, padx=5, sticky='w', pady=(5,0))
-        offset_label = ttk.Label(tempo_frame, text="0.00", font=('Arial', 8))
+        ctk.CTkLabel(tempo_frame, text="Position Offset:", font=('Arial', 8, 'bold')).grid(row=1, column=0, padx=5, sticky='w', pady=(5,0))
+        offset_label = ctk.CTkLabel(tempo_frame, text="0.00", font=('Arial', 8))
         offset_label.grid(row=1, column=1, padx=5, sticky='w', pady=(5,0))
 
         def update_offset_label(val):
             offset_label.config(text=f"{position_offset.get():.2f}")
 
-        offset_scale = ttk.Scale(tempo_frame, from_=0.0, to=0.99, orient=tk.HORIZONTAL,
+        offset_scale = ctk.CTkSlider(tempo_frame, from_=0.0, to=0.99, orient=tk.HORIZONTAL,
                                variable=position_offset, command=update_offset_label)
         offset_scale.grid(row=1, column=2, columnspan=3, padx=5, sticky='ew', pady=(5,0))
 
-        ttk.Label(tempo_frame, text="(Fine-tune note position)", font=('Arial', 7, 'italic'),
-                 foreground='gray').grid(row=1, column=5, padx=5, sticky='w', pady=(5,0))
+        ctk.CTkLabel(tempo_frame, text="(Fine-tune note position)", font=('Arial', 7, 'italic'),
+                 text_color='gray').grid(row=1, column=5, padx=5, sticky='w', pady=(5,0))
 
         # Visual step grid for selecting time slots
-        step_grid_frame = ttk.LabelFrame(sequencer_frame, text="Time Slots (Click to select)", padding="5")
+        step_grid_frame = ctk.CTkFrame(sequencer_frame, text="Time Slots (Click to select)")
         step_grid_frame.pack(fill=tk.X, pady=5)
 
         step_buttons = {}
@@ -3427,7 +3430,7 @@ class OscilloscopeGUI:
             update_step_grid()
 
         # Create step buttons grid
-        steps_grid_container = ttk.Frame(step_grid_frame)
+        steps_grid_container = ctk.CTkFrame(step_grid_frame)
         steps_grid_container.pack(fill=tk.X)
 
         for i in range(16):  # Default 16 steps, will update dynamically
@@ -3439,12 +3442,12 @@ class OscilloscopeGUI:
         update_step_grid()
 
         # 3 Sequence displays
-        tracks_display_frame = ttk.Frame(sequencer_frame)
+        tracks_display_frame = ctk.CTkFrame(sequencer_frame)
         tracks_display_frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
         # Track 1
-        track1_label = ttk.Label(tracks_display_frame, text="Track 1 (Drum):",
-                                font=('Courier', 8, 'bold'), foreground='#D32F2F')
+        track1_label = ctk.CTkLabel(tracks_display_frame, text="Track 1 (Drum):",
+                                font=('Courier', 8, 'bold'), text_color='#D32F2F')
         track1_label.grid(row=0, column=0, sticky='w', pady=(0, 2))
         track1_text = tk.Text(tracks_display_frame, height=3, width=40, font=('Courier', 7))
         track1_text.grid(row=1, column=0, sticky='ew', pady=(0, 5))
@@ -3452,8 +3455,8 @@ class OscilloscopeGUI:
         track1_text.config(state=tk.DISABLED)
 
         # Track 2
-        track2_label = ttk.Label(tracks_display_frame, text="Track 2 (Snare):",
-                                font=('Courier', 8, 'bold'), foreground='#1976D2')
+        track2_label = ctk.CTkLabel(tracks_display_frame, text="Track 2 (Snare):",
+                                font=('Courier', 8, 'bold'), text_color='#1976D2')
         track2_label.grid(row=2, column=0, sticky='w', pady=(0, 2))
         track2_text = tk.Text(tracks_display_frame, height=3, width=40, font=('Courier', 7))
         track2_text.grid(row=3, column=0, sticky='ew', pady=(0, 5))
@@ -3461,8 +3464,8 @@ class OscilloscopeGUI:
         track2_text.config(state=tk.DISABLED)
 
         # Track 3
-        track3_label = ttk.Label(tracks_display_frame, text="Track 3 (Beat):",
-                                font=('Courier', 8, 'bold'), foreground='#388E3C')
+        track3_label = ctk.CTkLabel(tracks_display_frame, text="Track 3 (Beat):",
+                                font=('Courier', 8, 'bold'), text_color='#388E3C')
         track3_label.grid(row=4, column=0, sticky='w', pady=(0, 2))
         track3_text = tk.Text(tracks_display_frame, height=3, width=40, font=('Courier', 7))
         track3_text.grid(row=5, column=0, sticky='ew', pady=(0, 5))
@@ -3656,16 +3659,16 @@ class OscilloscopeGUI:
             self.apply_parameters()
 
         # Sequencer controls
-        seq_controls = ttk.Frame(sequencer_frame)
+        seq_controls = ctk.CTkFrame(sequencer_frame)
         seq_controls.pack(fill=tk.X, pady=5)
 
         recording_var = tk.BooleanVar(value=False)
-        record_check = ttk.Checkbutton(seq_controls, text="Record pads to selected track",
+        record_check = ctk.CTkCheckBox(seq_controls, text="Record pads to selected track",
                                       variable=recording_var)
         record_check.pack(anchor=tk.W, pady=2)
 
         # Clear step button
-        ttk.Button(seq_controls, text="Clear Selected Step", command=clear_current_step).pack(
+        ctk.CTkButton(seq_controls, text="Clear Selected Step", command=clear_current_step).pack(
             anchor=tk.W, pady=2, fill=tk.X)
 
         # Override play_pad to add to sequence when recording
@@ -3680,21 +3683,21 @@ class OscilloscopeGUI:
             for col in range(4):
                 pad_buttons[(row, col)].config(command=lambda r=row, c=col: play_pad_with_record(r, c))
 
-        seq_btn_frame = ttk.Frame(sequencer_frame)
+        seq_btn_frame = ctk.CTkFrame(sequencer_frame)
         seq_btn_frame.pack(fill=tk.X, pady=5)
 
-        ttk.Button(seq_btn_frame, text="Merge & Apply", command=merge_and_apply,
+        ctk.CTkButton(seq_btn_frame, text="Merge & Apply", command=merge_and_apply,
                   style='Accent.TButton').pack(side=tk.TOP, pady=2, fill=tk.X)
 
-        clear_btn_frame = ttk.Frame(sequencer_frame)
+        clear_btn_frame = ctk.CTkFrame(sequencer_frame)
         clear_btn_frame.pack(fill=tk.X)
-        ttk.Button(clear_btn_frame, text="Clear Current Track", command=clear_current_track).pack(
+        ctk.CTkButton(clear_btn_frame, text="Clear Current Track", command=clear_current_track).pack(
             side=tk.LEFT, padx=2, expand=True, fill=tk.X)
-        ttk.Button(clear_btn_frame, text="Clear All", command=clear_all_tracks).pack(
+        ctk.CTkButton(clear_btn_frame, text="Clear All", command=clear_all_tracks).pack(
             side=tk.LEFT, padx=2, expand=True, fill=tk.X)
 
         # Grid Settings Panel with Scrollbar
-        grid_settings_frame = ttk.LabelFrame(right_panel, text="Sound Pad Grid Settings", padding="5")
+        grid_settings_frame = ctk.CTkFrame(right_panel, text="Sound Pad Grid Settings")
         grid_settings_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 10))
 
         # Create a canvas and scrollbar for grid settings
@@ -3702,7 +3705,7 @@ class OscilloscopeGUI:
         settings_scrollbar = ttk.Scrollbar(grid_settings_frame, orient="vertical", command=settings_canvas.yview)
 
         # Create a frame inside the canvas for settings content
-        settings_content = ttk.Frame(settings_canvas)
+        settings_content = ctk.CTkFrame(settings_canvas)
 
         # Bind the frame to update scroll region when it changes size
         settings_content.bind("<Configure>",
@@ -3720,39 +3723,39 @@ class OscilloscopeGUI:
         pad_spacing_x = tk.IntVar(value=5)
         pad_spacing_y = tk.IntVar(value=5)
 
-        ttk.Label(settings_content, text="Grid Dimensions:", font=('Arial', 9, 'bold')).grid(
+        ctk.CTkLabel(settings_content, text="Grid Dimensions:", font=('Arial', 9, 'bold')).grid(
             row=0, column=0, columnspan=2, sticky='w', pady=(5, 2))
 
-        ttk.Label(settings_content, text="Rows:").grid(row=1, column=0, sticky='w', padx=5)
-        ttk.Spinbox(settings_content, from_=2, to=8, textvariable=grid_rows_var, width=8).grid(
+        ctk.CTkLabel(settings_content, text="Rows:").grid(row=1, column=0, sticky='w', padx=5)
+        tk.Spinbox(settings_content, from_=2, to=8, textvariable=grid_rows_var, width=8).grid(
             row=1, column=1, sticky='w', padx=5, pady=2)
 
-        ttk.Label(settings_content, text="Columns:").grid(row=2, column=0, sticky='w', padx=5)
-        ttk.Spinbox(settings_content, from_=2, to=8, textvariable=grid_cols_var, width=8).grid(
+        ctk.CTkLabel(settings_content, text="Columns:").grid(row=2, column=0, sticky='w', padx=5)
+        tk.Spinbox(settings_content, from_=2, to=8, textvariable=grid_cols_var, width=8).grid(
             row=2, column=1, sticky='w', padx=5, pady=2)
 
-        ttk.Label(settings_content, text="Pad Spacing:", font=('Arial', 9, 'bold')).grid(
+        ctk.CTkLabel(settings_content, text="Pad Spacing:", font=('Arial', 9, 'bold')).grid(
             row=3, column=0, columnspan=2, sticky='w', pady=(10, 2))
 
-        ttk.Label(settings_content, text="Horizontal (px):").grid(row=4, column=0, sticky='w', padx=5)
-        ttk.Spinbox(settings_content, from_=0, to=20, textvariable=pad_spacing_x, width=8).grid(
+        ctk.CTkLabel(settings_content, text="Horizontal (px):").grid(row=4, column=0, sticky='w', padx=5)
+        tk.Spinbox(settings_content, from_=0, to=20, textvariable=pad_spacing_x, width=8).grid(
             row=4, column=1, sticky='w', padx=5, pady=2)
 
-        ttk.Label(settings_content, text="Vertical (px):").grid(row=5, column=0, sticky='w', padx=5)
-        ttk.Spinbox(settings_content, from_=0, to=20, textvariable=pad_spacing_y, width=8).grid(
+        ctk.CTkLabel(settings_content, text="Vertical (px):").grid(row=5, column=0, sticky='w', padx=5)
+        tk.Spinbox(settings_content, from_=0, to=20, textvariable=pad_spacing_y, width=8).grid(
             row=5, column=1, sticky='w', padx=5, pady=2)
 
-        ttk.Label(settings_content, text="Appearance:", font=('Arial', 9, 'bold')).grid(
+        ctk.CTkLabel(settings_content, text="Appearance:", font=('Arial', 9, 'bold')).grid(
             row=6, column=0, columnspan=2, sticky='w', pady=(10, 2))
 
-        ttk.Label(settings_content, text="Border Width:").grid(row=7, column=0, sticky='w', padx=5)
+        ctk.CTkLabel(settings_content, text="Border Width:").grid(row=7, column=0, sticky='w', padx=5)
         border_width_var = tk.IntVar(value=3)
-        ttk.Spinbox(settings_content, from_=1, to=10, textvariable=border_width_var, width=8).grid(
+        tk.Spinbox(settings_content, from_=1, to=10, textvariable=border_width_var, width=8).grid(
             row=7, column=1, sticky='w', padx=5, pady=2)
 
-        ttk.Label(settings_content, text="Font Size:").grid(row=8, column=0, sticky='w', padx=5)
+        ctk.CTkLabel(settings_content, text="Font Size:").grid(row=8, column=0, sticky='w', padx=5)
         font_size_var = tk.IntVar(value=10)
-        ttk.Spinbox(settings_content, from_=6, to=16, textvariable=font_size_var, width=8).grid(
+        tk.Spinbox(settings_content, from_=6, to=16, textvariable=font_size_var, width=8).grid(
             row=8, column=1, sticky='w', padx=5, pady=2)
 
         def apply_grid_settings():
@@ -3765,18 +3768,18 @@ class OscilloscopeGUI:
                               "Note: Grid reconstruction not yet implemented.\n"
                               "Close and reopen Sound Pad to apply changes.")
 
-        ttk.Button(settings_content, text="Apply Settings", command=apply_grid_settings).grid(
+        ctk.CTkButton(settings_content, text="Apply Settings", command=apply_grid_settings).grid(
             row=9, column=0, columnspan=2, pady=(10, 5), sticky='ew', padx=5)
 
-        ttk.Label(settings_content, text="(Settings shown for demonstration)",
-                 font=('Arial', 7, 'italic'), foreground='gray').grid(
+        ctk.CTkLabel(settings_content, text="(Settings shown for demonstration)",
+                 font=('Arial', 7, 'italic'), text_color='gray').grid(
             row=10, column=0, columnspan=2, pady=(0, 5))
 
         # Bottom buttons
-        bottom_frame = ttk.Frame(right_panel)
+        bottom_frame = ctk.CTkFrame(right_panel)
         bottom_frame.pack(fill=tk.X)
 
-        ttk.Button(bottom_frame, text="Close", command=dialog.destroy).pack(fill=tk.X)
+        ctk.CTkButton(bottom_frame, text="Close", command=dialog.destroy).pack(fill=tk.X)
 
     def generate_random_harmonics(self):
         """Open dialog for random harmonics generation with two modes"""
@@ -3793,15 +3796,15 @@ class OscilloscopeGUI:
         dialog.protocol("WM_DELETE_WINDOW", on_dialog_close)
 
         # Instructions
-        instruction_frame = ttk.Frame(dialog)
+        instruction_frame = ctk.CTkFrame(dialog)
         instruction_frame.pack(pady=10, padx=10, fill=tk.X)
-        ttk.Label(instruction_frame, text="Generate Random Harmonic Patterns",
+        ctk.CTkLabel(instruction_frame, text="Generate Random Harmonic Patterns",
                  font=('Arial', 12, 'bold')).pack()
-        ttk.Label(instruction_frame, text="Choose generation mode and click Generate",
-                 font=('Arial', 9), foreground='gray').pack()
+        ctk.CTkLabel(instruction_frame, text="Choose generation mode and click Generate",
+                 font=('Arial', 9), text_color='gray').pack()
 
         # Create a frame to hold the canvas and scrollbar
-        scroll_container = ttk.Frame(dialog)
+        scroll_container = ctk.CTkFrame(dialog)
         scroll_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Create canvas for scrolling
@@ -3809,7 +3812,7 @@ class OscilloscopeGUI:
         scrollbar = ttk.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
 
         # Create frame inside canvas for mode selection
-        scrollable_frame = ttk.Frame(canvas)
+        scrollable_frame = ctk.CTkFrame(canvas)
 
         scrollable_frame.bind(
             "<Configure>",
@@ -3839,85 +3842,85 @@ class OscilloscopeGUI:
         dialog.protocol("WM_DELETE_WINDOW", cleanup_mousewheel)
 
         # Mode selection (now inside scrollable_frame)
-        mode_frame = ttk.LabelFrame(scrollable_frame, text="Generation Mode", padding="10")
+        mode_frame = ctk.CTkFrame(scrollable_frame, text="Generation Mode")
         mode_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         mode_var = tk.StringVar(value="random")
 
         # Mode 1: Fully Random
-        mode1_frame = ttk.Frame(mode_frame)
+        mode1_frame = ctk.CTkFrame(mode_frame)
         mode1_frame.pack(fill=tk.X, pady=5)
-        ttk.Radiobutton(mode1_frame, text="Fully Random",
+        ctk.CTkRadioButton(mode1_frame, text="Fully Random",
                        variable=mode_var, value="random").pack(anchor=tk.W)
-        ttk.Label(mode1_frame, text="• X and Y channels completely independent",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode1_frame, text="• 1-10 terms per channel",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode1_frame, text="• Frequencies: 0-1000",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode1_frame, text="• Phase shifts: 0-1000",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode1_frame, text="• X and Y channels completely independent",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode1_frame, text="• 1-10 terms per channel",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode1_frame, text="• Frequencies: 0-1000",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode1_frame, text="• Phase shifts: 0-1000",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
 
-        ttk.Separator(mode_frame, orient='horizontal').pack(fill=tk.X, pady=10)
+        ctk.CTkFrame(mode_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=10)
 
         # Mode 2: Mirrored (sin/cos swap)
-        mode2_frame = ttk.Frame(mode_frame)
+        mode2_frame = ctk.CTkFrame(mode_frame)
         mode2_frame.pack(fill=tk.X, pady=5)
-        ttk.Radiobutton(mode2_frame, text="Mirrored (Sin/Cos Swap)",
+        ctk.CTkRadioButton(mode2_frame, text="Mirrored (Sin/Cos Swap)",
                        variable=mode_var, value="mirrored").pack(anchor=tk.W)
-        ttk.Label(mode2_frame, text="• X and Y channels use same parameters",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode2_frame, text="• sin terms on X become cos on Y",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode2_frame, text="• cos terms on X become sin on Y",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode2_frame, text="• Creates symmetrical Lissajous patterns",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode2_frame, text="• X and Y channels use same parameters",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode2_frame, text="• sin terms on X become cos on Y",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode2_frame, text="• cos terms on X become sin on Y",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode2_frame, text="• Creates symmetrical Lissajous patterns",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
 
-        ttk.Separator(mode_frame, orient='horizontal').pack(fill=tk.X, pady=10)
+        ctk.CTkFrame(mode_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=10)
 
         # Mode 3: Mirrored with Frequency Sweep
-        mode3_frame = ttk.Frame(mode_frame)
+        mode3_frame = ctk.CTkFrame(mode_frame)
         mode3_frame.pack(fill=tk.X, pady=5)
-        ttk.Radiobutton(mode3_frame, text="Mirrored + Frequency Sweep",
+        ctk.CTkRadioButton(mode3_frame, text="Mirrored + Frequency Sweep",
                        variable=mode_var, value="freq_sweep").pack(anchor=tk.W)
-        ttk.Label(mode3_frame, text="• Like mirrored mode (sin/cos swap)",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode3_frame, text="• Y channel frequencies sweep continuously",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode3_frame, text="• Creates morphing animated patterns",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode3_frame, text="• Like mirrored mode (sin/cos swap)",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode3_frame, text="• Y channel frequencies sweep continuously",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode3_frame, text="• Creates morphing animated patterns",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
 
-        ttk.Separator(mode_frame, orient='horizontal').pack(fill=tk.X, pady=10)
+        ctk.CTkFrame(mode_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=10)
 
         # Mode 4: Mirrored with Phase Sweep
-        mode4_frame = ttk.Frame(mode_frame)
+        mode4_frame = ctk.CTkFrame(mode_frame)
         mode4_frame.pack(fill=tk.X, pady=5)
-        ttk.Radiobutton(mode4_frame, text="Mirrored + Phase Sweep",
+        ctk.CTkRadioButton(mode4_frame, text="Mirrored + Phase Sweep",
                        variable=mode_var, value="phase_sweep").pack(anchor=tk.W)
-        ttk.Label(mode4_frame, text="• Like mirrored mode (sin/cos swap)",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode4_frame, text="• Y channel phases sweep continuously",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode4_frame, text="• Creates rotating Lissajous patterns",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode4_frame, text="• Like mirrored mode (sin/cos swap)",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode4_frame, text="• Y channel phases sweep continuously",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode4_frame, text="• Creates rotating Lissajous patterns",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
 
-        ttk.Separator(mode_frame, orient='horizontal').pack(fill=tk.X, pady=10)
+        ctk.CTkFrame(mode_frame, orient='horizontal', height=2).pack(fill=tk.X, pady=10)
 
         # Mode 5: Mirrored with Frequency and Phase Sweep
-        mode5_frame = ttk.Frame(mode_frame)
+        mode5_frame = ctk.CTkFrame(mode_frame)
         mode5_frame.pack(fill=tk.X, pady=5)
-        ttk.Radiobutton(mode5_frame, text="Mirrored + Frequency & Phase Sweep",
+        ctk.CTkRadioButton(mode5_frame, text="Mirrored + Frequency & Phase Sweep",
                        variable=mode_var, value="freq_phase_sweep").pack(anchor=tk.W)
-        ttk.Label(mode5_frame, text="• Like mirrored mode (sin/cos swap)",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode5_frame, text="• Y channel frequencies AND phases sweep continuously",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
-        ttk.Label(mode5_frame, text="• Creates complex morphing animations",
-                 font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode5_frame, text="• Like mirrored mode (sin/cos swap)",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode5_frame, text="• Y channel frequencies AND phases sweep continuously",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
+        ctk.CTkLabel(mode5_frame, text="• Creates complex morphing animations",
+                 font=('Arial', 8), text_color='gray').pack(anchor=tk.W, padx=20)
 
         # Terms control section (outside scrollable area, fixed at bottom)
-        terms_frame = ttk.LabelFrame(dialog, text="Number of Terms", padding="10")
+        terms_frame = ctk.CTkFrame(dialog, text="Number of Terms")
         terms_frame.pack(fill=tk.X, padx=10, pady=10)
 
         random_terms_var = tk.BooleanVar(value=True)
@@ -3930,7 +3933,7 @@ class OscilloscopeGUI:
             else:
                 terms_spinbox.config(state="normal")
 
-        terms_checkbox = ttk.Checkbutton(
+        terms_checkbox = ctk.CTkCheckBox(
             terms_frame,
             text="Random number of terms (1-10)",
             variable=random_terms_var,
@@ -3938,10 +3941,10 @@ class OscilloscopeGUI:
         )
         terms_checkbox.pack(anchor=tk.W, pady=5)
 
-        manual_frame = ttk.Frame(terms_frame)
+        manual_frame = ctk.CTkFrame(terms_frame)
         manual_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(manual_frame, text="Manual term count:").pack(side=tk.LEFT, padx=5)
-        terms_spinbox = ttk.Spinbox(
+        ctk.CTkLabel(manual_frame, text="Manual term count:").pack(side=tk.LEFT, padx=5)
+        terms_spinbox = tk.Spinbox(
             manual_frame,
             from_=0,
             to=20,
@@ -3950,11 +3953,11 @@ class OscilloscopeGUI:
             state="disabled"
         )
         terms_spinbox.pack(side=tk.LEFT, padx=5)
-        ttk.Label(manual_frame, text="(0 = single sin/cos pair)",
-                 font=('Arial', 8), foreground='gray').pack(side=tk.LEFT, padx=5)
+        ctk.CTkLabel(manual_frame, text="(0 = single sin/cos pair)",
+                 font=('Arial', 8), text_color='gray').pack(side=tk.LEFT, padx=5)
 
         # Preview area (inside scrollable_frame)
-        preview_frame = ttk.LabelFrame(scrollable_frame, text="Last Generated", padding="10")
+        preview_frame = ctk.CTkFrame(scrollable_frame, text="Last Generated")
         preview_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         preview_text = tk.Text(preview_frame, height=8, width=60, font=('Courier', 8), state=tk.DISABLED)
@@ -4311,12 +4314,12 @@ class OscilloscopeGUI:
             self.apply_parameters()
 
         # Buttons (inside scrollable_frame)
-        button_frame = ttk.Frame(scrollable_frame)
+        button_frame = ctk.CTkFrame(scrollable_frame)
         button_frame.pack(fill=tk.X, padx=5, pady=10)
 
-        ttk.Button(button_frame, text="Generate", command=generate_pattern).pack(
+        ctk.CTkButton(button_frame, text="Generate", command=generate_pattern).pack(
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
-        ttk.Button(button_frame, text="Close", command=cleanup_mousewheel).pack(
+        ctk.CTkButton(button_frame, text="Close", command=cleanup_mousewheel).pack(
             side=tk.LEFT, padx=5)
 
     def save_to_wav(self):
@@ -4345,7 +4348,8 @@ class OscilloscopeGUI:
 
 
 def main():
-    root = tk.Tk()
+    root = ctk.CTk()
+    root.title("JUANTRONIX - Oscilloscope XY Audio Generator")
     app = OscilloscopeGUI(root)
     root.mainloop()
 
