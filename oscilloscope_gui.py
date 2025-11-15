@@ -144,6 +144,8 @@ class OscilloscopeGUI:
                   command=self.open_archimedean_spiral).pack(fill=tk.X, pady=2)
         ttk.Button(file_frame, text="Sound Pad",
                   command=self.open_sound_pad).pack(fill=tk.X, pady=2)
+        ttk.Button(file_frame, text="Random Harmonics",
+                  command=self.generate_random_harmonics).pack(fill=tk.X, pady=2)
 
         # Data info
         self.data_info_label = ttk.Label(file_frame, text="Points: 3", 
@@ -2939,13 +2941,20 @@ class OscilloscopeGUI:
             t = np.linspace(0, duration, int(sample_rate * duration))
 
             # Drums ignore note_freq and warp
-            if instrument in ["kick", "snare", "hihat", "tom"]:
+            if instrument in ["kick", "bass", "snare", "hihat", "tom"]:
                 if instrument == "kick":
                     # Kick drum - pitch sweep down with fast decay
                     freq_sweep = np.linspace(150, 40, len(t))
                     phase = np.cumsum(freq_sweep) / sample_rate
                     signal = np.sin(2 * np.pi * phase)
                     envelope = np.exp(-8 * t)
+                    signal = signal * envelope
+                elif instrument == "bass":
+                    # Bass drum - lower and slower than kick, deep boom
+                    freq_sweep = np.linspace(80, 30, len(t))
+                    phase = np.cumsum(freq_sweep) / sample_rate
+                    signal = np.sin(2 * np.pi * phase)
+                    envelope = np.exp(-5 * t)  # Slower decay than kick
                     signal = signal * envelope
                 elif instrument == "snare":
                     # Snare - mix of noise and tone
@@ -3027,7 +3036,7 @@ class OscilloscopeGUI:
             # Create Lissajous pattern (X and Y from same signal with phase shift)
             x = signal
             # Generate Y with phase shift
-            if instrument in ["kick", "snare", "hihat", "tom"]:
+            if instrument in ["kick", "bass", "snare", "hihat", "tom"]:
                 # For drums, create phase-shifted version of same signal
                 y = np.concatenate([signal[len(signal)//4:], signal[:len(signal)//4]])
             elif abs(warp) > 0.01:
@@ -3103,6 +3112,7 @@ class OscilloscopeGUI:
                       ("Organ", "organ"),
                       ("Bell", "bell"),
                       ("Kick Drum", "kick"),
+                      ("Bass Drum", "bass"),
                       ("Snare Drum", "snare"),
                       ("Hi-Hat", "hihat"),
                       ("Tom Drum", "tom")]
@@ -3229,6 +3239,80 @@ class OscilloscopeGUI:
         bottom_frame.pack(fill=tk.X)
 
         ttk.Button(bottom_frame, text="Close", command=dialog.destroy).pack(fill=tk.X)
+
+    def generate_random_harmonics(self):
+        """Generate randomized sum of sines and cosines with random frequencies, amplitudes, and phases"""
+        # Random parameters
+        num_terms_x = np.random.randint(3, 10)  # 3-9 terms for X channel
+        num_terms_y = np.random.randint(3, 10)  # 3-9 terms for Y channel
+
+        num_points = 1000
+        t = np.linspace(0, 2*np.pi, num_points)
+
+        # Generate X channel
+        x_data = np.zeros(num_points)
+        x_description = []
+
+        for i in range(num_terms_x):
+            # Random parameters
+            wave_type = np.random.choice(['sin', 'cos'])
+            amplitude = np.random.uniform(0.3, 1.0)
+            frequency = np.random.uniform(0.5, 8.0)
+            phase = np.random.uniform(0, 2*np.pi)
+
+            # Generate term
+            if wave_type == 'sin':
+                x_data += amplitude * np.sin(frequency * t + phase)
+                x_description.append(f"{amplitude:.2f}·sin({frequency:.1f}t + {phase:.2f})")
+            else:
+                x_data += amplitude * np.cos(frequency * t + phase)
+                x_description.append(f"{amplitude:.2f}·cos({frequency:.1f}t + {phase:.2f})")
+
+        # Generate Y channel
+        y_data = np.zeros(num_points)
+        y_description = []
+
+        for i in range(num_terms_y):
+            # Random parameters
+            wave_type = np.random.choice(['sin', 'cos'])
+            amplitude = np.random.uniform(0.3, 1.0)
+            frequency = np.random.uniform(0.5, 8.0)
+            phase = np.random.uniform(0, 2*np.pi)
+
+            # Generate term
+            if wave_type == 'sin':
+                y_data += amplitude * np.sin(frequency * t + phase)
+                y_description.append(f"{amplitude:.2f}·sin({frequency:.1f}t + {phase:.2f})")
+            else:
+                y_data += amplitude * np.cos(frequency * t + phase)
+                y_description.append(f"{amplitude:.2f}·cos({frequency:.1f}t + {phase:.2f})")
+
+        # Normalize
+        x_data = x_data / (np.max(np.abs(x_data)) + 1e-10)
+        y_data = y_data / (np.max(np.abs(y_data)) + 1e-10)
+
+        # Set as current data
+        self.x_data = x_data
+        self.y_data = y_data
+        self.data_info_label.config(text=f"Points: {len(x_data)}")
+        self.update_display()
+
+        # Create status message
+        status_msg = f"Random harmonics: X({num_terms_x} terms), Y({num_terms_y} terms)"
+        self.status_label.config(text=status_msg)
+
+        # Show details in console
+        print("\n=== Random Harmonics Generated ===")
+        print(f"X channel ({num_terms_x} terms):")
+        for desc in x_description:
+            print(f"  + {desc}")
+        print(f"\nY channel ({num_terms_y} terms):")
+        for desc in y_description:
+            print(f"  + {desc}")
+        print("="*35 + "\n")
+
+        # Apply parameters and generate audio
+        self.apply_parameters()
 
     def save_to_wav(self):
         """Save current audio to WAV file"""
