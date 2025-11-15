@@ -3422,7 +3422,7 @@ class OscilloscopeGUI:
                 terms = []
                 for i in range(num_terms):
                     wave_type = np.random.choice(['sin', 'cos'])
-                    amplitude = 1.0  # Always 1.0 for frequency sweep mode
+                    amplitude = np.random.uniform(0.01, 1.0)
                     frequency_start = np.random.uniform(0, 1000)
                     frequency_end = np.random.uniform(0, 1000)
                     phase = np.random.uniform(0, 1000)
@@ -3485,7 +3485,7 @@ class OscilloscopeGUI:
                 terms = []
                 for i in range(num_terms):
                     wave_type = np.random.choice(['sin', 'cos'])
-                    amplitude = 1.0  # Always 1.0 for phase sweep mode
+                    amplitude = np.random.uniform(0.01, 1.0)
                     frequency = np.random.uniform(0, 1000)
                     phase_start = np.random.uniform(0, 1000)
                     phase_end = np.random.uniform(0, 1000)
