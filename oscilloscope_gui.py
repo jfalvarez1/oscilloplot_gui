@@ -142,6 +142,8 @@ class OscilloscopeGUI:
                   command=self.open_harmonic_sum).pack(fill=tk.X, pady=2)
         ttk.Button(file_frame, text="Archimedean Spiral",
                   command=self.open_archimedean_spiral).pack(fill=tk.X, pady=2)
+        ttk.Button(file_frame, text="Sound Pad",
+                  command=self.open_sound_pad).pack(fill=tk.X, pady=2)
 
         # Data info
         self.data_info_label = ttk.Label(file_frame, text="Points: 3", 
@@ -2895,6 +2897,285 @@ class OscilloscopeGUI:
             side=tk.LEFT, expand=True, fill=tk.X, padx=5)
         ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(
             side=tk.LEFT, padx=5)
+
+    def open_sound_pad(self):
+        """Open sound pad interface for live performance and sequencing"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Sound Pad")
+        dialog.geometry("800x700")
+
+        # Sound pad state
+        pad_notes = {}  # Maps (row, col) to frequency
+        sequence = []  # List of (pad_idx, duration) tuples
+        is_playing_live = False
+        current_instrument = tk.StringVar(value="sine")
+        current_warp = tk.DoubleVar(value=0.0)
+
+        # Note frequencies (chromatic scale starting from C3)
+        base_notes = [130.81, 138.59, 146.83, 155.56,  # C3, C#3, D3, D#3
+                      164.81, 174.61, 185.00, 196.00,  # E3, F3, F#3, G3
+                      207.65, 220.00, 233.08, 246.94,  # G#3, A3, A#3, B3
+                      261.63, 277.18, 293.66, 311.13]  # C4, C#4, D4, D#4
+
+        # Main container
+        main_frame = ttk.Frame(dialog)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Left panel: Pad grid
+        left_panel = ttk.Frame(main_frame)
+        left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+
+        ttk.Label(left_panel, text="Sound Pad Grid", font=('Arial', 12, 'bold')).pack(pady=(0, 10))
+
+        # Create 4x4 grid of pads
+        pad_grid = ttk.Frame(left_panel)
+        pad_grid.pack(fill=tk.BOTH, expand=True)
+
+        pad_buttons = {}
+
+        def generate_pad_sound(note_freq, instrument, warp, duration=0.5):
+            """Generate sound for a pad"""
+            sample_rate = 44100
+            t = np.linspace(0, duration, int(sample_rate * duration))
+
+            if instrument == "sine":
+                # Pure sine wave
+                signal = np.sin(2 * np.pi * note_freq * t)
+            elif instrument == "square":
+                # Square wave
+                signal = np.sign(np.sin(2 * np.pi * note_freq * t))
+            elif instrument == "saw":
+                # Sawtooth wave
+                signal = 2 * (t * note_freq - np.floor(0.5 + t * note_freq))
+            elif instrument == "triangle":
+                # Triangle wave
+                signal = 2 * np.abs(2 * (t * note_freq - np.floor(t * note_freq + 0.5))) - 1
+            elif instrument == "piano":
+                # Piano-like sound (sine with harmonics and envelope)
+                signal = (np.sin(2 * np.pi * note_freq * t) +
+                         0.5 * np.sin(2 * np.pi * note_freq * 2 * t) +
+                         0.25 * np.sin(2 * np.pi * note_freq * 3 * t))
+                envelope = np.exp(-3 * t)
+                signal = signal * envelope
+            elif instrument == "organ":
+                # Organ-like sound (multiple harmonics)
+                signal = (np.sin(2 * np.pi * note_freq * t) +
+                         0.8 * np.sin(2 * np.pi * note_freq * 2 * t) +
+                         0.6 * np.sin(2 * np.pi * note_freq * 3 * t) +
+                         0.4 * np.sin(2 * np.pi * note_freq * 4 * t))
+            elif instrument == "bell":
+                # Bell-like sound (inharmonic partials)
+                signal = (np.sin(2 * np.pi * note_freq * t) +
+                         0.7 * np.sin(2 * np.pi * note_freq * 2.76 * t) +
+                         0.5 * np.sin(2 * np.pi * note_freq * 5.40 * t))
+                envelope = np.exp(-4 * t)
+                signal = signal * envelope
+            else:
+                signal = np.sin(2 * np.pi * note_freq * t)
+
+            # Apply warp effect (frequency modulation)
+            if abs(warp) > 0.01:
+                warp_freq = 5 + abs(warp) * 20  # Warp modulation frequency
+                warp_depth = abs(warp) * note_freq * 0.3  # Warp depth
+                freq_mod = note_freq + warp_depth * np.sin(2 * np.pi * warp_freq * t)
+                phase = np.cumsum(freq_mod) * 2 * np.pi / sample_rate
+                signal = np.sin(phase)
+
+            # Normalize
+            signal = signal / (np.max(np.abs(signal)) + 1e-10)
+
+            # Create Lissajous pattern (X and Y from same signal with phase shift)
+            x = signal
+            y = np.sin(2 * np.pi * note_freq * t + np.pi/2)  # 90 degree phase shift
+
+            return x, y
+
+        def play_pad(row, col):
+            """Play sound when pad is pressed"""
+            pad_idx = row * 4 + col
+            note_freq = base_notes[pad_idx]
+
+            # Generate pattern
+            x, y = generate_pad_sound(note_freq, current_instrument.get(),
+                                     current_warp.get(), duration=0.5)
+
+            # Update display
+            self.x_data = x
+            self.y_data = y
+            self.data_info_label.config(text=f"Points: {len(x)}")
+            self.update_display()
+            self.status_label.config(text=f"Pad {pad_idx+1} - {note_freq:.1f} Hz")
+
+            # Apply parameters and play
+            self.apply_parameters()
+
+            # Visual feedback
+            button = pad_buttons[(row, col)]
+            original_color = button['background'] if 'background' in button.keys() else 'SystemButtonFace'
+            button.config(bg='#4CAF50')
+            dialog.after(200, lambda: button.config(bg=original_color))
+
+        # Create pad buttons
+        for row in range(4):
+            for col in range(4):
+                pad_idx = row * 4 + col
+                note_freq = base_notes[pad_idx]
+                note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                note_name = note_names[pad_idx % 12] + str(3 + pad_idx // 12)
+
+                btn = tk.Button(pad_grid, text=f"{note_name}\n{note_freq:.0f}Hz",
+                               font=('Arial', 10, 'bold'),
+                               command=lambda r=row, c=col: play_pad(r, c),
+                               relief=tk.RAISED,
+                               bd=3,
+                               bg='#E0E0E0',
+                               activebackground='#4CAF50')
+                btn.grid(row=row, column=col, padx=5, pady=5, sticky='nsew')
+                pad_buttons[(row, col)] = btn
+                pad_notes[(row, col)] = note_freq
+
+        # Make grid cells expand
+        for i in range(4):
+            pad_grid.rowconfigure(i, weight=1)
+            pad_grid.columnconfigure(i, weight=1)
+
+        # Right panel: Controls
+        right_panel = ttk.Frame(main_frame)
+        right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(10, 0))
+
+        # Instrument selection
+        instrument_frame = ttk.LabelFrame(right_panel, text="Instrument", padding="10")
+        instrument_frame.pack(fill=tk.X, pady=(0, 10))
+
+        instruments = [("Sine Wave", "sine"),
+                      ("Square Wave", "square"),
+                      ("Sawtooth", "saw"),
+                      ("Triangle", "triangle"),
+                      ("Piano", "piano"),
+                      ("Organ", "organ"),
+                      ("Bell", "bell")]
+
+        for name, value in instruments:
+            ttk.Radiobutton(instrument_frame, text=name,
+                          variable=current_instrument,
+                          value=value).pack(anchor=tk.W, pady=2)
+
+        # Warp control
+        warp_frame = ttk.LabelFrame(right_panel, text="Warp Effect", padding="10")
+        warp_frame.pack(fill=tk.X, pady=(0, 10))
+
+        warp_label_frame = ttk.Frame(warp_frame)
+        warp_label_frame.pack(fill=tk.X)
+        ttk.Label(warp_label_frame, text="Warp Amount:").pack(side=tk.LEFT)
+        warp_value_label = ttk.Label(warp_label_frame, text="0.0", font=('Arial', 9, 'bold'))
+        warp_value_label.pack(side=tk.RIGHT)
+
+        warp_scale = ttk.Scale(warp_frame, from_=-1.0, to=1.0, orient=tk.HORIZONTAL,
+                              variable=current_warp,
+                              command=lambda v: warp_value_label.config(text=f"{current_warp.get():.2f}"))
+        warp_scale.pack(fill=tk.X, pady=5)
+
+        ttk.Label(warp_frame, text="Adds frequency modulation",
+                 font=('Arial', 8, 'italic'), foreground='gray').pack()
+
+        # Sequencer
+        sequencer_frame = ttk.LabelFrame(right_panel, text="Sequencer", padding="10")
+        sequencer_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        ttk.Label(sequencer_frame, text="Build a sequence:", font=('Arial', 9, 'bold')).pack(anchor=tk.W)
+
+        # Sequence display
+        sequence_text = tk.Text(sequencer_frame, height=8, width=30, font=('Courier', 9))
+        sequence_text.pack(fill=tk.BOTH, expand=True, pady=5)
+        sequence_text.insert('1.0', "Sequence empty.\nPress pads to add notes.")
+        sequence_text.config(state=tk.DISABLED)
+
+        def update_sequence_display():
+            sequence_text.config(state=tk.NORMAL)
+            sequence_text.delete('1.0', tk.END)
+            if not sequence:
+                sequence_text.insert('1.0', "Sequence empty.\nPress pads to add notes.")
+            else:
+                for i, (pad_idx, dur) in enumerate(sequence):
+                    note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                    note_name = note_names[pad_idx % 12] + str(3 + pad_idx // 12)
+                    sequence_text.insert(tk.END, f"{i+1}. {note_name} ({dur:.2f}s)\n")
+            sequence_text.config(state=tk.DISABLED)
+
+        def add_to_sequence(row, col):
+            """Add pad to sequence"""
+            pad_idx = row * 4 + col
+            duration = 0.5
+            sequence.append((pad_idx, duration))
+            update_sequence_display()
+
+        def clear_sequence():
+            sequence.clear()
+            update_sequence_display()
+
+        def play_sequence():
+            """Play the entire sequence"""
+            if not sequence:
+                return
+
+            all_x = []
+            all_y = []
+
+            for pad_idx, duration in sequence:
+                note_freq = base_notes[pad_idx]
+                x, y = generate_pad_sound(note_freq, current_instrument.get(),
+                                        current_warp.get(), duration=duration)
+                all_x.append(x)
+                all_y.append(y)
+
+            # Concatenate all segments
+            x_full = np.concatenate(all_x)
+            y_full = np.concatenate(all_y)
+
+            # Update display
+            self.x_data = x_full
+            self.y_data = y_full
+            self.data_info_label.config(text=f"Points: {len(x_full)}")
+            self.update_display()
+            self.status_label.config(text=f"Playing sequence ({len(sequence)} notes)")
+
+            # Apply parameters and play
+            self.apply_parameters()
+
+        # Sequencer controls
+        seq_controls = ttk.Frame(sequencer_frame)
+        seq_controls.pack(fill=tk.X)
+
+        ttk.Label(seq_controls, text="Recording:", font=('Arial', 8)).pack(side=tk.LEFT, padx=5)
+
+        recording_var = tk.BooleanVar(value=False)
+        record_check = ttk.Checkbutton(seq_controls, text="Record pads to sequence",
+                                      variable=recording_var)
+        record_check.pack(anchor=tk.W, pady=2)
+
+        # Override play_pad to add to sequence when recording
+        original_play_pad = play_pad
+        def play_pad_with_record(row, col):
+            original_play_pad(row, col)
+            if recording_var.get():
+                add_to_sequence(row, col)
+
+        # Update all pad buttons to use new function
+        for row in range(4):
+            for col in range(4):
+                pad_buttons[(row, col)].config(command=lambda r=row, c=col: play_pad_with_record(r, c))
+
+        seq_btn_frame = ttk.Frame(sequencer_frame)
+        seq_btn_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Button(seq_btn_frame, text="Play Sequence", command=play_sequence).pack(side=tk.LEFT, padx=2, expand=True, fill=tk.X)
+        ttk.Button(seq_btn_frame, text="Clear", command=clear_sequence).pack(side=tk.LEFT, padx=2, expand=True, fill=tk.X)
+
+        # Bottom buttons
+        bottom_frame = ttk.Frame(right_panel)
+        bottom_frame.pack(fill=tk.X)
+
+        ttk.Button(bottom_frame, text="Close", command=dialog.destroy).pack(fill=tk.X)
 
     def save_to_wav(self):
         """Save current audio to WAV file"""
