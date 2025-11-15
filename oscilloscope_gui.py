@@ -3382,6 +3382,43 @@ class OscilloscopeGUI:
         ttk.Label(mode5_frame, text="• Creates complex morphing animations",
                  font=('Arial', 8), foreground='gray').pack(anchor=tk.W, padx=20)
 
+        # Terms control section (outside scrollable area, fixed at bottom)
+        terms_frame = ttk.LabelFrame(dialog, text="Number of Terms", padding="10")
+        terms_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        random_terms_var = tk.BooleanVar(value=True)
+        manual_terms_var = tk.IntVar(value=3)
+
+        def toggle_terms_mode():
+            """Enable/disable manual terms entry based on checkbox"""
+            if random_terms_var.get():
+                terms_spinbox.config(state="disabled")
+            else:
+                terms_spinbox.config(state="normal")
+
+        terms_checkbox = ttk.Checkbutton(
+            terms_frame,
+            text="Random number of terms (1-10)",
+            variable=random_terms_var,
+            command=toggle_terms_mode
+        )
+        terms_checkbox.pack(anchor=tk.W, pady=5)
+
+        manual_frame = ttk.Frame(terms_frame)
+        manual_frame.pack(fill=tk.X, pady=5)
+        ttk.Label(manual_frame, text="Manual term count:").pack(side=tk.LEFT, padx=5)
+        terms_spinbox = ttk.Spinbox(
+            manual_frame,
+            from_=0,
+            to=20,
+            textvariable=manual_terms_var,
+            width=10,
+            state="disabled"
+        )
+        terms_spinbox.pack(side=tk.LEFT, padx=5)
+        ttk.Label(manual_frame, text="(0 = single sin/cos pair)",
+                 font=('Arial', 8), foreground='gray').pack(side=tk.LEFT, padx=5)
+
         # Preview area
         preview_frame = ttk.LabelFrame(dialog, text="Last Generated", padding="10")
         preview_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -3395,10 +3432,35 @@ class OscilloscopeGUI:
             num_points = 1000
             t = np.linspace(0, 2*np.pi, num_points)
 
-            if mode == "random":
+            # Determine number of terms
+            if random_terms_var.get():
+                # Random mode: 1-10 terms
+                num_terms_x = np.random.randint(1, 11)
+                num_terms_y = np.random.randint(1, 11)
+                num_terms = np.random.randint(1, 11)
+            else:
+                # Manual mode: use specified count (0-20)
+                manual_count = manual_terms_var.get()
+                num_terms_x = manual_count
+                num_terms_y = manual_count
+                num_terms = manual_count
+
+            # Special case: 0 terms = single sin/cos pair
+            if not random_terms_var.get() and manual_terms_var.get() == 0:
+                # Simple case: X = sin, Y = cos
+                frequency = np.random.uniform(1, 100)
+                phase = np.random.uniform(0, 2*np.pi)
+
+                x_data = np.sin(frequency * t + phase)
+                y_data = np.cos(frequency * t + phase)
+
+                x_description = [f"1.00·sin({frequency:.1f}t + {phase:.1f})"]
+                y_description = [f"1.00·cos({frequency:.1f}t + {phase:.1f})"]
+
+                status_msg = f"Random harmonics: Single sin/cos pair"
+
+            elif mode == "random":
                 # Mode 1: Fully Random
-                num_terms_x = np.random.randint(1, 11)  # 1-10 terms
-                num_terms_y = np.random.randint(1, 11)  # 1-10 terms
 
                 # Generate X channel
                 x_data = np.zeros(num_points)
@@ -3438,11 +3500,11 @@ class OscilloscopeGUI:
 
             elif mode == "mirrored":
                 # Mode 2: Mirrored (sin/cos swap)
-                num_terms = np.random.randint(1, 11)  # 1-10 terms
+                # num_terms already set above based on random/manual choice
 
                 # Generate shared parameters
                 terms = []
-                for i in range(num_terms):
+                for i in range(max(1, num_terms)):
                     wave_type = np.random.choice(['sin', 'cos'])
                     amplitude = np.random.uniform(0.3, 1.0)
                     frequency = np.random.uniform(0, 1000)
@@ -3479,12 +3541,12 @@ class OscilloscopeGUI:
 
             elif mode == "freq_sweep":
                 # Mode 3: Mirrored with Frequency Sweep
-                num_terms = np.random.randint(1, 11)  # 1-10 terms
+                # num_terms already set above based on random/manual choice
                 num_sweep_steps = 20  # Number of frames for sweep
 
                 # Generate shared parameters
                 terms = []
-                for i in range(num_terms):
+                for i in range(max(1, num_terms)):
                     wave_type = np.random.choice(['sin', 'cos'])
                     amplitude = np.random.uniform(0.01, 1.0)
                     frequency_start = np.random.uniform(0, 1000)
@@ -3542,12 +3604,12 @@ class OscilloscopeGUI:
 
             elif mode == "phase_sweep":
                 # Mode 4: Mirrored with Phase Sweep
-                num_terms = np.random.randint(1, 11)  # 1-10 terms
+                # num_terms already set above based on random/manual choice
                 num_sweep_steps = 20  # Number of frames for sweep
 
                 # Generate shared parameters
                 terms = []
-                for i in range(num_terms):
+                for i in range(max(1, num_terms)):
                     wave_type = np.random.choice(['sin', 'cos'])
                     amplitude = np.random.uniform(0.01, 1.0)
                     frequency = np.random.uniform(0, 1000)
@@ -3605,12 +3667,12 @@ class OscilloscopeGUI:
 
             elif mode == "freq_phase_sweep":
                 # Mode 5: Mirrored with both Frequency and Phase Sweep
-                num_terms = np.random.randint(1, 11)  # 1-10 terms
+                # num_terms already set above based on random/manual choice
                 num_sweep_steps = 20  # Number of frames for sweep
 
                 # Generate shared parameters
                 terms = []
-                for i in range(num_terms):
+                for i in range(max(1, num_terms)):
                     wave_type = np.random.choice(['sin', 'cos'])
                     amplitude = np.random.uniform(0.01, 1.0)
                     frequency_start = np.random.uniform(0, 1000)
