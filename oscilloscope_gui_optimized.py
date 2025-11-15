@@ -39,10 +39,11 @@ class OscilloscopeGUI:
         self.audio_thread = None
         self.stop_flag = threading.Event()
         self.update_queue = queue.Queue()
-        
-        # Current data
-        self.x_data = np.array([1, 2, 3])
-        self.y_data = np.array([4, 4, 3])
+
+        # Current data - Default sine wave (X = t, Y = sin(t))
+        t = np.linspace(-1, 1, 500)  # Time from -1 to 1 for nice display
+        self.x_data = t
+        self.y_data = np.sin(2 * np.pi * t)  # One complete sine wave cycle
         self.current_audio = None
         self.current_fs = 0
         
