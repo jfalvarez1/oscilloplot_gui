@@ -3575,10 +3575,13 @@ class OscilloscopeGUI:
             """Generate pattern based on selected mode"""
             mode = mode_var.get()
 
-            # Use fewer points for sweep modes to prevent preview flooding
+            # Calculate based on actual playback parameters to prevent overcalculation
             if mode in ["freq_sweep", "phase_sweep", "freq_phase_sweep"]:
-                num_points = 400  # Reduced from 1000 to prevent sluggishness
+                # Sweep modes: use minimal points since pattern gets repeated/tiled
+                # 100 points total ÷ 10 frames = 10 points per frame (efficient)
+                num_points = 100
             else:
+                # Normal modes: 1000 points for smooth single pattern
                 num_points = 1000
 
             t = np.linspace(0, 2*np.pi, num_points)
