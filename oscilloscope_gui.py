@@ -161,45 +161,51 @@ class OscilloscopeGUI:
         
         # === AUDIO PARAMETERS ===
         audio_frame = ctk.CTkFrame(parent)
-        ctk.CTkLabel(audio_frame, text="Audio Parameters", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=5)
         audio_frame.grid(row=row, column=0, sticky=(tk.W, tk.E), pady=5)
         row += 1
-        
+
+        # Title
+        ctk.CTkLabel(audio_frame, text="Audio Parameters", font=("Arial", 12, "bold")).pack(anchor=tk.W, padx=5, pady=(5,0))
+
+        # Content frame for grid layout
+        audio_content = ctk.CTkFrame(audio_frame, fg_color="transparent")
+        audio_content.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
         # Sample Rate
-        ctk.CTkLabel(audio_frame, text="Base Sample Rate (Hz):").grid(row=0, column=0, sticky=tk.W)
+        ctk.CTkLabel(audio_content, text="Base Sample Rate (Hz):").grid(row=0, column=0, sticky=tk.W)
         self.sample_rate_var = tk.IntVar(value=1000)
-        self.sample_rate_spin = tk.Spinbox(audio_frame, from_=100, to=10000, 
+        self.sample_rate_spin = tk.Spinbox(audio_content, from_=100, to=10000, 
                                            textvariable=self.sample_rate_var, width=10)
         self.sample_rate_spin.grid(row=0, column=1, pady=2)
         
         # Playback Multiplier (Frequency)
-        ctk.CTkLabel(audio_frame, text="Playback Multiplier:").grid(row=1, column=0, sticky=tk.W)
+        ctk.CTkLabel(audio_content, text="Playback Multiplier:").grid(row=1, column=0, sticky=tk.W)
         self.freq_mult_var = tk.IntVar(value=100)
-        self.freq_mult_spin = tk.Spinbox(audio_frame, from_=10, to=500, 
+        self.freq_mult_spin = tk.Spinbox(audio_content, from_=10, to=500, 
                                          textvariable=self.freq_mult_var, width=10)
         self.freq_mult_spin.grid(row=1, column=1, pady=2)
         
-        ctk.CTkLabel(audio_frame, text="→ Actual Rate:").grid(row=2, column=0, sticky=tk.W)
-        self.actual_rate_label = ctk.CTkLabel(audio_frame, text="100 kHz", 
+        ctk.CTkLabel(audio_content, text="→ Actual Rate:").grid(row=2, column=0, sticky=tk.W)
+        self.actual_rate_label = ctk.CTkLabel(audio_content, text="100 kHz", 
                                           font=('Arial', 9, 'bold'))
         self.actual_rate_label.grid(row=2, column=1, pady=2)
         
         # Duration
-        ctk.CTkLabel(audio_frame, text="Duration (seconds):").grid(row=3, column=0, sticky=tk.W)
+        ctk.CTkLabel(audio_content, text="Duration (seconds):").grid(row=3, column=0, sticky=tk.W)
         self.duration_var = tk.IntVar(value=15)
-        self.duration_spin = tk.Spinbox(audio_frame, from_=5, to=120, 
+        self.duration_spin = tk.Spinbox(audio_content, from_=5, to=120, 
                                         textvariable=self.duration_var, width=10)
         self.duration_spin.grid(row=3, column=1, pady=2)
         
         # N Repeat
-        ctk.CTkLabel(audio_frame, text="Pattern Repeats:").grid(row=4, column=0, sticky=tk.W)
+        ctk.CTkLabel(audio_content, text="Pattern Repeats:").grid(row=4, column=0, sticky=tk.W)
         self.n_repeat_var = tk.IntVar(value=200)  # Increased default for full rotations
-        self.n_repeat_spin = tk.Spinbox(audio_frame, from_=1, to=2000, 
+        self.n_repeat_spin = tk.Spinbox(audio_content, from_=1, to=2000, 
                                         textvariable=self.n_repeat_var, width=10)
         self.n_repeat_spin.grid(row=4, column=1, pady=2)
         
         # Rotation info label
-        self.rotation_info_label = ctk.CTkLabel(audio_frame, text="",
+        self.rotation_info_label = ctk.CTkLabel(audio_content, text="",
                                             font=('Arial', 8, 'italic'),
                                             text_color='blue')
         self.rotation_info_label.grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(2,5))
