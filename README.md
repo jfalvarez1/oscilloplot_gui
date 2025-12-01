@@ -2,7 +2,7 @@
 
 A powerful Python GUI application for generating XY audio signals that can be displayed on a real analog oscilloscope. Create mesmerizing visual patterns, Lissajous figures, spirals, and custom drawings that come to life on your oscilloscope's phosphor screen!
 
-![Oscilloplot Screenshot](screenshots/main_gui.png)
+![Oscilloplot Screenshot](oscilloplot.png)
 
 ## Features
 
@@ -26,11 +26,9 @@ A powerful Python GUI application for generating XY audio signals that can be di
 
 ## Screenshots
 
-| Main Application | Sound Pad | Image Converter |
-|-----------------|-----------|-----------------|
-| ![Main GUI](screenshots/main_gui.png) | ![Sound Pad](screenshots/sound_pad.png) | ![Image Converter](screenshots/img2txt.png) |
-
-> **Note**: To add screenshots, create a `screenshots/` folder and add PNG images of the application.
+| Main Application | Sound Pad |
+|-----------------|-----------|
+| ![Main GUI](oscilloplot.png) | ![Sound Pad](soundpad.png) |
 
 ## Installation
 
