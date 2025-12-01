@@ -109,24 +109,24 @@ class OscilloscopeGUI:
         control_canvas.bind_all("<Button-4>", lambda e: control_canvas.yview_scroll(-1, "units"))  # Linux up
         control_canvas.bind_all("<Button-5>", lambda e: control_canvas.yview_scroll(1, "units"))   # Linux down
         
-        # Right panel - Display with JUANTRONIX branding
+        # Right panel - Display with Oscilloplot branding
         display_container = ttk.Frame(main_container, padding="10")
         display_container.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
         display_container.columnconfigure(0, weight=1)
         display_container.rowconfigure(1, weight=1)  # Row 1 for display (row 0 for branding)
 
-        # JUANTRONIX branding - TEKTRONIX style from the 90s
+        # Oscilloplot branding - TEKTRONIX style from the 90s
         branding_frame = tk.Frame(display_container, bg='white')
         branding_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
-        # Main JUANTRONIX label in deep blue - using Canvas for extra bold effect
+        # Main Oscilloplot label in deep blue - using Canvas for extra bold effect
         canvas_height = 60
         branding_canvas = tk.Canvas(branding_frame, width=400, height=canvas_height,
                                      bg='white', highlightthickness=0)
         branding_canvas.pack()
 
         # Draw text multiple times with slight offsets to create super bold effect
-        text = "JUANTRONIX"
+        text = "OSCILLOPLOT"
         font_spec = ("Arial", 36, "bold")
         color = "#003D7A"  # Deep blue (TEKTRONIX blue)
 
