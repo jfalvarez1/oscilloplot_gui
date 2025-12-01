@@ -1,4 +1,4 @@
-# JUANTRONIX - Oscilloscope XY Audio Generator
+# Oscilloplot - Oscilloscope XY Audio Generator
 
 A powerful Python GUI application for generating XY audio signals that can be displayed on a real analog oscilloscope. Create mesmerizing visual patterns, Lissajous figures, spirals, and custom drawings that come to life on your oscilloscope's phosphor screen!
 
