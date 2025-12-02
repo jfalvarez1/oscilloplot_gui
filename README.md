@@ -22,13 +22,20 @@ A powerful Python GUI application for generating XY audio signals that can be di
 
 ## Screenshots
 
-| Main Application | Sound Pad |
-|-----------------|-----------|
-| ![Main GUI](oscilloplot.png) | ![Sound Pad](soundpad.png) |
+### Main Application
+![Main GUI](oscilloplot.png)
 
-| Sum of Harmonics | Random Harmonics | Archimedean Spiral |
-|--------------------|--------------------|-----------------------|
-| ![Sum of Harmonics](screenshots/sum_of_harmonics.png) | ![Random Harmonics](screenshots/random_harmonics.png) | ![Archimedean Spiral](screenshots/achi_spiral.png) |
+### Sound Pad
+![Sound Pad](soundpad.png)
+
+### Sum of Harmonics
+![Sum of Harmonics](screenshots/sum_of_harmonics.png)
+
+### Random Harmonics
+![Random Harmonics](screenshots/random_harmonics.png)
+
+### Archimedean Spiral
+![Archimedean Spiral](screenshots/achi_spiral.png)
 
 ## Installation
 
