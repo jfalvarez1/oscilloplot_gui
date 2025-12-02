@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oscilloplot User Manual</title>
+    <style>
+        :root {
+            --primary-color: #003D7A;
+            --secondary-color: #00ff00;
+            --bg-dark: #1a1a1a;
+            --bg-light: #f5f5f5;
+            --text-dark: #333;
+            --text-light: #666;
+            --accent-blue: #0066cc;
+            --accent-green: #00aa00;
+            --border-color: #ddd;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background-color: var(--bg-light);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--primary-color), #005599);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-top: 10px;
+        }
+
+        header .version {
+            font-size: 0.9em;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        /* Navigation */
+        nav {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+        }
+
+        nav h3 {
+            margin: 0 0 15px 0;
+            color: var(--primary-color);
+            font-size: 1.1em;
+        }
+
+        nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        nav ul li a {
+            color: var(--accent-blue);
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            background: #f0f0f0;
+            display: inline-block;
+            transition: all 0.2s;
+            font-size: 0.9em;
+        }
+
+        nav ul li a:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* Sections */
+        section {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        h3 {
+            color: var(--accent-blue);
+            margin-top: 25px;
+        }
+
+        h4 {
+            color: var(--text-dark);
+            margin-top: 20px;
+            background: #f8f8f8;
+            padding: 10px 15px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background: var(--primary-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        tr:hover {
+            background: #f0f0f0;
+        }
+
+        /* Code blocks */
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            color: #c7254e;
+        }
+
+        pre {
+            background: var(--bg-dark);
+            color: var(--secondary-color);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+        }
+
+        /* Tips and notes */
+        .tip {
+            background: #e7f3ff;
+            border-left: 4px solid var(--accent-blue);
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .tip::before {
+            content: "Tip: ";
+            font-weight: bold;
+            color: var(--accent-blue);
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .warning::before {
+            content: "Warning: ";
+            font-weight: bold;
+            color: #856404;
+        }
+
+        .note {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .note::before {
+            content: "Note: ";
+            font-weight: bold;
+            color: #155724;
+        }
+
+        /* Formula boxes */
+        .formula {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-family: 'Georgia', serif;
+            font-style: italic;
+            text-align: center;
+            font-size: 1.1em;
+        }
+
+        /* Feature cards */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .feature-card {
+            background: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .feature-card h4 {
+            background: none;
+            padding: 0;
+            border: none;
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+
+        /* Parameter lists */
+        .param-list {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .param-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .param-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .param-name {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .param-range {
+            color: var(--text-light);
+            font-size: 0.9em;
+        }
+
+        /* Screenshots */
+        .screenshot {
+            max-width: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin: 15px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .screenshot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .screenshot-item {
+            text-align: center;
+        }
+
+        .screenshot-item img {
+            max-width: 100%;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .screenshot-item p {
+            margin-top: 10px;
+            color: var(--text-light);
+            font-style: italic;
+        }
+
+        /* Keyboard shortcuts */
+        kbd {
+            background: #f7f7f7;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            display: inline-block;
+            padding: 3px 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85em;
+        }
+
+        /* Steps */
+        .steps {
+            counter-reset: step-counter;
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .steps li {
+            counter-increment: step-counter;
+            padding: 15px 15px 15px 60px;
+            position: relative;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .steps li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 30px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--bg-dark);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        footer p {
+            margin: 5px 0;
+            opacity: 0.8;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+
+            nav ul {
+                flex-direction: column;
+            }
+
+            section {
+                padding: 20px;
+            }
+
+            table {
+                font-size: 0.9em;
+            }
+
+            th, td {
+                padding: 8px 10px;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            nav {
+                display: none;
+            }
+
+            section {
+                box-shadow: none;
+                border: 1px solid #ccc;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>OSCILLOPLOT</h1>
+        <div class="subtitle">XY Audio Oscilloscope Generator</div>
+        <div class="version">Complete User Manual</div>
+    </header>
+
+    <div class="container">
+        <nav>
+            <h3>Table of Contents</h3>
+            <ul>
+                <li><a href="#introduction">Introduction</a></li>
+                <li><a href="#installation">Installation</a></li>
+                <li><a href="#quick-start">Quick Start</a></li>
+                <li><a href="#interface">Interface Overview</a></li>
+                <li><a href="#data-sources">Data Sources</a></li>
+                <li><a href="#audio-params">Audio Parameters</a></li>
+                <li><a href="#effects">Effects Reference</a></li>
+                <li><a href="#preview">Live Preview</a></li>
+                <li><a href="#pattern-generators">Pattern Generators</a></li>
+                <li><a href="#image-converter">Image Converter</a></li>
+                <li><a href="#file-formats">File Formats</a></li>
+                <li><a href="#oscilloscope">Oscilloscope Setup</a></li>
+                <li><a href="#optimized">Optimized Version</a></li>
+                <li><a href="#troubleshooting">Troubleshooting</a></li>
+            </ul>
+        </nav>
+
+        <!-- Introduction -->
+        <section id="introduction">
+            <h2>Introduction</h2>
+            <p>
+                <strong>Oscilloplot</strong> is a powerful Python GUI application for generating XY audio signals
+                that can be displayed on a real analog oscilloscope. Create mesmerizing visual patterns, Lissajous
+                figures, spirals, and custom drawings that come to life on your oscilloscope's phosphor screen!
+            </p>
+
+            <h3>Key Features</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>Real-Time Preview</h4>
+                    <p>Classic CRT green phosphor display with density-based rendering shows your patterns in real-time.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Audio Output</h4>
+                    <p>Generate stereo audio signals (Left = X, Right = Y) for real oscilloscope display.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Multiple Generators</h4>
+                    <p>Sum of Harmonics, Archimedean Spirals, Random Harmonics, Freehand Drawing, and more.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>15+ Effects</h4>
+                    <p>Rotation, fade, shrink, wavy, tremolo, ring mod, echo, kaleidoscope, distortion, and more.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Image Converter</h4>
+                    <p>Convert photos and drawings to oscilloscope-ready coordinates.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>WAV Export</h4>
+                    <p>Save your generated audio as stereo WAV files for later use.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Installation -->
+        <section id="installation">
+            <h2>Installation</h2>
+
+            <h3>Prerequisites</h3>
+            <ul>
+                <li>Python 3.8 or higher</li>
+                <li>A stereo audio output device</li>
+                <li>(Optional) An analog oscilloscope in XY mode</li>
+            </ul>
+
+            <h3>Install Dependencies</h3>
+            <p>Using the requirements file:</p>
+            <pre><code>pip install -r requirements.txt</code></pre>
+
+            <p>Or install manually:</p>
+            <pre><code>pip install numpy>=1.20.0 sounddevice>=0.4.0 matplotlib>=3.3.0 soundfile>=0.10.0</code></pre>
+
+            <p>For the image converter, you'll also need:</p>
+            <pre><code>pip install opencv-python</code></pre>
+
+            <div class="tip">
+                Make sure you have a working audio output device before running the application.
+                The application uses the system's default audio output.
+            </div>
+        </section>
+
+        <!-- Quick Start -->
+        <section id="quick-start">
+            <h2>Quick Start Guide</h2>
+
+            <h3>Standard Version</h3>
+            <pre><code>python oscilloscope_gui.py</code></pre>
+
+            <h3>Optimized Version (Recommended)</h3>
+            <pre><code>python oscilloscope_gui_optimized.py</code></pre>
+
+            <h3>Getting Started in 5 Steps</h3>
+            <ol class="steps">
+                <li><strong>Launch the application</strong> - Run either version of the GUI</li>
+                <li><strong>Load or generate a pattern</strong> - Click "Generate Test Pattern" for a quick demo, or try "Sum of Harmonics" for Lissajous figures</li>
+                <li><strong>Adjust parameters</strong> - Use the control panel on the left to modify audio settings and effects</li>
+                <li><strong>Click "Apply & Generate"</strong> - This processes your pattern with all selected effects</li>
+                <li><strong>Click "Play Audio"</strong> - Listen to the output and watch the live preview</li>
+            </ol>
+
+            <div class="note">
+                For real oscilloscope display, connect your computer's stereo audio output to your scope's X and Y inputs.
+            </div>
+        </section>
+
+        <!-- Interface Overview -->
+        <section id="interface">
+            <h2>Interface Overview</h2>
+
+            <p>The Oscilloplot interface is divided into two main areas:</p>
+
+            <h3>Left Panel - Controls</h3>
+            <p>A scrollable panel containing all controls organized into sections:</p>
+            <ul>
+                <li><strong>Data Source</strong> - Buttons to load or generate patterns</li>
+                <li><strong>Audio Parameters</strong> - Sample rate, multiplier, duration, repeats</li>
+                <li><strong>Effects</strong> - All available visual and audio effects</li>
+                <li><strong>Action Buttons</strong> - Apply, Play, Reset, Save</li>
+                <li><strong>Status</strong> - Current status and live preview settings</li>
+            </ul>
+
+            <h3>Right Panel - Display</h3>
+            <p>The oscilloscope-style display showing:</p>
+            <ul>
+                <li><strong>Oscilloplot Branding</strong> - Tektronix-inspired title banner</li>
+                <li><strong>XY Display</strong> - Classic green phosphor visualization</li>
+                <li><strong>Grid Lines</strong> - Reference grid for pattern positioning</li>
+            </ul>
+
+            <div class="tip">
+                Use the scroll wheel or drag the scrollbar to access all controls in the left panel.
+            </div>
+        </section>
+
+        <!-- Data Sources -->
+        <section id="data-sources">
+            <h2>Data Source Functions</h2>
+
+            <p>These buttons allow you to load existing patterns or generate new ones:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Button</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Load MATLAB File (.m)</strong></td>
+                        <td>Load X/Y coordinate arrays from MATLAB format files. Expected variables: <code>x_fun</code> and <code>y_fun</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Load Text File (.txt)</strong></td>
+                        <td>Load coordinates from plain text files with <code>x_fun=[...]</code> and <code>y_fun=[...]</code> format</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Load NumPy File (.npz)</strong></td>
+                        <td>Load coordinates from NumPy compressed archives with <code>x</code> and <code>y</code> arrays</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Generate Test Pattern</strong></td>
+                        <td>Creates a simple sine wave test pattern for quick testing and verification</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Draw Pattern</strong></td>
+                        <td>Opens an interactive canvas where you can draw patterns freehand with your mouse</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Sum of Harmonics</strong></td>
+                        <td>Opens a dialog to create Lissajous figures by combining multiple sine waves</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Archimedean Spiral</strong></td>
+                        <td>Opens a dialog to generate spiral patterns with configurable parameters</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Sound Pad</strong></td>
+                        <td>Opens a 16-step sequencer for creating rhythmic, stepping patterns</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Random Harmonics</strong></td>
+                        <td>Generates random Lissajous-like patterns with random frequencies, phases, and amplitudes</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="tip">
+                After loading data, the "Points:" label shows how many coordinate points are in your pattern.
+            </div>
+        </section>
+
+        <!-- Audio Parameters -->
+        <section id="audio-params">
+            <h2>Audio Parameters</h2>
+
+            <p>These parameters control how your pattern is converted to audio:</p>
+
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Base Sample Rate (Hz)</div>
+                    <div class="param-range">Range: 100 - 10,000 Hz | Default: 1,000 Hz</div>
+                    <p>
+                        The base sampling rate for the pattern. Higher values create more detailed patterns but
+                        result in larger audio files. This value is multiplied by the Playback Multiplier to get
+                        the actual audio sample rate.
+                    </p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Playback Multiplier</div>
+                    <div class="param-range">Range: 10 - 500 | Default: 100</div>
+                    <p>
+                        Multiplies the base rate for actual audio output. The formula is:
+                    </p>
+                    <div class="formula">Actual Rate = Base Sample Rate &times; Playback Multiplier</div>
+                    <p>
+                        For example: 1,000 Hz &times; 100 = 100,000 Hz (100 kHz)
+                    </p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Actual Rate</div>
+                    <p>
+                        This read-only label shows the calculated actual sample rate based on your
+                        Base Sample Rate and Playback Multiplier settings.
+                    </p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Duration (seconds)</div>
+                    <div class="param-range">Range: 5 - 120 seconds | Default: 15 seconds</div>
+                    <p>
+                        Total playback duration of the generated audio. Longer durations create larger
+                        files but allow effects like rotation to complete more cycles.
+                    </p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Pattern Repeats</div>
+                    <div class="param-range">Range: 1 - 2,000 | Default: 200</div>
+                    <p>
+                        How many times the pattern repeats during playback. More repeats create smoother
+                        animated effects like rotation, fade sequences, and shrink effects. The rotation
+                        info label shows how many full rotations will occur based on this value.
+                    </p>
+                </div>
+            </div>
+
+            <div class="note">
+                The "Actual Rate" label updates automatically when you change the Base Sample Rate or Playback Multiplier.
+            </div>
+        </section>
+
+        <!-- Effects Reference -->
+        <section id="effects">
+            <h2>Effects Reference</h2>
+
+            <p>Oscilloplot includes over 15 different effects that can be combined to create unique visual patterns.</p>
+
+            <h3>Mirror Reflections</h3>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Enable Mirror Reflections</div>
+                    <p>
+                        Creates mirror copies of the pattern across axes, producing symmetrical visual effects.
+                        When enabled, the pattern is reflected to create a balanced, mirrored appearance.
+                    </p>
+                </div>
+            </div>
+
+            <h3>Y-Axis Fade Sequence</h3>
+            <p>Gradually fades the pattern in and out along the Y-axis, creating a vertical pulsing effect.</p>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Y Fade Steps</div>
+                    <div class="param-range">Range: 2 - 50 | Default: 10</div>
+                    <p>Number of fade levels. More steps create smoother, more gradual fading.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Y Fade Speed (repeats/step)</div>
+                    <div class="param-range">Range: 1 - 20 | Default: 1</div>
+                    <p>How many pattern repeats occur per fade step. Lower values create slower fade animations.</p>
+                </div>
+            </div>
+
+            <h3>X-Axis Fade Sequence</h3>
+            <p>Gradually fades the pattern in and out along the X-axis, creating a horizontal pulsing effect.</p>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">X Fade Steps</div>
+                    <div class="param-range">Range: 2 - 50 | Default: 10</div>
+                    <p>Number of fade levels. More steps create smoother, more gradual fading.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">X Fade Speed (repeats/step)</div>
+                    <div class="param-range">Range: 1 - 20 | Default: 1</div>
+                    <p>How many pattern repeats occur per fade step. Lower values create slower fade animations.</p>
+                </div>
+            </div>
+
+            <h3>Alternate X/Y Fade</h3>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Alternate X/Y Fade (X first, then Y, repeat)</div>
+                    <p>
+                        When enabled, alternates between X and Y fading. X fades first, then Y, and the
+                        cycle repeats. This creates a "breathing" or pulsing effect on different axes.
+                    </p>
+                </div>
+            </div>
+
+            <h3>Shrink/Unshrink</h3>
+            <p>Scales the entire pattern uniformly (both X and Y together), creating a zoom in/out effect.</p>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Shrink Steps</div>
+                    <div class="param-range">Range: 2 - 50 | Default: 10</div>
+                    <p>Number of scale levels from full size to minimum and back.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Shrink Speed (repeats/step)</div>
+                    <div class="param-range">Range: 1 - 20 | Default: 1</div>
+                    <p>How many pattern repeats occur per shrink step. Controls animation speed.</p>
+                </div>
+            </div>
+
+            <h3>Noise Effects</h3>
+            <p>Add random noise to create organic, jittery effects. X and Y channels can be controlled independently.</p>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Add X-Channel Noise</div>
+                    <p>Toggles noise on the X (horizontal) channel.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">X Noise Amplitude</div>
+                    <div class="param-range">Range: 0.001 - 0.3 | Default: 0.05</div>
+                    <p>Noise intensity for X channel. Higher values create more visible jitter.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Add Y-Channel Noise</div>
+                    <p>Toggles noise on the Y (vertical) channel.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Y Noise Amplitude</div>
+                    <div class="param-range">Range: 0.001 - 0.3 | Default: 0.05</div>
+                    <p>Noise intensity for Y channel. Higher values create more visible jitter.</p>
+                </div>
+            </div>
+
+            <h3>Wavy Effect</h3>
+            <p>Adds sinusoidal modulation to create wobbling, undulating patterns.</p>
+            <div class="formula">output = input + K &times; sin(&omega; &times; t)</div>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Add X-Channel Wavy</div>
+                    <p>Toggles wavy effect on the X channel.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">X Amplitude (K)</div>
+                    <div class="param-range">Range: 0.0 - 1.0 | Default: 0.2</div>
+                    <p>Wave amplitude. Higher values create more pronounced waves.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">X Angular Frequency (&omega;)</div>
+                    <div class="param-range">Range: 1 - 1,000,000 | Default: 10</div>
+                    <p>Wave frequency. Higher values create faster oscillation. You can type a precise value in the entry box.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Add Y-Channel Wavy</div>
+                    <p>Toggles wavy effect on the Y channel.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Y Amplitude (K)</div>
+                    <div class="param-range">Range: 0.0 - 1.0 | Default: 0.2</div>
+                    <p>Wave amplitude for Y channel.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Y Angular Frequency (&omega;)</div>
+                    <div class="param-range">Range: 1 - 1,000,000 | Default: 10</div>
+                    <p>Wave frequency for Y channel.</p>
+                </div>
+            </div>
+
+            <h3>Rotation</h3>
+            <p>Rotates the entire pattern around the center point.</p>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Rotation Mode</div>
+                    <table>
+                        <thead>
+                            <tr><th>Mode</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><strong>Off</strong></td><td>No rotation applied</td></tr>
+                            <tr><td><strong>Static Angle</strong></td><td>Fixed rotation at specified angle</td></tr>
+                            <tr><td><strong>Rotate Clockwise (CW)</strong></td><td>Continuous clockwise rotation</td></tr>
+                            <tr><td><strong>Rotate Counter-Clockwise (CCW)</strong></td><td>Continuous counter-clockwise rotation</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Static Angle (degrees)</div>
+                    <div class="param-range">Range: -180&deg; to +180&deg; | Default: 0&deg;</div>
+                    <p>Fixed rotation angle in degrees. Only used when "Static Angle" mode is selected.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Rotation Speed (degrees/cycle)</div>
+                    <div class="param-range">Range: 0.5 - 45 | Default: 5</div>
+                    <p>How many degrees the pattern rotates per pattern cycle.</p>
+                    <div class="formula">Steps per full rotation = 360&deg; &divide; Rotation Speed</div>
+                </div>
+            </div>
+            <div class="tip">
+                More Pattern Repeats = more complete rotations. The info label below the Audio Parameters
+                shows how many full rotations will occur with your current settings.
+            </div>
+
+            <h3>Tremolo (Amplitude Modulation)</h3>
+            <p>Modulates the signal amplitude to create pulsing, throbbing effects.</p>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Enable Tremolo</div>
+                    <p>Toggles the tremolo effect.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Depth (%)</div>
+                    <div class="param-range">Range: 0 - 100% | Default: 50%</div>
+                    <p>Modulation depth. 100% means full amplitude variation from silent to full volume.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Rate (Hz)</div>
+                    <div class="param-range">Range: 0.1 - 20 Hz | Default: 2 Hz</div>
+                    <p>Modulation frequency. How fast the amplitude pulses.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Waveform</div>
+                    <table>
+                        <thead>
+                            <tr><th>Waveform</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><strong>Sine</strong></td><td>Smooth, organic pulsing</td></tr>
+                            <tr><td><strong>Triangle</strong></td><td>Linear rise and fall</td></tr>
+                            <tr><td><strong>Square</strong></td><td>Abrupt on/off switching</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <h3>Ring Modulation</h3>
+            <p>Multiplies the signal with a carrier wave for metallic, robotic effects.</p>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Enable Ring Modulation</div>
+                    <p>Toggles the ring modulation effect.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Carrier Freq (Hz)</div>
+                    <div class="param-range">Range: 10 - 2,000 Hz | Default: 200 Hz</div>
+                    <p>Carrier frequency. Creates sidebands around original frequencies for complex timbres.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Mix (%)</div>
+                    <div class="param-range">Range: 0 - 100% | Default: 50%</div>
+                    <p>Wet/dry mix. 0% = original signal, 100% = fully modulated signal.</p>
+                </div>
+            </div>
+
+            <h3>Echo/Delay</h3>
+            <p>Creates repeating echoes of the pattern.</p>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Enable Echo</div>
+                    <p>Toggles the echo effect.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Number of Echoes</div>
+                    <div class="param-range">Range: 1 - 10 | Default: 3</div>
+                    <p>How many echoes to generate.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Decay Factor</div>
+                    <div class="param-range">Range: 0.1 - 0.95 | Default: 0.7</div>
+                    <p>Volume reduction per echo. Higher values mean echoes last longer.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Delay Time (%)</div>
+                    <div class="param-range">Range: 1 - 50% | Default: 10%</div>
+                    <p>Echo spacing as percentage of pattern length.</p>
+                </div>
+            </div>
+
+            <h3>Kaleidoscope</h3>
+            <p>Creates symmetrical copies of the pattern around the center.</p>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Enable Kaleidoscope</div>
+                    <p>Toggles the kaleidoscope effect.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Symmetry Sections</div>
+                    <div class="param-range">Range: 2 - 12 | Default: 6</div>
+                    <p>Number of symmetrical copies. 6 creates hexagonal symmetry.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Mirror Reflections</div>
+                    <p>When enabled, alternating sections are mirrored for additional symmetry.</p>
+                </div>
+            </div>
+
+            <h3>Distortion</h3>
+            <p>Clips or folds the signal for aggressive visual effects.</p>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Enable Distortion</div>
+                    <p>Toggles the distortion effect.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Type</div>
+                    <table>
+                        <thead>
+                            <tr><th>Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><strong>Soft Clip</strong></td><td>Smooth saturation curve, natural-sounding</td></tr>
+                            <tr><td><strong>Hard Clip</strong></td><td>Sharp cutoff at threshold, harsh sound</td></tr>
+                            <tr><td><strong>Fold</strong></td><td>Signal wraps around at threshold, creating complex patterns</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Threshold</div>
+                    <div class="param-range">Range: 0.1 - 2.0 | Default: 0.5</div>
+                    <p>Clipping threshold. Lower values create more distortion.</p>
+                </div>
+            </div>
+
+            <div class="note">
+                All effects can be combined! Enable multiple effects to create unique, complex patterns.
+                Click "Apply & Generate" after changing any effect settings to hear and see the results.
+            </div>
+        </section>
+
+        <!-- Live Preview -->
+        <section id="preview">
+            <h2>Live Preview Settings</h2>
+
+            <p>The Live Preview feature shows real-time output during playback, simulating what you'd see on an actual oscilloscope.</p>
+
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Live Preview</div>
+                    <p>Toggle to enable/disable real-time display during playback. Disable for lower CPU usage.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Window Size</div>
+                    <div class="param-range">Range: 100 - 50,000 samples | Default: 5,000</div>
+                    <p>
+                        Number of samples shown at once. Larger values show more of the pattern but use more CPU.
+                        Smaller values create a "trailing" effect similar to real oscilloscope phosphor decay.
+                    </p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Frame Rate</div>
+                    <div class="param-range">Range: 5 - 60 FPS | Default: 25 FPS</div>
+                    <p>Preview refresh rate. Higher values create smoother animation but use more CPU.</p>
+                </div>
+            </div>
+
+            <div class="tip">
+                If performance is an issue, reduce the Frame Rate to 15-20 FPS and Window Size to 2,000-3,000 samples.
+            </div>
+        </section>
+
+        <!-- Pattern Generators -->
+        <section id="pattern-generators">
+            <h2>Pattern Generators - Detailed Guide</h2>
+
+            <h3>Sum of Harmonics (Lissajous Figures)</h3>
+            <p>
+                Create beautiful Lissajous figures by combining multiple sine waves. This is the mathematical
+                foundation of many classic oscilloscope patterns.
+            </p>
+
+            <h4>Mathematical Basis</h4>
+            <div class="formula">
+                X = A<sub>1</sub>&middot;sin(f<sub>1</sub>&middot;t + &phi;<sub>1</sub>) + A<sub>2</sub>&middot;sin(f<sub>2</sub>&middot;t + &phi;<sub>2</sub>) + ...
+            </div>
+            <div class="formula">
+                Y = B<sub>1</sub>&middot;sin(g<sub>1</sub>&middot;t + &psi;<sub>1</sub>) + B<sub>2</sub>&middot;sin(g<sub>2</sub>&middot;t + &psi;<sub>2</sub>) + ...
+            </div>
+
+            <h4>Harmonic Parameters</h4>
+            <table>
+                <thead>
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>Amplitude (A, B)</strong></td><td>Wave height - controls the size of the contribution</td></tr>
+                    <tr><td><strong>Frequency (f, g)</strong></td><td>Oscillation speed - integer ratios create closed figures</td></tr>
+                    <tr><td><strong>Phase (&phi;, &psi;)</strong></td><td>Starting position offset in radians</td></tr>
+                </tbody>
+            </table>
+
+            <h4>Classic Lissajous Ratios</h4>
+            <table>
+                <thead>
+                    <tr><th>X:Y Ratio</th><th>Shape</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>1:1</td><td>Circle, Ellipse, or Line (depends on phase)</td></tr>
+                    <tr><td>1:2</td><td>Figure-8 (infinity symbol)</td></tr>
+                    <tr><td>2:3</td><td>Pretzel or bow-tie shape</td></tr>
+                    <tr><td>3:4</td><td>Complex interlocking loops</td></tr>
+                    <tr><td>3:5</td><td>Even more complex patterns</td></tr>
+                </tbody>
+            </table>
+
+            <div class="tip">
+                Integer frequency ratios (like 1:2, 2:3, 3:4) create closed figures that loop smoothly.
+                Non-integer ratios create patterns that never close, filling the display area over time.
+            </div>
+
+            <h3>Archimedean Spiral</h3>
+            <p>Generate spiral patterns using polar coordinates converted to Cartesian for display.</p>
+
+            <h4>Mathematical Basis</h4>
+            <div class="formula">r = a + b &middot; &theta;</div>
+            <p>Where:</p>
+            <ul>
+                <li><strong>r</strong> = distance from center (radius)</li>
+                <li><strong>&theta;</strong> = angle in radians</li>
+                <li><strong>a</strong> = starting radius (inner size)</li>
+                <li><strong>b</strong> = growth rate (spacing between loops)</li>
+            </ul>
+
+            <h4>Cartesian Conversion</h4>
+            <div class="formula">X = r &middot; cos(&theta;)</div>
+            <div class="formula">Y = r &middot; sin(&theta;)</div>
+
+            <h4>Parameters</h4>
+            <table>
+                <thead>
+                    <tr><th>Parameter</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>a (Start Radius)</strong></td><td>Inner size of the spiral. 0 starts at center.</td></tr>
+                    <tr><td><strong>b (Growth Rate)</strong></td><td>Spacing between loops. Higher = wider spacing.</td></tr>
+                    <tr><td><strong>Turns</strong></td><td>Number of complete spiral rotations.</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Sound Pad Sequencer</h3>
+            <p>A 16-step pattern sequencer for creating rhythmic, stepping patterns.</p>
+
+            <h4>Features</h4>
+            <table>
+                <thead>
+                    <tr><th>Feature</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>16 Time Slots</strong></td><td>Click to select and edit each step</td></tr>
+                    <tr><td><strong>Grid Pattern</strong></td><td>Set X/Y values for each step individually</td></tr>
+                    <tr><td><strong>Position Offset</strong></td><td>Shifts the entire pattern position</td></tr>
+                    <tr><td><strong>Clear Step</strong></td><td>Remove data from selected step</td></tr>
+                </tbody>
+            </table>
+
+            <div class="tip">
+                The Sound Pad is great for creating geometric patterns that step through discrete positions,
+                similar to early vector game graphics.
+            </div>
+
+            <h3>Random Harmonics</h3>
+            <p>
+                Generates random but pleasing Lissajous-like patterns automatically. Each click creates
+                a new unique pattern with:
+            </p>
+            <ul>
+                <li>Random integer frequency ratios (creates closed figures)</li>
+                <li>Random phase offsets</li>
+                <li>Random amplitudes</li>
+            </ul>
+            <div class="note">
+                Click the button multiple times to cycle through random patterns until you find one you like!
+            </div>
+
+            <h3>Draw Pattern (Freehand Canvas)</h3>
+            <p>
+                Opens an interactive drawing canvas where you can create patterns by drawing with your mouse.
+                The drawn shape is converted to XY coordinates for oscilloscope display.
+            </p>
+            <ul>
+                <li>Click and drag to draw</li>
+                <li>Release to finish a stroke</li>
+                <li>Draw multiple strokes to create complex patterns</li>
+                <li>Click "Done" or close the window to apply your drawing</li>
+            </ul>
+        </section>
+
+        <!-- Image Converter -->
+        <section id="image-converter">
+            <h2>Image to Coordinates Converter</h2>
+
+            <p>
+                The <code>img2txt.py</code> tool converts photos and drawings into XY coordinates that can
+                be displayed on an oscilloscope. It uses computer vision techniques to extract edges and
+                convert them to vector paths.
+            </p>
+
+            <h3>Basic Usage</h3>
+            <pre><code># Basic usage
+python img2txt.py &lt;image_path&gt; [num_points]
+
+# With interactive editor
+python img2txt.py &lt;image_path&gt; [num_points] --edit</code></pre>
+
+            <h3>Examples</h3>
+            <pre><code># Convert a photo with 2000 points and open editor
+python img2txt.py photo.jpg 2000 --edit
+
+# Quick convert a line drawing
+python img2txt.py drawing.png 1000
+
+# Auto-process with default settings
+python img2txt.py logo.png</code></pre>
+
+            <h3>Processing Methods</h3>
+            <table>
+                <thead>
+                    <tr><th>Method</th><th>Description</th><th>Best For</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Simple</strong></td>
+                        <td>Basic sharpening only</td>
+                        <td>Quick processing, clean line art</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Bilateral</strong></td>
+                        <td>Noise reduction + edge preservation</td>
+                        <td>Photos (recommended)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>DoG</strong></td>
+                        <td>Difference of Gaussians technique</td>
+                        <td>Artistic line drawings</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Thresholding Modes</h3>
+            <table>
+                <thead>
+                    <tr><th>Mode</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Binary</strong></td>
+                        <td>Simple threshold (adjustable 0-255)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Adaptive</strong></td>
+                        <td>Auto-adjusts for varying lighting (best for photos)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Interactive Editor Controls</h3>
+            <table>
+                <thead>
+                    <tr><th>Control</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><kbd>Left Drag</kbd></td><td>Erase points</td></tr>
+                    <tr><td><kbd>Right Drag</kbd></td><td>Add points</td></tr>
+                    <tr><td><kbd>Scroll</kbd></td><td>Adjust brush radius</td></tr>
+                    <tr><td><kbd>TAB</kbd></td><td>Toggle erase/add mode</td></tr>
+                    <tr><td><kbd>S</kbd></td><td>Save coordinates</td></tr>
+                    <tr><td><kbd>R</kbd></td><td>Reset to original</td></tr>
+                    <tr><td><kbd>Q</kbd></td><td>Quit editor</td></tr>
+                </tbody>
+            </table>
+
+            <h3>Output</h3>
+            <p>
+                Creates a <code>coordinates.txt</code> file in the same directory that can be loaded
+                directly into the main Oscilloplot application using "Load Text File (.txt)".
+            </p>
+
+            <div class="tip">
+                For best results with photos, use the <code>--edit</code> flag to fine-tune the extracted
+                edges before saving.
+            </div>
+        </section>
+
+        <!-- File Formats -->
+        <section id="file-formats">
+            <h2>File Formats</h2>
+
+            <h3>Loading Patterns</h3>
+
+            <h4>MATLAB Format (.m)</h4>
+            <pre><code>x_fun = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5];
+y_fun = [0.5, 0.6, 0.7, 0.6, 0.5, 0.4];</code></pre>
+
+            <h4>Text Format (.txt)</h4>
+            <pre><code>x_fun=[0.0,0.1,0.2,0.3,0.4,0.5];
+y_fun=[0.5,0.6,0.7,0.6,0.5,0.4];</code></pre>
+
+            <h4>NumPy Format (.npz)</h4>
+            <pre><code>import numpy as np
+x_coords = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5])
+y_coords = np.array([0.5, 0.6, 0.7, 0.6, 0.5, 0.4])
+np.savez('pattern.npz', x=x_coords, y=y_coords)</code></pre>
+
+            <h3>Export Format</h3>
+
+            <h4>WAV Audio</h4>
+            <p>
+                Oscilloplot exports stereo 16-bit PCM WAV files where:
+            </p>
+            <ul>
+                <li><strong>Left channel</strong>: X coordinates (horizontal position)</li>
+                <li><strong>Right channel</strong>: Y coordinates (vertical position)</li>
+            </ul>
+            <p>
+                These files can be played through any audio system connected to an XY oscilloscope
+                to recreate the visual pattern.
+            </p>
+        </section>
+
+        <!-- Oscilloscope Setup -->
+        <section id="oscilloscope">
+            <h2>Connecting to an Oscilloscope</h2>
+
+            <h3>Step-by-Step Setup</h3>
+            <ol class="steps">
+                <li>
+                    <strong>Set oscilloscope to XY mode</strong><br>
+                    Also called X-Y, dual channel, or Lissajous mode. Consult your oscilloscope manual
+                    for the specific setting.
+                </li>
+                <li>
+                    <strong>Connect audio output</strong><br>
+                    <ul>
+                        <li>Left channel &rarr; X input (Channel 1)</li>
+                        <li>Right channel &rarr; Y input (Channel 2)</li>
+                    </ul>
+                    Use a stereo 3.5mm to dual RCA/BNC adapter cable.
+                </li>
+                <li>
+                    <strong>Adjust oscilloscope settings</strong><br>
+                    <ul>
+                        <li>Set time/div to external or X-Y mode</li>
+                        <li>Adjust gain on both channels equally</li>
+                        <li>Set coupling to AC or DC depending on your pattern</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>Start playback in Oscilloplot</strong><br>
+                    Click "Play Audio" to begin sending the signal.
+                </li>
+                <li>
+                    <strong>Fine-tune display</strong><br>
+                    Adjust oscilloscope brightness, focus, and position controls for best visibility.
+                </li>
+            </ol>
+
+            <h3>Recommended Audio Settings</h3>
+            <table>
+                <thead>
+                    <tr><th>Setting</th><th>Recommended Value</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Sample Rate</td><td>100-200 kHz (1000 Hz &times; 100-200 multiplier)</td></tr>
+                    <tr><td>Duration</td><td>1-2 seconds for smooth looping</td></tr>
+                    <tr><td>Pattern Repeats</td><td>100-500 for animated effects</td></tr>
+                </tbody>
+            </table>
+
+            <div class="warning">
+                Make sure your audio output volume is set to an appropriate level before connecting
+                to your oscilloscope. Very high volumes could potentially damage sensitive equipment.
+            </div>
+        </section>
+
+        <!-- Optimized Version -->
+        <section id="optimized">
+            <h2>Optimized Version</h2>
+
+            <p>
+                The optimized version (<code>oscilloscope_gui_optimized.py</code>) provides dramatically
+                better performance for smoother operation.
+            </p>
+
+            <h3>Key Optimizations</h3>
+            <table>
+                <thead>
+                    <tr><th>Technique</th><th>Benefit</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Matplotlib Blitting</strong></td>
+                        <td>Only redraws changed elements (10-100x faster rendering)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Circular NumPy Buffers</strong></td>
+                        <td>Pre-allocated arrays eliminate memory allocations</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Smart Decimation</strong></td>
+                        <td>Adaptive downsampling for smooth rendering</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cached Background</strong></td>
+                        <td>Background saved and restored for each frame</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Performance Comparison</h3>
+            <table>
+                <thead>
+                    <tr><th>Metric</th><th>Original</th><th>Optimized</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>CPU Usage</td><td>40-80%</td><td>5-15%</td></tr>
+                    <tr><td>Frame Time</td><td>50-200ms</td><td>2-8ms</td></tr>
+                    <tr><td>Memory Allocs/sec</td><td>~500</td><td>~10</td></tr>
+                </tbody>
+            </table>
+
+            <h3>When to Use the Optimized Version</h3>
+            <ul>
+                <li>For general everyday use (recommended as default)</li>
+                <li>When using large window sizes (&gt;5,000 samples)</li>
+                <li>When CPU usage is a concern</li>
+                <li>For longer sessions or presentations</li>
+                <li>On older or less powerful computers</li>
+            </ul>
+        </section>
+
+        <!-- Troubleshooting -->
+        <section id="troubleshooting">
+            <h2>Troubleshooting</h2>
+
+            <h3>No Audio Output</h3>
+            <ul>
+                <li>Check that your audio device is selected in system settings</li>
+                <li>Verify the sample rate is supported by your sound card</li>
+                <li>Try lowering the playback multiplier to reduce the actual sample rate</li>
+                <li>Check system volume and make sure audio is not muted</li>
+            </ul>
+
+            <h3>Laggy Preview</h3>
+            <ul>
+                <li>Use the optimized version (<code>oscilloscope_gui_optimized.py</code>)</li>
+                <li>Reduce Window Size in Live Preview settings to 2,000-3,000 samples</li>
+                <li>Lower the FPS setting to 15-20</li>
+                <li>Disable Live Preview entirely during audio generation</li>
+            </ul>
+
+            <h3>Image Converter Errors</h3>
+            <ul>
+                <li>Ensure OpenCV is installed: <code>pip install opencv-python</code></li>
+                <li>Try different processing methods (Simple, Bilateral, DoG)</li>
+                <li>Use the <code>--edit</code> flag to adjust parameters interactively</li>
+                <li>Check that the image file exists and is readable</li>
+            </ul>
+
+            <h3>Pattern Looks Wrong on Oscilloscope</h3>
+            <ul>
+                <li>Check X/Y channel connections aren't swapped</li>
+                <li>Ensure both channels have the same gain setting</li>
+                <li>Verify oscilloscope is in XY mode, not time-base mode</li>
+                <li>Try adjusting the audio output volume</li>
+            </ul>
+
+            <h3>Effects Not Visible</h3>
+            <ul>
+                <li>Click "Apply & Generate" after changing effect settings</li>
+                <li>Ensure the effect checkbox is enabled</li>
+                <li>Try increasing effect parameters (amplitude, depth, etc.)</li>
+                <li>Make sure Pattern Repeats is high enough for animated effects</li>
+            </ul>
+
+            <h3>Application Won't Start</h3>
+            <ul>
+                <li>Verify Python 3.8+ is installed: <code>python --version</code></li>
+                <li>Check all dependencies are installed: <code>pip install -r requirements.txt</code></li>
+                <li>Try running from command line to see error messages</li>
+                <li>Make sure you're in the correct directory</li>
+            </ul>
+        </section>
+    </div>
+
+    <footer>
+        <p><strong>OSCILLOPLOT</strong> - XY Audio Oscilloscope Generator</p>
+        <p>Inspired by classic Tektronix oscilloscopes from the 90s</p>
+        <p>Built with Python, NumPy, Matplotlib, sounddevice, Tkinter, and OpenCV</p>
+    </footer>
+</body>
+</html>
