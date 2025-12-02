@@ -454,6 +454,8 @@
                 <li><a href="#effects">Effects Reference</a></li>
                 <li><a href="#preview">Live Preview</a></li>
                 <li><a href="#pattern-generators">Pattern Generators</a></li>
+                <li><a href="#harmonics-guide">Sum of Harmonics Guide</a></li>
+                <li><a href="#spiral-guide">Archimedean Spiral Guide</a></li>
                 <li><a href="#image-converter">Image Converter</a></li>
                 <li><a href="#file-formats">File Formats</a></li>
                 <li><a href="#oscilloscope">Oscilloscope Setup</a></li>
@@ -1141,6 +1143,610 @@
                 <li>Draw multiple strokes to create complex patterns</li>
                 <li>Click "Done" or close the window to apply your drawing</li>
             </ul>
+        </section>
+
+        <!-- Sum of Harmonics Detailed Guide -->
+        <section id="harmonics-guide">
+            <h2>Sum of Harmonics - Complete Guide</h2>
+
+            <p>
+                The Sum of Harmonics generator is one of the most powerful pattern creation tools in Oscilloplot.
+                It creates <strong>Lissajous figures</strong> and complex waveforms by mathematically combining
+                multiple sine and cosine waves. Understanding how each parameter affects the output will help
+                you design stunning visual patterns.
+            </p>
+
+            <h3>Understanding the Mathematics</h3>
+            <p>
+                Each channel (X and Y) is the sum of one or more harmonic terms. The general formula is:
+            </p>
+            <div class="formula">
+                X(t) = A<sub>1</sub>&middot;func(f<sub>1</sub>&middot;t + &phi;<sub>1</sub>) + A<sub>2</sub>&middot;func(f<sub>2</sub>&middot;t + &phi;<sub>2</sub>) + ...
+            </div>
+            <div class="formula">
+                Y(t) = B<sub>1</sub>&middot;func(g<sub>1</sub>&middot;t + &psi;<sub>1</sub>) + B<sub>2</sub>&middot;func(g<sub>2</sub>&middot;t + &psi;<sub>2</sub>) + ...
+            </div>
+            <p>Where <code>func</code> is either <code>sin</code> or <code>cos</code>, and <code>t</code> ranges from 0 to 2&pi;.</p>
+
+            <h3>Parameter Reference</h3>
+            <table>
+                <thead>
+                    <tr><th>Parameter</th><th>Symbol</th><th>Effect on Shape</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Function Type</strong></td>
+                        <td>sin / cos</td>
+                        <td>Determines wave shape. <code>cos</code> is equivalent to <code>sin</code> with a 90&deg; phase shift.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Amplitude</strong></td>
+                        <td>A, B</td>
+                        <td>Controls the <em>size</em> of that term's contribution. Larger values = bigger influence on the overall shape.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Frequency</strong></td>
+                        <td>f, g (&omega;)</td>
+                        <td>Controls how many complete cycles occur. The <em>ratio</em> between X and Y frequencies determines the shape type.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Phase</strong></td>
+                        <td>&phi;, &psi;</td>
+                        <td>Starting position of the wave (in radians). Shifts the wave left/right in time, changing the figure's orientation.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Shapes Created by Frequency Ratios</h3>
+            <p>
+                The ratio of X frequency to Y frequency is the most important factor in determining the shape.
+                When both channels have a single term, here's what you get:
+            </p>
+
+            <h4>1:1 Ratio (Equal Frequencies)</h4>
+            <table>
+                <thead>
+                    <tr><th>Phase Difference</th><th>Resulting Shape</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>0&deg; (0 radians)</td><td><strong>Diagonal Line</strong> (45&deg;) - X and Y are in sync</td></tr>
+                    <tr><td>45&deg; (&pi;/4)</td><td><strong>Ellipse</strong> tilted at an angle</td></tr>
+                    <tr><td>90&deg; (&pi;/2)</td><td><strong>Circle</strong> - X leads Y by quarter cycle</td></tr>
+                    <tr><td>180&deg; (&pi;)</td><td><strong>Diagonal Line</strong> (opposite direction, -45&deg;)</td></tr>
+                    <tr><td>270&deg; (3&pi;/2)</td><td><strong>Circle</strong> (opposite rotation direction)</td></tr>
+                </tbody>
+            </table>
+            <div class="tip">
+                To create a perfect circle: X = sin(t), Y = cos(t) - which is sin(t) with &pi;/2 phase offset.
+            </div>
+
+            <h4>Simple Integer Ratios</h4>
+            <table>
+                <thead>
+                    <tr><th>X:Y Ratio</th><th>Shape Description</th><th>Number of Lobes</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>1:2</strong></td><td>Figure-8 / Infinity symbol (&infin;)</td><td>2 lobes horizontally</td></tr>
+                    <tr><td><strong>2:1</strong></td><td>Figure-8 rotated 90&deg;</td><td>2 lobes vertically</td></tr>
+                    <tr><td><strong>1:3</strong></td><td>Trefoil / Three-leaf pattern</td><td>3 lobes</td></tr>
+                    <tr><td><strong>2:3</strong></td><td>Pretzel / Bow-tie shape</td><td>Complex 6-crossing pattern</td></tr>
+                    <tr><td><strong>3:4</strong></td><td>Complex interlocking loops</td><td>12 crossings</td></tr>
+                    <tr><td><strong>3:5</strong></td><td>Very complex star-like pattern</td><td>15 crossings</td></tr>
+                    <tr><td><strong>4:5</strong></td><td>Dense, flower-like pattern</td><td>20 crossings</td></tr>
+                </tbody>
+            </table>
+
+            <div class="note">
+                <strong>Pattern Rule:</strong> For ratio a:b, the figure will have (a&times;b) crossing points when the
+                ratio is in lowest terms. Integer ratios always create closed, repeating figures.
+            </div>
+
+            <h4>Non-Integer Ratios</h4>
+            <p>
+                When frequencies are not integer ratios (e.g., 1:1.5, 1:&pi;), the pattern <em>never closes</em>.
+                Over time, the beam traces out more and more of the display area, creating filled-in shapes.
+                These are called <strong>open Lissajous curves</strong>.
+            </p>
+
+            <h3>How Each Parameter Changes the Shape</h3>
+
+            <h4>Changing Amplitude</h4>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Increasing X Amplitude</div>
+                    <p>Stretches the pattern horizontally. Higher values = wider shape.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Increasing Y Amplitude</div>
+                    <p>Stretches the pattern vertically. Higher values = taller shape.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Unequal Amplitudes</div>
+                    <p>Creates elliptical distortion. A 1:1 ratio with unequal amplitudes turns a circle into an ellipse.</p>
+                </div>
+            </div>
+
+            <h4>Changing Frequency</h4>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Increasing X Frequency</div>
+                    <p>Adds more horizontal oscillations. Creates more "lobes" on the left and right sides.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Increasing Y Frequency</div>
+                    <p>Adds more vertical oscillations. Creates more "lobes" on the top and bottom.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Higher Total Frequencies</div>
+                    <p>Creates denser, more intricate patterns with many crossings and loops.</p>
+                </div>
+            </div>
+
+            <h4>Changing Phase</h4>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Small Phase Changes (0-&pi;/4)</div>
+                    <p>Tilts or rotates the figure slightly. Turns lines into ellipses.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">&pi;/2 Phase Difference</div>
+                    <p>Maximum "openness" - creates the most rounded version of any pattern (circles, full figure-8s).</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">&pi; Phase Difference</div>
+                    <p>Inverts one axis - mirrors the pattern.</p>
+                </div>
+            </div>
+
+            <h3>Adding Multiple Harmonics</h3>
+            <p>
+                The real power comes from combining multiple terms. Each additional harmonic adds complexity
+                and detail to the pattern:
+            </p>
+
+            <h4>Example: Creating a Star Shape</h4>
+            <p>To create a 5-pointed star:</p>
+            <ul>
+                <li><strong>X Channel:</strong> sin(5t) with amplitude 1.0</li>
+                <li><strong>Y Channel:</strong> cos(5t) with amplitude 1.0</li>
+                <li>Then add smaller harmonics to sharpen the points</li>
+            </ul>
+
+            <h4>Example: Complex Flower Pattern</h4>
+            <p>Combine a base frequency with higher harmonics:</p>
+            <ul>
+                <li><strong>X Term 1:</strong> sin(3t), amplitude 1.0</li>
+                <li><strong>X Term 2:</strong> sin(7t), amplitude 0.3</li>
+                <li><strong>Y Term 1:</strong> cos(5t), amplitude 1.0</li>
+                <li><strong>Y Term 2:</strong> cos(11t), amplitude 0.2</li>
+            </ul>
+            <p>The higher harmonics add fine detail to the main pattern.</p>
+
+            <h4>Tips for Complex Patterns</h4>
+            <ul>
+                <li><strong>Use prime number frequencies</strong> - Creates more complex, non-repeating subpatterns</li>
+                <li><strong>Decrease amplitude with frequency</strong> - Higher harmonics should have smaller amplitudes for natural-looking shapes</li>
+                <li><strong>Vary phases randomly</strong> - Prevents all harmonics from aligning too symmetrically</li>
+                <li><strong>Mix sin and cos</strong> - Equivalent to phase shifts, but easier to conceptualize</li>
+            </ul>
+
+            <h3>Animation Features</h3>
+
+            <h4>Phase Sweep</h4>
+            <p>
+                Enabling "Phase Sweep" on a term animates its phase from a start value to an end value
+                over a specified number of steps. This creates:
+            </p>
+            <ul>
+                <li><strong>Rotating patterns</strong> - The figure appears to spin or tumble</li>
+                <li><strong>Morphing shapes</strong> - Smooth transitions between different configurations</li>
+                <li><strong>Pulsing effects</strong> - Rhythmic expansion and contraction</li>
+            </ul>
+            <div class="tip">
+                For a smoothly rotating circle, sweep the phase from 0 to 2&pi; over many steps.
+            </div>
+
+            <h4>Frequency Sweep</h4>
+            <p>
+                Sweeping frequency creates dramatic transformation effects:
+            </p>
+            <ul>
+                <li>Pattern morphs from one shape to another (e.g., circle &rarr; figure-8 &rarr; trefoil)</li>
+                <li>Creates "warping" or "breathing" animations</li>
+                <li>Useful for creating transition effects</li>
+            </ul>
+
+            <h3>Classic Recipes</h3>
+            <table>
+                <thead>
+                    <tr><th>Pattern</th><th>X Settings</th><th>Y Settings</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Perfect Circle</strong></td>
+                        <td>sin(1&middot;t), A=1</td>
+                        <td>cos(1&middot;t), B=1</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Figure-8</strong></td>
+                        <td>sin(1&middot;t), A=1</td>
+                        <td>sin(2&middot;t), B=1</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Butterfly</strong></td>
+                        <td>sin(2&middot;t), A=1</td>
+                        <td>sin(3&middot;t), B=1</td>
+                    </tr>
+                    <tr>
+                        <td><strong>5-Petal Flower</strong></td>
+                        <td>sin(5&middot;t), A=1</td>
+                        <td>cos(4&middot;t), B=1</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Spiral Star</strong></td>
+                        <td>sin(5&middot;t) + 0.5&middot;sin(2&middot;t)</td>
+                        <td>cos(5&middot;t) + 0.5&middot;cos(2&middot;t)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Complex Web</strong></td>
+                        <td>sin(7&middot;t) + 0.3&middot;sin(3&middot;t)</td>
+                        <td>cos(5&middot;t) + 0.3&middot;cos(11&middot;t)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Archimedean Spiral Detailed Guide -->
+        <section id="spiral-guide">
+            <h2>Archimedean Spiral - Complete Guide</h2>
+
+            <p>
+                The Archimedean Spiral generator creates classic spiral patterns that expand outward from a center point.
+                Named after the ancient Greek mathematician Archimedes, this spiral has uniform spacing between
+                successive turns, making it visually pleasing and mathematically elegant.
+            </p>
+
+            <h3>Understanding the Mathematics</h3>
+            <p>
+                In Oscilloplot, the Archimedean spiral is generated using the parametric equations:
+            </p>
+            <div class="formula">X(t) = a &middot; t &middot; sin(b &middot; t)</div>
+            <div class="formula">Y(t) = a &middot; t &middot; cos(b &middot; t)</div>
+            <p>Where:</p>
+            <ul>
+                <li><strong>t</strong> = time parameter (ranges from 0 to 4&pi;, giving approximately 2 full rotations)</li>
+                <li><strong>a</strong> = amplitude/size parameter (controls overall spiral size)</li>
+                <li><strong>b</strong> = frequency parameter (controls how tightly wound the spiral is)</li>
+            </ul>
+
+            <p>
+                The classic polar form is <code>r = a + b&middot;&theta;</code>, but Oscilloplot uses the
+                parametric form above which produces similar visual results with independent X and Y control.
+            </p>
+
+            <h3>Parameter Reference</h3>
+            <table>
+                <thead>
+                    <tr><th>Parameter</th><th>Range</th><th>Effect on Spiral</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>a (Amplitude)</strong></td>
+                        <td>0.1 - 5.0</td>
+                        <td>Controls the overall size and how quickly the spiral expands. Higher values = faster growth, larger spiral.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>b (Frequency)</strong></td>
+                        <td>0.1 - 10.0</td>
+                        <td>Controls the rotation speed / number of turns. Higher values = more tightly wound spiral with more rotations.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Shapes Created by Parameter Combinations</h3>
+
+            <h4>Effect of Parameter 'a' (Amplitude)</h4>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Low a (0.1 - 0.5)</div>
+                    <p>Small, compact spiral. The arms stay close to the center. Good for detailed, concentrated patterns.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Medium a (0.5 - 1.5)</div>
+                    <p>Balanced spiral that uses most of the display area. Best for general use.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">High a (1.5 - 5.0)</div>
+                    <p>Large, expansive spiral. Arms extend far from center. May extend beyond display boundaries.</p>
+                </div>
+            </div>
+
+            <h4>Effect of Parameter 'b' (Frequency)</h4>
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Low b (0.1 - 0.5)</div>
+                    <p>Very slow rotation. Creates a "lazy" spiral with few turns. Almost looks like a curved line.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">Medium b (1.0 - 3.0)</div>
+                    <p>Classic spiral appearance with 2-6 visible turns. Clear spiral structure.</p>
+                </div>
+                <div class="param-item">
+                    <div class="param-name">High b (3.0 - 10.0)</div>
+                    <p>Tightly wound spiral with many rotations. Creates dense, spring-like patterns.</p>
+                </div>
+            </div>
+
+            <h4>Common Spiral Shapes</h4>
+            <table>
+                <thead>
+                    <tr><th>Shape</th><th>X: a</th><th>X: b</th><th>Y: a</th><th>Y: b</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Classic Spiral</strong></td>
+                        <td>1.0</td>
+                        <td>1.0</td>
+                        <td>1.0</td>
+                        <td>1.0</td>
+                        <td>Perfectly symmetric Archimedean spiral</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Tight Coil</strong></td>
+                        <td>0.5</td>
+                        <td>5.0</td>
+                        <td>0.5</td>
+                        <td>5.0</td>
+                        <td>Many tight loops, spring-like appearance</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Loose Whorl</strong></td>
+                        <td>2.0</td>
+                        <td>0.5</td>
+                        <td>2.0</td>
+                        <td>0.5</td>
+                        <td>Few, widely-spaced turns</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Horizontal Elliptical</strong></td>
+                        <td>1.5</td>
+                        <td>1.0</td>
+                        <td>0.5</td>
+                        <td>1.0</td>
+                        <td>Spiral stretched horizontally</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Vertical Elliptical</strong></td>
+                        <td>0.5</td>
+                        <td>1.0</td>
+                        <td>1.5</td>
+                        <td>1.0</td>
+                        <td>Spiral stretched vertically</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Complex Lissajous-Spiral</strong></td>
+                        <td>1.0</td>
+                        <td>2.0</td>
+                        <td>1.0</td>
+                        <td>3.0</td>
+                        <td>Hybrid pattern with Lissajous-like features</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Different X and Y Parameters</h3>
+            <p>
+                When X and Y have different parameter values, you create distorted and hybrid patterns:
+            </p>
+
+            <h4>Unequal Amplitudes (a<sub>X</sub> &ne; a<sub>Y</sub>)</h4>
+            <ul>
+                <li>Creates an elliptical spiral instead of circular</li>
+                <li>If a<sub>X</sub> &gt; a<sub>Y</sub>: Spiral is wider than tall</li>
+                <li>If a<sub>X</sub> &lt; a<sub>Y</sub>: Spiral is taller than wide</li>
+            </ul>
+
+            <h4>Unequal Frequencies (b<sub>X</sub> &ne; b<sub>Y</sub>)</h4>
+            <ul>
+                <li>Creates complex, Lissajous-like spiral hybrids</li>
+                <li>The spiral develops additional lobes and crossings</li>
+                <li>Integer ratios create repeating patterns; non-integer ratios create filled patterns</li>
+            </ul>
+
+            <div class="tip">
+                Try b<sub>X</sub>=2 and b<sub>Y</sub>=3 for a fascinating spiral that weaves in and out of itself.
+            </div>
+
+            <h3>Frequency Sweep</h3>
+            <p>
+                The frequency sweep feature animates the 'b' parameter from a start value to an end value,
+                creating dramatic morphing effects:
+            </p>
+
+            <div class="param-list">
+                <div class="param-item">
+                    <div class="param-name">Start Frequency &rarr; End Frequency</div>
+                    <p>
+                        The spiral smoothly transitions from loosely wound to tightly wound (or vice versa).
+                        Creates a "breathing" or "pulsing" effect.
+                    </p>
+                </div>
+            </div>
+
+            <h4>Sweep Examples</h4>
+            <table>
+                <thead>
+                    <tr><th>Start</th><th>End</th><th>Effect</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>0.5</td>
+                        <td>5.0</td>
+                        <td>Spiral winds tighter over time (coiling in)</td>
+                    </tr>
+                    <tr>
+                        <td>5.0</td>
+                        <td>0.5</td>
+                        <td>Spiral unwinds over time (expanding out)</td>
+                    </tr>
+                    <tr>
+                        <td>1.0</td>
+                        <td>10.0</td>
+                        <td>Dramatic tightening, spring compression effect</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="note">
+                Frequency sweep uses a chirp signal, smoothly transitioning through all intermediate values
+                rather than stepping discretely.
+            </div>
+
+            <h3>Chaser Effect</h3>
+            <p>
+                The Chaser Effect creates an animated point that traces along the spiral path,
+                similar to a light chasing around a display. This is achieved by showing only a
+                portion of the spiral at a time and sliding that window along the path.
+            </p>
+
+            <h4>Chaser Parameters</h4>
+            <table>
+                <thead>
+                    <tr><th>Parameter</th><th>Range</th><th>Effect</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Trail Length</strong></td>
+                        <td>5 - 500 points</td>
+                        <td>How many points are visible at once. Short = fast-moving dot, long = comet-like trail.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Point Repetitions</strong></td>
+                        <td>1 - 100</td>
+                        <td>How many times each window position is repeated. Higher = slower movement, smoother animation.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>Chaser Effect Tips</h4>
+            <ul>
+                <li><strong>Short trail (5-20)</strong> - Creates a single moving point, like a bouncing ball</li>
+                <li><strong>Medium trail (50-100)</strong> - Creates a comet effect with a visible tail</li>
+                <li><strong>Long trail (200-500)</strong> - Shows most of the spiral, with one end appearing to draw</li>
+                <li><strong>Low repetitions (1-5)</strong> - Fast movement, energetic animation</li>
+                <li><strong>High repetitions (50-100)</strong> - Slow, smooth movement, hypnotic effect</li>
+            </ul>
+
+            <h3>Creative Combinations</h3>
+
+            <h4>Spiral + Rotation Effect</h4>
+            <p>
+                After generating a spiral, apply the Rotation effect from the main panel:
+            </p>
+            <ul>
+                <li>Clockwise rotation makes the spiral appear to "unwind"</li>
+                <li>Counter-clockwise rotation makes it appear to "wind up"</li>
+                <li>Combined with frequency sweep, creates mesmerizing animations</li>
+            </ul>
+
+            <h4>Spiral + Kaleidoscope</h4>
+            <p>
+                The Kaleidoscope effect with a spiral creates stunning symmetrical patterns:
+            </p>
+            <ul>
+                <li>4-way symmetry creates a pinwheel effect</li>
+                <li>6-way symmetry creates snowflake-like patterns</li>
+                <li>8+ sections create mandala-style designs</li>
+            </ul>
+
+            <h4>Spiral + Wavy Effect</h4>
+            <p>
+                Adding the Wavy effect to a spiral creates organic, tentacle-like patterns:
+            </p>
+            <ul>
+                <li>Low frequency wavy = gentle undulation</li>
+                <li>High frequency wavy = frilly, ruffled edges</li>
+            </ul>
+
+            <h3>Spiral Recipes</h3>
+            <table>
+                <thead>
+                    <tr><th>Pattern Name</th><th>X: a/b</th><th>Y: a/b</th><th>Additional Effects</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Galaxy Arm</strong></td>
+                        <td>1.0 / 1.5</td>
+                        <td>1.0 / 1.5</td>
+                        <td>Slow rotation CW, Kaleidoscope 4</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Spring Coil</strong></td>
+                        <td>0.3 / 8.0</td>
+                        <td>0.3 / 8.0</td>
+                        <td>Shrink effect</td>
+                    </tr>
+                    <tr>
+                        <td><strong>DNA Helix</strong></td>
+                        <td>1.0 / 5.0</td>
+                        <td>0.3 / 1.0</td>
+                        <td>Rotation CW</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Nautilus Shell</strong></td>
+                        <td>1.5 / 2.0</td>
+                        <td>1.5 / 2.0</td>
+                        <td>Frequency sweep 1.0 &rarr; 5.0</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Hypno Wheel</strong></td>
+                        <td>1.0 / 3.0</td>
+                        <td>1.0 / 3.0</td>
+                        <td>Rotation CCW + Chaser (trail 100)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Flower Spiral</strong></td>
+                        <td>1.0 / 2.0</td>
+                        <td>1.0 / 3.0</td>
+                        <td>Kaleidoscope 6 with mirror</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Comparing to Sum of Harmonics</h3>
+            <table>
+                <thead>
+                    <tr><th>Aspect</th><th>Sum of Harmonics</th><th>Archimedean Spiral</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Basic Shape</strong></td>
+                        <td>Closed loops (Lissajous)</td>
+                        <td>Expanding outward spiral</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Center</strong></td>
+                        <td>Pattern often passes through center</td>
+                        <td>Starts at center, expands outward</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Complexity</strong></td>
+                        <td>Add more terms for complexity</td>
+                        <td>Use unequal X/Y for complexity</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Best For</strong></td>
+                        <td>Symmetrical, interlocking patterns</td>
+                        <td>Outward-flowing, organic patterns</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="tip">
+                Experiment! The preview updates in real-time as you adjust parameters.
+                Move the sliders and watch how the spiral transforms to develop intuition
+                for how each parameter affects the output.
+            </div>
         </section>
 
         <!-- Image Converter -->
