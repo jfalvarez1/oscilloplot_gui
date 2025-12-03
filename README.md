@@ -39,9 +39,14 @@ A powerful Python GUI application for generating XY audio signals that can be di
 
 ## Demo GIFs
 
-| Draw Pattern | Effects Showcase | Generate Test Pattern |
-|:------------:|:----------------:|:---------------------:|
-| ![Draw Pattern](screenshots/draw_pattern.gif) | ![Effects Showcase](screenshots/effects_showcase.gif) | ![Generate Test Pattern](screenshots/generate_test_pattern.gif) |
+### Draw Pattern
+![Draw Pattern](screenshots/draw_pattern.gif)
+
+### Effects Showcase
+![Effects Showcase](screenshots/effects_showcase.gif)
+
+### Generate Test Pattern
+![Generate Test Pattern](screenshots/generate_test_pattern.gif)
 
 ## Installation
 
