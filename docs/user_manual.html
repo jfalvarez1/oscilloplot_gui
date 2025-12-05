@@ -986,6 +986,55 @@
                 min-width: 100%;
             }
         }
+
+        /* Effect tabs */
+        .effect-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .effect-tab {
+            background: rgba(0, 255, 65, 0.05);
+            border: 1px solid var(--grid-color);
+            color: var(--phosphor-dim);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            cursor: pointer;
+            font-family: 'Consolas', monospace;
+            transition: all 0.2s;
+        }
+
+        .effect-tab:hover {
+            background: rgba(0, 255, 65, 0.15);
+            border-color: var(--phosphor-dim);
+        }
+
+        .effect-tab.active {
+            background: rgba(0, 255, 65, 0.25);
+            border-color: var(--phosphor-green);
+            color: var(--phosphor-bright);
+            box-shadow: 0 0 8px var(--phosphor-glow);
+        }
+
+        .effect-panel {
+            display: none;
+            padding: 10px 0;
+        }
+
+        .effect-panel.active {
+            display: block;
+        }
+
+        /* Checkbox styling */
+        .control-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--phosphor-green);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -1286,6 +1335,219 @@
             <h2>// Effects Reference //</h2>
 
             <p>Oscilloplot includes over 15 different effects that can be combined to create unique visual patterns.</p>
+
+            <!-- Interactive Effects Playground -->
+            <div class="interactive-demo">
+                <div class="demo-title">Interactive Effects Playground (5-Petal Flower Base)</div>
+                <div class="demo-container">
+                    <div class="canvas-container">
+                        <canvas id="effectsCanvas" class="scope-canvas" width="400" height="400"></canvas>
+                    </div>
+                    <div class="controls-container">
+                        <!-- Effect Selection -->
+                        <div class="control-group">
+                            <div class="control-group-title">Select Effect</div>
+                            <div class="effect-tabs">
+                                <button class="effect-tab active" data-effect="none">None</button>
+                                <button class="effect-tab" data-effect="rotation">Rotation</button>
+                                <button class="effect-tab" data-effect="mirror">Mirror</button>
+                                <button class="effect-tab" data-effect="scale">Scale</button>
+                                <button class="effect-tab" data-effect="xfade">X-Fade</button>
+                                <button class="effect-tab" data-effect="yfade">Y-Fade</button>
+                                <button class="effect-tab" data-effect="noise">Noise</button>
+                                <button class="effect-tab" data-effect="wavy">Wavy</button>
+                                <button class="effect-tab" data-effect="tremolo">Tremolo</button>
+                                <button class="effect-tab" data-effect="echo">Echo</button>
+                                <button class="effect-tab" data-effect="kaleidoscope">Kaleidoscope</button>
+                                <button class="effect-tab" data-effect="distortion">Distortion</button>
+                            </div>
+                        </div>
+
+                        <!-- Effect-specific controls -->
+                        <div id="effectControls">
+                            <!-- None (default) -->
+                            <div class="effect-panel" id="panel-none" style="display:block;">
+                                <p style="color: var(--phosphor-dim); font-size: 0.9em;">Select an effect above to see it applied to the 5-petal flower pattern. Use the "Animate" button to see dynamic effects in motion.</p>
+                            </div>
+
+                            <!-- Rotation -->
+                            <div class="effect-panel" id="panel-rotation">
+                                <div class="control-row">
+                                    <span class="control-label">Angle</span>
+                                    <input type="range" id="effectRotAngle" class="control-slider" min="0" max="360" value="0" step="5">
+                                    <span class="control-value" id="effectRotAngleVal">0°</span>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Speed</span>
+                                    <input type="range" id="effectRotSpeed" class="control-slider" min="0.5" max="10" value="2" step="0.5">
+                                    <span class="control-value" id="effectRotSpeedVal">2.0</span>
+                                </div>
+                            </div>
+
+                            <!-- Mirror -->
+                            <div class="effect-panel" id="panel-mirror">
+                                <div class="control-row">
+                                    <span class="control-label">X Mirror</span>
+                                    <input type="checkbox" id="effectMirrorX" checked>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Y Mirror</span>
+                                    <input type="checkbox" id="effectMirrorY" checked>
+                                </div>
+                            </div>
+
+                            <!-- Scale/Shrink -->
+                            <div class="effect-panel" id="panel-scale">
+                                <div class="control-row">
+                                    <span class="control-label">Scale</span>
+                                    <input type="range" id="effectScale" class="control-slider" min="0.1" max="1.5" value="1" step="0.05">
+                                    <span class="control-value" id="effectScaleVal">1.00</span>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Speed</span>
+                                    <input type="range" id="effectScaleSpeed" class="control-slider" min="0.5" max="5" value="1" step="0.25">
+                                    <span class="control-value" id="effectScaleSpeedVal">1.0</span>
+                                </div>
+                            </div>
+
+                            <!-- X-Fade -->
+                            <div class="effect-panel" id="panel-xfade">
+                                <div class="control-row">
+                                    <span class="control-label">X Scale</span>
+                                    <input type="range" id="effectXFade" class="control-slider" min="0" max="1" value="1" step="0.05">
+                                    <span class="control-value" id="effectXFadeVal">1.00</span>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Speed</span>
+                                    <input type="range" id="effectXFadeSpeed" class="control-slider" min="0.5" max="5" value="1" step="0.25">
+                                    <span class="control-value" id="effectXFadeSpeedVal">1.0</span>
+                                </div>
+                            </div>
+
+                            <!-- Y-Fade -->
+                            <div class="effect-panel" id="panel-yfade">
+                                <div class="control-row">
+                                    <span class="control-label">Y Scale</span>
+                                    <input type="range" id="effectYFade" class="control-slider" min="0" max="1" value="1" step="0.05">
+                                    <span class="control-value" id="effectYFadeVal">1.00</span>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Speed</span>
+                                    <input type="range" id="effectYFadeSpeed" class="control-slider" min="0.5" max="5" value="1" step="0.25">
+                                    <span class="control-value" id="effectYFadeSpeedVal">1.0</span>
+                                </div>
+                            </div>
+
+                            <!-- Noise -->
+                            <div class="effect-panel" id="panel-noise">
+                                <div class="control-row">
+                                    <span class="control-label">X Noise</span>
+                                    <input type="range" id="effectNoiseX" class="control-slider" min="0" max="0.3" value="0.05" step="0.01">
+                                    <span class="control-value" id="effectNoiseXVal">0.05</span>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Y Noise</span>
+                                    <input type="range" id="effectNoiseY" class="control-slider" min="0" max="0.3" value="0.05" step="0.01">
+                                    <span class="control-value" id="effectNoiseYVal">0.05</span>
+                                </div>
+                            </div>
+
+                            <!-- Wavy -->
+                            <div class="effect-panel" id="panel-wavy">
+                                <div class="control-row">
+                                    <span class="control-label">Amplitude</span>
+                                    <input type="range" id="effectWavyAmp" class="control-slider" min="0" max="0.5" value="0.15" step="0.01">
+                                    <span class="control-value" id="effectWavyAmpVal">0.15</span>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Frequency</span>
+                                    <input type="range" id="effectWavyFreq" class="control-slider" min="1" max="20" value="5" step="1">
+                                    <span class="control-value" id="effectWavyFreqVal">5</span>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Speed</span>
+                                    <input type="range" id="effectWavySpeed" class="control-slider" min="0.5" max="5" value="2" step="0.25">
+                                    <span class="control-value" id="effectWavySpeedVal">2.0</span>
+                                </div>
+                            </div>
+
+                            <!-- Tremolo -->
+                            <div class="effect-panel" id="panel-tremolo">
+                                <div class="control-row">
+                                    <span class="control-label">Depth</span>
+                                    <input type="range" id="effectTremDepth" class="control-slider" min="0" max="1" value="0.5" step="0.05">
+                                    <span class="control-value" id="effectTremDepthVal">0.50</span>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Rate</span>
+                                    <input type="range" id="effectTremRate" class="control-slider" min="0.5" max="10" value="2" step="0.5">
+                                    <span class="control-value" id="effectTremRateVal">2.0</span>
+                                </div>
+                            </div>
+
+                            <!-- Echo -->
+                            <div class="effect-panel" id="panel-echo">
+                                <div class="control-row">
+                                    <span class="control-label">Echoes</span>
+                                    <input type="range" id="effectEchoCount" class="control-slider" min="1" max="8" value="3" step="1">
+                                    <span class="control-value" id="effectEchoCountVal">3</span>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Decay</span>
+                                    <input type="range" id="effectEchoDecay" class="control-slider" min="0.3" max="0.9" value="0.6" step="0.05">
+                                    <span class="control-value" id="effectEchoDecayVal">0.60</span>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Offset</span>
+                                    <input type="range" id="effectEchoOffset" class="control-slider" min="0.05" max="0.3" value="0.1" step="0.01">
+                                    <span class="control-value" id="effectEchoOffsetVal">0.10</span>
+                                </div>
+                            </div>
+
+                            <!-- Kaleidoscope -->
+                            <div class="effect-panel" id="panel-kaleidoscope">
+                                <div class="control-row">
+                                    <span class="control-label">Sections</span>
+                                    <input type="range" id="effectKaleidoSections" class="control-slider" min="2" max="12" value="6" step="1">
+                                    <span class="control-value" id="effectKaleidoSectionsVal">6</span>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Mirror</span>
+                                    <input type="checkbox" id="effectKaleidoMirror" checked>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Rot Speed</span>
+                                    <input type="range" id="effectKaleidoSpeed" class="control-slider" min="0" max="3" value="0.5" step="0.1">
+                                    <span class="control-value" id="effectKaleidoSpeedVal">0.5</span>
+                                </div>
+                            </div>
+
+                            <!-- Distortion -->
+                            <div class="effect-panel" id="panel-distortion">
+                                <div class="control-row">
+                                    <span class="control-label">Type</span>
+                                    <select id="effectDistType" style="flex:1; background:#1a1a1a; color:var(--phosphor-green); border:1px solid var(--phosphor-dim); padding:5px; border-radius:4px;">
+                                        <option value="soft">Soft Clip</option>
+                                        <option value="hard">Hard Clip</option>
+                                        <option value="fold">Fold</option>
+                                    </select>
+                                </div>
+                                <div class="control-row">
+                                    <span class="control-label">Threshold</span>
+                                    <input type="range" id="effectDistThreshold" class="control-slider" min="0.2" max="1" value="0.5" step="0.05">
+                                    <span class="control-value" id="effectDistThresholdVal">0.50</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="animate-btn" id="effectsAnimateBtn" onclick="toggleEffectsAnimation()">Animate Effect</button>
+                        <div class="demo-info">
+                            <code>Base: X = sin(5t), Y = cos(4t)</code><br>
+                            <span id="effectDescription">5-petal Lissajous flower pattern</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <h3>Mirror Reflections</h3>
             <div class="param-list">
@@ -3118,11 +3380,411 @@ np.savez('pattern.npz', x=x_coords, y=y_coords)</code></pre>
             updateSpiralDisplay();
         }
 
+        // ==========================================
+        // Effects Playground Demo
+        // ==========================================
+        let effectsAnimating = false;
+        let effectsAnimationId = null;
+        let effectsTime = 0;
+        let currentEffect = 'none';
+
+        // Generate base 5-petal Lissajous flower: X = sin(5t), Y = cos(4t)
+        function generate5PetalFlower() {
+            const points = [];
+            const numPoints = 1000;
+            for (let i = 0; i <= numPoints; i++) {
+                const t = (i / numPoints) * 2 * Math.PI;
+                const x = Math.sin(5 * t);
+                const y = Math.cos(4 * t);
+                points.push({ x, y });
+            }
+            return points;
+        }
+
+        // Apply effects to points
+        function applyEffect(points, effect, time) {
+            let result = points.map(p => ({ x: p.x, y: p.y }));
+
+            switch (effect) {
+                case 'rotation': {
+                    const angle = effectsAnimating
+                        ? time * parseFloat(document.getElementById('effectRotSpeed').value) * 0.02
+                        : parseFloat(document.getElementById('effectRotAngle').value) * Math.PI / 180;
+                    const cos = Math.cos(angle);
+                    const sin = Math.sin(angle);
+                    result = result.map(p => ({
+                        x: p.x * cos - p.y * sin,
+                        y: p.x * sin + p.y * cos
+                    }));
+                    break;
+                }
+
+                case 'mirror': {
+                    const mirrorX = document.getElementById('effectMirrorX').checked;
+                    const mirrorY = document.getElementById('effectMirrorY').checked;
+                    let mirrored = [...result];
+                    if (mirrorX) {
+                        mirrored = mirrored.concat(result.map(p => ({ x: -p.x, y: p.y })));
+                    }
+                    if (mirrorY) {
+                        const len = mirrored.length;
+                        for (let i = 0; i < len; i++) {
+                            mirrored.push({ x: mirrored[i].x, y: -mirrored[i].y });
+                        }
+                    }
+                    result = mirrored;
+                    break;
+                }
+
+                case 'scale': {
+                    const baseScale = parseFloat(document.getElementById('effectScale').value);
+                    const speed = parseFloat(document.getElementById('effectScaleSpeed').value);
+                    const scale = effectsAnimating
+                        ? 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(time * speed * 0.05))
+                        : baseScale;
+                    result = result.map(p => ({ x: p.x * scale, y: p.y * scale }));
+                    break;
+                }
+
+                case 'xfade': {
+                    const baseXScale = parseFloat(document.getElementById('effectXFade').value);
+                    const speed = parseFloat(document.getElementById('effectXFadeSpeed').value);
+                    const xScale = effectsAnimating
+                        ? 0.5 + 0.5 * Math.sin(time * speed * 0.05)
+                        : baseXScale;
+                    result = result.map(p => ({ x: p.x * xScale, y: p.y }));
+                    break;
+                }
+
+                case 'yfade': {
+                    const baseYScale = parseFloat(document.getElementById('effectYFade').value);
+                    const speed = parseFloat(document.getElementById('effectYFadeSpeed').value);
+                    const yScale = effectsAnimating
+                        ? 0.5 + 0.5 * Math.sin(time * speed * 0.05)
+                        : baseYScale;
+                    result = result.map(p => ({ x: p.x, y: p.y * yScale }));
+                    break;
+                }
+
+                case 'noise': {
+                    const noiseX = parseFloat(document.getElementById('effectNoiseX').value);
+                    const noiseY = parseFloat(document.getElementById('effectNoiseY').value);
+                    result = result.map(p => ({
+                        x: p.x + (Math.random() - 0.5) * 2 * noiseX,
+                        y: p.y + (Math.random() - 0.5) * 2 * noiseY
+                    }));
+                    break;
+                }
+
+                case 'wavy': {
+                    const amp = parseFloat(document.getElementById('effectWavyAmp').value);
+                    const freq = parseFloat(document.getElementById('effectWavyFreq').value);
+                    const speed = parseFloat(document.getElementById('effectWavySpeed').value);
+                    const phase = effectsAnimating ? time * speed * 0.03 : 0;
+                    result = result.map((p, i) => ({
+                        x: p.x + amp * Math.sin(freq * i / result.length * 2 * Math.PI + phase),
+                        y: p.y + amp * Math.cos(freq * i / result.length * 2 * Math.PI + phase)
+                    }));
+                    break;
+                }
+
+                case 'tremolo': {
+                    const depth = parseFloat(document.getElementById('effectTremDepth').value);
+                    const rate = parseFloat(document.getElementById('effectTremRate').value);
+                    const mod = effectsAnimating
+                        ? 1 - depth * 0.5 * (1 + Math.sin(time * rate * 0.1))
+                        : 1 - depth * 0.5;
+                    result = result.map(p => ({ x: p.x * mod, y: p.y * mod }));
+                    break;
+                }
+
+                case 'echo': {
+                    const count = parseInt(document.getElementById('effectEchoCount').value);
+                    const decay = parseFloat(document.getElementById('effectEchoDecay').value);
+                    const offset = parseFloat(document.getElementById('effectEchoOffset').value);
+                    let echoed = [];
+                    for (let e = 0; e <= count; e++) {
+                        const scale = Math.pow(decay, e);
+                        const offsetAmount = e * offset;
+                        result.forEach(p => {
+                            echoed.push({
+                                x: p.x * scale * (1 - offsetAmount * 0.5),
+                                y: p.y * scale * (1 - offsetAmount * 0.5),
+                                alpha: scale
+                            });
+                        });
+                    }
+                    result = echoed;
+                    break;
+                }
+
+                case 'kaleidoscope': {
+                    const sections = parseInt(document.getElementById('effectKaleidoSections').value);
+                    const mirror = document.getElementById('effectKaleidoMirror').checked;
+                    const speed = parseFloat(document.getElementById('effectKaleidoSpeed').value);
+                    const baseRotation = effectsAnimating ? time * speed * 0.01 : 0;
+                    let kaleid = [];
+                    for (let s = 0; s < sections; s++) {
+                        const angle = (s / sections) * 2 * Math.PI + baseRotation;
+                        const cos = Math.cos(angle);
+                        const sin = Math.sin(angle);
+                        const shouldMirror = mirror && s % 2 === 1;
+                        result.forEach(p => {
+                            let px = p.x, py = p.y;
+                            if (shouldMirror) px = -px;
+                            kaleid.push({
+                                x: px * cos - py * sin,
+                                y: px * sin + py * cos
+                            });
+                        });
+                    }
+                    result = kaleid;
+                    break;
+                }
+
+                case 'distortion': {
+                    const type = document.getElementById('effectDistType').value;
+                    const threshold = parseFloat(document.getElementById('effectDistThreshold').value);
+                    result = result.map(p => {
+                        let x = p.x, y = p.y;
+                        if (type === 'hard') {
+                            x = Math.max(-threshold, Math.min(threshold, x));
+                            y = Math.max(-threshold, Math.min(threshold, y));
+                        } else if (type === 'soft') {
+                            x = Math.tanh(x / threshold) * threshold;
+                            y = Math.tanh(y / threshold) * threshold;
+                        } else if (type === 'fold') {
+                            while (Math.abs(x) > threshold) {
+                                x = x > threshold ? 2 * threshold - x : -2 * threshold - x;
+                            }
+                            while (Math.abs(y) > threshold) {
+                                y = y > threshold ? 2 * threshold - y : -2 * threshold - y;
+                            }
+                        }
+                        return { x, y };
+                    });
+                    break;
+                }
+            }
+
+            return result;
+        }
+
+        function drawEffectsDemo() {
+            const canvas = document.getElementById('effectsCanvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Clear and draw grid
+            ctx.fillStyle = '#020202';
+            ctx.fillRect(0, 0, width, height);
+            drawGrid(ctx, width, height);
+
+            // Generate and apply effect
+            let points = generate5PetalFlower();
+            points = applyEffect(points, currentEffect, effectsTime);
+
+            if (points.length === 0) return;
+
+            // Find bounds for scaling
+            let maxAbs = 0;
+            for (const pt of points) {
+                maxAbs = Math.max(maxAbs, Math.abs(pt.x), Math.abs(pt.y));
+            }
+            const scale = maxAbs > 0 ? 0.4 / maxAbs : 0.4;
+
+            // Draw with phosphor glow effect
+            ctx.shadowColor = '#00ff41';
+            ctx.shadowBlur = 6;
+            ctx.strokeStyle = '#00ff41';
+            ctx.lineWidth = 1.2;
+
+            // For echo effect, handle alpha
+            if (currentEffect === 'echo' && points[0].alpha !== undefined) {
+                // Group by alpha and draw separately
+                const groups = {};
+                points.forEach(p => {
+                    const key = p.alpha.toFixed(2);
+                    if (!groups[key]) groups[key] = [];
+                    groups[key].push(p);
+                });
+                Object.keys(groups).sort((a, b) => parseFloat(a) - parseFloat(b)).forEach(key => {
+                    const alpha = parseFloat(key);
+                    ctx.globalAlpha = alpha;
+                    ctx.beginPath();
+                    groups[key].forEach((p, i) => {
+                        const px = (p.x * scale + 0.5) * width;
+                        const py = (0.5 - p.y * scale) * height;
+                        if (i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    });
+                    ctx.stroke();
+                });
+                ctx.globalAlpha = 1;
+            } else {
+                ctx.beginPath();
+                for (let i = 0; i < points.length; i++) {
+                    const px = (points[i].x * scale + 0.5) * width;
+                    const py = (0.5 - points[i].y * scale) * height;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+
+                // Brighter core
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#33ff66';
+                ctx.lineWidth = 0.4;
+                ctx.beginPath();
+                for (let i = 0; i < points.length; i++) {
+                    const px = (points[i].x * scale + 0.5) * width;
+                    const py = (0.5 - points[i].y * scale) * height;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+            }
+        }
+
+        function selectEffect(effect) {
+            currentEffect = effect;
+
+            // Update tabs
+            document.querySelectorAll('.effect-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.effect === effect);
+            });
+
+            // Update panels
+            document.querySelectorAll('.effect-panel').forEach(panel => {
+                panel.style.display = 'none';
+            });
+            const panel = document.getElementById('panel-' + effect);
+            if (panel) panel.style.display = 'block';
+
+            // Update description
+            const descriptions = {
+                'none': '5-petal Lissajous flower pattern',
+                'rotation': 'Rotates the pattern around center',
+                'mirror': 'Creates mirror reflections across axes',
+                'scale': 'Scales/shrinks the entire pattern',
+                'xfade': 'Fades/scales the X axis only',
+                'yfade': 'Fades/scales the Y axis only',
+                'noise': 'Adds random jitter to coordinates',
+                'wavy': 'Adds sinusoidal modulation',
+                'tremolo': 'Amplitude modulation effect',
+                'echo': 'Creates decaying echo copies',
+                'kaleidoscope': 'Creates symmetrical copies',
+                'distortion': 'Clips or folds the signal'
+            };
+            document.getElementById('effectDescription').textContent = descriptions[effect] || '';
+
+            if (!effectsAnimating) drawEffectsDemo();
+        }
+
+        function toggleEffectsAnimation() {
+            const btn = document.getElementById('effectsAnimateBtn');
+            effectsAnimating = !effectsAnimating;
+
+            if (effectsAnimating) {
+                btn.classList.add('active');
+                btn.textContent = 'Stop Animation';
+                animateEffects();
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = 'Animate Effect';
+                if (effectsAnimationId) {
+                    cancelAnimationFrame(effectsAnimationId);
+                }
+                drawEffectsDemo();
+            }
+        }
+
+        function animateEffects() {
+            if (!effectsAnimating) return;
+            effectsTime += 1;
+            drawEffectsDemo();
+            effectsAnimationId = requestAnimationFrame(animateEffects);
+        }
+
+        function initEffectsDemo() {
+            // Set up effect tab clicks
+            document.querySelectorAll('.effect-tab').forEach(tab => {
+                tab.addEventListener('click', () => selectEffect(tab.dataset.effect));
+            });
+
+            // Set up all effect control listeners
+            const effectInputs = [
+                'effectRotAngle', 'effectRotSpeed', 'effectScale', 'effectScaleSpeed',
+                'effectXFade', 'effectXFadeSpeed', 'effectYFade', 'effectYFadeSpeed',
+                'effectNoiseX', 'effectNoiseY', 'effectWavyAmp', 'effectWavyFreq', 'effectWavySpeed',
+                'effectTremDepth', 'effectTremRate', 'effectEchoCount', 'effectEchoDecay', 'effectEchoOffset',
+                'effectKaleidoSections', 'effectKaleidoSpeed', 'effectDistThreshold'
+            ];
+
+            effectInputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', () => {
+                        // Update value displays
+                        const valEl = document.getElementById(id + 'Val');
+                        if (valEl) {
+                            if (id === 'effectRotAngle') valEl.textContent = el.value + '°';
+                            else if (id.includes('Count') || id.includes('Sections') || id.includes('Freq')) valEl.textContent = el.value;
+                            else valEl.textContent = parseFloat(el.value).toFixed(2);
+                        }
+                        if (!effectsAnimating) drawEffectsDemo();
+                    });
+                }
+            });
+
+            // Checkbox listeners
+            ['effectMirrorX', 'effectMirrorY', 'effectKaleidoMirror'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', () => {
+                        if (!effectsAnimating) drawEffectsDemo();
+                    });
+                }
+            });
+
+            // Select listener
+            const distType = document.getElementById('effectDistType');
+            if (distType) {
+                distType.addEventListener('change', () => {
+                    if (!effectsAnimating) drawEffectsDemo();
+                });
+            }
+
+            // Handle effects canvas resize
+            const effectsCanvas = document.getElementById('effectsCanvas');
+            if (effectsCanvas) {
+                const resizeEffectsCanvas = () => {
+                    const container = effectsCanvas.parentElement;
+                    const size = Math.min(container.clientWidth, 500);
+                    effectsCanvas.width = size;
+                    effectsCanvas.height = size;
+                    if (!effectsAnimating) drawEffectsDemo();
+                };
+                resizeEffectsCanvas();
+                window.addEventListener('resize', resizeEffectsCanvas);
+            }
+
+            // Initial draw
+            drawEffectsDemo();
+        }
+
         // Run when DOM is ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initDemos);
+            document.addEventListener('DOMContentLoaded', () => {
+                initDemos();
+                initEffectsDemo();
+            });
         } else {
             initDemos();
+            initEffectsDemo();
         }
     </script>
 </body>
