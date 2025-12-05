@@ -505,6 +505,12 @@ The optimized version (`oscilloscope_gui_optimized.py`) provides dramatically be
 
 ---
 
+## To Do
+
+- [ ] Further optimize
+
+---
+
 ## License
 
 This project is open source. Feel free to use, modify, and distribute.
