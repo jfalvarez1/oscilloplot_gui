@@ -791,6 +791,201 @@
             0%, 100% { opacity: 0.7; }
             50% { opacity: 1; }
         }
+
+        /* Interactive Demo Styles */
+        .interactive-demo {
+            background: #050505;
+            border: 2px solid var(--phosphor-dim);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 25px 0;
+            box-shadow:
+                0 0 30px rgba(0, 255, 65, 0.1),
+                inset 0 0 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .demo-title {
+            color: var(--phosphor-bright);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 1em;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--grid-color);
+        }
+
+        .demo-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .canvas-container {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .scope-canvas {
+            width: 100%;
+            aspect-ratio: 1;
+            background: #020202;
+            border: 2px solid var(--phosphor-dim);
+            border-radius: 8px;
+            box-shadow: inset 0 0 30px rgba(0, 255, 65, 0.05);
+        }
+
+        .controls-container {
+            flex: 1;
+            min-width: 280px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+            padding: 12px;
+            background: rgba(0, 255, 65, 0.03);
+            border-radius: 6px;
+            border: 1px solid var(--grid-color);
+        }
+
+        .control-group-title {
+            color: var(--phosphor-green);
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 10px;
+        }
+
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            color: var(--phosphor-dim);
+            font-size: 0.85em;
+            min-width: 80px;
+        }
+
+        .control-slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: #1a1a1a;
+            border-radius: 3px;
+            outline: none;
+            border: 1px solid var(--grid-color);
+        }
+
+        .control-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--phosphor-green);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--phosphor-glow);
+        }
+
+        .control-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--phosphor-green);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px var(--phosphor-glow);
+        }
+
+        .control-value {
+            color: var(--phosphor-bright);
+            font-size: 0.85em;
+            min-width: 45px;
+            text-align: right;
+            font-family: 'Consolas', monospace;
+        }
+
+        .preset-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .preset-btn {
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid var(--phosphor-dim);
+            color: var(--phosphor-green);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            cursor: pointer;
+            font-family: 'Consolas', monospace;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover {
+            background: rgba(0, 255, 65, 0.25);
+            border-color: var(--phosphor-green);
+            box-shadow: 0 0 10px var(--phosphor-glow);
+        }
+
+        .animate-btn {
+            background: rgba(0, 255, 65, 0.15);
+            border: 1px solid var(--phosphor-green);
+            color: var(--phosphor-bright);
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            cursor: pointer;
+            font-family: 'Consolas', monospace;
+            transition: all 0.2s;
+            margin-top: 10px;
+        }
+
+        .animate-btn:hover {
+            background: rgba(0, 255, 65, 0.3);
+            box-shadow: 0 0 15px var(--phosphor-glow);
+        }
+
+        .animate-btn.active {
+            background: var(--phosphor-green);
+            color: #000;
+        }
+
+        .demo-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            font-size: 0.8em;
+            color: var(--text-secondary);
+        }
+
+        .demo-info code {
+            background: transparent;
+            border: none;
+            padding: 0;
+            color: var(--phosphor-bright);
+        }
+
+        @media (max-width: 768px) {
+            .demo-container {
+                flex-direction: column;
+            }
+
+            .canvas-container, .controls-container {
+                min-width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1556,6 +1751,67 @@
             </div>
             <p>Where <code>func</code> is either <code>sin</code> or <code>cos</code>, and <code>t</code> ranges from 0 to 2&pi;.</p>
 
+            <!-- Interactive Lissajous Demo -->
+            <div class="interactive-demo">
+                <div class="demo-title">Interactive Lissajous Figure Generator</div>
+                <div class="demo-container">
+                    <div class="canvas-container">
+                        <canvas id="lissajousCanvas" class="scope-canvas" width="400" height="400"></canvas>
+                    </div>
+                    <div class="controls-container">
+                        <div class="control-group">
+                            <div class="control-group-title">X Channel</div>
+                            <div class="control-row">
+                                <span class="control-label">Frequency</span>
+                                <input type="range" id="lissXFreq" class="control-slider" min="1" max="10" value="1" step="1">
+                                <span class="control-value" id="lissXFreqVal">1</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">Amplitude</span>
+                                <input type="range" id="lissXAmp" class="control-slider" min="0.1" max="1" value="1" step="0.1">
+                                <span class="control-value" id="lissXAmpVal">1.0</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">Phase</span>
+                                <input type="range" id="lissXPhase" class="control-slider" min="0" max="6.28" value="0" step="0.1">
+                                <span class="control-value" id="lissXPhaseVal">0.0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-group-title">Y Channel</div>
+                            <div class="control-row">
+                                <span class="control-label">Frequency</span>
+                                <input type="range" id="lissYFreq" class="control-slider" min="1" max="10" value="2" step="1">
+                                <span class="control-value" id="lissYFreqVal">2</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">Amplitude</span>
+                                <input type="range" id="lissYAmp" class="control-slider" min="0.1" max="1" value="1" step="0.1">
+                                <span class="control-value" id="lissYAmpVal">1.0</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">Phase</span>
+                                <input type="range" id="lissYPhase" class="control-slider" min="0" max="6.28" value="1.57" step="0.1">
+                                <span class="control-value" id="lissYPhaseVal">1.57</span>
+                            </div>
+                        </div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" onclick="setLissajousPreset(1,1,0,1.57)">Circle</button>
+                            <button class="preset-btn" onclick="setLissajousPreset(1,2,0,0)">Figure-8</button>
+                            <button class="preset-btn" onclick="setLissajousPreset(2,3,0,0)">Pretzel</button>
+                            <button class="preset-btn" onclick="setLissajousPreset(3,4,0,1.57)">3:4 Loops</button>
+                            <button class="preset-btn" onclick="setLissajousPreset(3,5,0,0.5)">3:5 Star</button>
+                            <button class="preset-btn" onclick="setLissajousPreset(5,6,0,1.57)">Flower</button>
+                        </div>
+                        <button class="animate-btn" id="lissAnimateBtn" onclick="toggleLissajousAnimation()">Animate Phase</button>
+                        <div class="demo-info">
+                            <code>X = <span id="lissFormulaX">sin(1t + 0)</span></code><br>
+                            <code>Y = <span id="lissFormulaY">sin(2t + 1.57)</span></code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <h3>Parameter Reference</h3>
             <table>
                 <thead>
@@ -1811,6 +2067,65 @@
                 The classic polar form is <code>r = a + b&middot;&theta;</code>, but Oscilloplot uses the
                 parametric form above which produces similar visual results with independent X and Y control.
             </p>
+
+            <!-- Interactive Spiral Demo -->
+            <div class="interactive-demo">
+                <div class="demo-title">Interactive Archimedean Spiral Generator</div>
+                <div class="demo-container">
+                    <div class="canvas-container">
+                        <canvas id="spiralCanvas" class="scope-canvas" width="400" height="400"></canvas>
+                    </div>
+                    <div class="controls-container">
+                        <div class="control-group">
+                            <div class="control-group-title">X Channel</div>
+                            <div class="control-row">
+                                <span class="control-label">a (Amp)</span>
+                                <input type="range" id="spiralXA" class="control-slider" min="0.01" max="0.15" value="0.08" step="0.01">
+                                <span class="control-value" id="spiralXAVal">0.08</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">b (Freq)</span>
+                                <input type="range" id="spiralXB" class="control-slider" min="0.5" max="10" value="3" step="0.5">
+                                <span class="control-value" id="spiralXBVal">3.0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-group-title">Y Channel</div>
+                            <div class="control-row">
+                                <span class="control-label">a (Amp)</span>
+                                <input type="range" id="spiralYA" class="control-slider" min="0.01" max="0.15" value="0.08" step="0.01">
+                                <span class="control-value" id="spiralYAVal">0.08</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">b (Freq)</span>
+                                <input type="range" id="spiralYB" class="control-slider" min="0.5" max="10" value="3" step="0.5">
+                                <span class="control-value" id="spiralYBVal">3.0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-group-title">Range</div>
+                            <div class="control-row">
+                                <span class="control-label">t max</span>
+                                <input type="range" id="spiralTMax" class="control-slider" min="6.28" max="50" value="25" step="1">
+                                <span class="control-value" id="spiralTMaxVal">25</span>
+                            </div>
+                        </div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" onclick="setSpiralPreset(0.08,3,0.08,3,25)">Classic</button>
+                            <button class="preset-btn" onclick="setSpiralPreset(0.03,8,0.03,8,40)">Tight Coil</button>
+                            <button class="preset-btn" onclick="setSpiralPreset(0.12,1.5,0.12,1.5,20)">Loose</button>
+                            <button class="preset-btn" onclick="setSpiralPreset(0.1,3,0.05,3,30)">Elliptical</button>
+                            <button class="preset-btn" onclick="setSpiralPreset(0.06,2,0.06,3,30)">Hybrid</button>
+                            <button class="preset-btn" onclick="setSpiralPreset(0.04,5,0.04,7,35)">Complex</button>
+                        </div>
+                        <button class="animate-btn" id="spiralAnimateBtn" onclick="toggleSpiralAnimation()">Animate Drawing</button>
+                        <div class="demo-info">
+                            <code>X = <span id="spiralFormulaX">0.08 &middot; t &middot; sin(3t)</span></code><br>
+                            <code>Y = <span id="spiralFormulaY">0.08 &middot; t &middot; cos(3t)</span></code>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <h3>Parameter Reference</h3>
             <table>
@@ -2445,5 +2760,370 @@ np.savez('pattern.npz', x=x_coords, y=y_coords)</code></pre>
         <p style="font-size: 0.85em; margin-top: 15px;">Inspired by classic Tektronix oscilloscopes from the 90s</p>
         <p style="font-size: 0.8em; opacity: 0.6;">Built with Python | NumPy | Matplotlib | sounddevice | Tkinter | OpenCV</p>
     </footer>
+
+    <script>
+        // ==========================================
+        // Interactive Oscilloscope Demos
+        // ==========================================
+
+        // Utility: Draw oscilloscope grid
+        function drawGrid(ctx, width, height) {
+            ctx.strokeStyle = 'rgba(0, 255, 65, 0.15)';
+            ctx.lineWidth = 0.5;
+
+            // Minor grid
+            const gridSize = width / 10;
+            for (let i = 0; i <= 10; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * gridSize, 0);
+                ctx.lineTo(i * gridSize, height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i * gridSize);
+                ctx.lineTo(width, i * gridSize);
+                ctx.stroke();
+            }
+
+            // Major axes
+            ctx.strokeStyle = 'rgba(0, 255, 65, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(width / 2, 0);
+            ctx.lineTo(width / 2, height);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, height / 2);
+            ctx.lineTo(width, height / 2);
+            ctx.stroke();
+        }
+
+        // ==========================================
+        // Lissajous Figure Demo
+        // ==========================================
+        let lissajousAnimating = false;
+        let lissajousAnimationId = null;
+        let lissajousPhaseOffset = 0;
+
+        function getLissajousParams() {
+            return {
+                xFreq: parseFloat(document.getElementById('lissXFreq').value),
+                xAmp: parseFloat(document.getElementById('lissXAmp').value),
+                xPhase: parseFloat(document.getElementById('lissXPhase').value),
+                yFreq: parseFloat(document.getElementById('lissYFreq').value),
+                yAmp: parseFloat(document.getElementById('lissYAmp').value),
+                yPhase: parseFloat(document.getElementById('lissYPhase').value)
+            };
+        }
+
+        function updateLissajousDisplay() {
+            const p = getLissajousParams();
+            document.getElementById('lissXFreqVal').textContent = p.xFreq;
+            document.getElementById('lissXAmpVal').textContent = p.xAmp.toFixed(1);
+            document.getElementById('lissXPhaseVal').textContent = p.xPhase.toFixed(2);
+            document.getElementById('lissYFreqVal').textContent = p.yFreq;
+            document.getElementById('lissYAmpVal').textContent = p.yAmp.toFixed(1);
+            document.getElementById('lissYPhaseVal').textContent = p.yPhase.toFixed(2);
+
+            document.getElementById('lissFormulaX').textContent =
+                `${p.xAmp.toFixed(1)} · sin(${p.xFreq}t + ${p.xPhase.toFixed(2)})`;
+            document.getElementById('lissFormulaY').textContent =
+                `${p.yAmp.toFixed(1)} · sin(${p.yFreq}t + ${p.yPhase.toFixed(2)})`;
+        }
+
+        function drawLissajous(phaseOffset = 0) {
+            const canvas = document.getElementById('lissajousCanvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const p = getLissajousParams();
+
+            // Clear and draw grid
+            ctx.fillStyle = '#020202';
+            ctx.fillRect(0, 0, width, height);
+            drawGrid(ctx, width, height);
+
+            // Calculate points
+            const points = [];
+            const numPoints = 1000;
+            for (let i = 0; i <= numPoints; i++) {
+                const t = (i / numPoints) * 2 * Math.PI;
+                const x = p.xAmp * Math.sin(p.xFreq * t + p.xPhase + phaseOffset);
+                const y = p.yAmp * Math.sin(p.yFreq * t + p.yPhase);
+                points.push({ x, y });
+            }
+
+            // Draw with phosphor glow effect
+            ctx.shadowColor = '#00ff41';
+            ctx.shadowBlur = 8;
+            ctx.strokeStyle = '#00ff41';
+            ctx.lineWidth = 1.5;
+
+            ctx.beginPath();
+            for (let i = 0; i < points.length; i++) {
+                const px = (points[i].x + 1) * width / 2 * 0.85 + width * 0.075;
+                const py = (1 - points[i].y) * height / 2 * 0.85 + height * 0.075;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+
+            // Brighter core
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#33ff66';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            for (let i = 0; i < points.length; i++) {
+                const px = (points[i].x + 1) * width / 2 * 0.85 + width * 0.075;
+                const py = (1 - points[i].y) * height / 2 * 0.85 + height * 0.075;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+        }
+
+        function setLissajousPreset(xFreq, yFreq, xPhase, yPhase) {
+            document.getElementById('lissXFreq').value = xFreq;
+            document.getElementById('lissYFreq').value = yFreq;
+            document.getElementById('lissXPhase').value = xPhase;
+            document.getElementById('lissYPhase').value = yPhase;
+            document.getElementById('lissXAmp').value = 1;
+            document.getElementById('lissYAmp').value = 1;
+            updateLissajousDisplay();
+            drawLissajous();
+        }
+
+        function toggleLissajousAnimation() {
+            const btn = document.getElementById('lissAnimateBtn');
+            lissajousAnimating = !lissajousAnimating;
+
+            if (lissajousAnimating) {
+                btn.classList.add('active');
+                btn.textContent = 'Stop Animation';
+                animateLissajous();
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = 'Animate Phase';
+                if (lissajousAnimationId) {
+                    cancelAnimationFrame(lissajousAnimationId);
+                }
+            }
+        }
+
+        function animateLissajous() {
+            if (!lissajousAnimating) return;
+            lissajousPhaseOffset += 0.02;
+            drawLissajous(lissajousPhaseOffset);
+            lissajousAnimationId = requestAnimationFrame(animateLissajous);
+        }
+
+        // ==========================================
+        // Archimedean Spiral Demo
+        // ==========================================
+        let spiralAnimating = false;
+        let spiralAnimationId = null;
+        let spiralDrawProgress = 0;
+
+        function getSpiralParams() {
+            return {
+                xA: parseFloat(document.getElementById('spiralXA').value),
+                xB: parseFloat(document.getElementById('spiralXB').value),
+                yA: parseFloat(document.getElementById('spiralYA').value),
+                yB: parseFloat(document.getElementById('spiralYB').value),
+                tMax: parseFloat(document.getElementById('spiralTMax').value)
+            };
+        }
+
+        function updateSpiralDisplay() {
+            const p = getSpiralParams();
+            document.getElementById('spiralXAVal').textContent = p.xA.toFixed(2);
+            document.getElementById('spiralXBVal').textContent = p.xB.toFixed(1);
+            document.getElementById('spiralYAVal').textContent = p.yA.toFixed(2);
+            document.getElementById('spiralYBVal').textContent = p.yB.toFixed(1);
+            document.getElementById('spiralTMaxVal').textContent = Math.round(p.tMax);
+
+            document.getElementById('spiralFormulaX').innerHTML =
+                `${p.xA.toFixed(2)} &middot; t &middot; sin(${p.xB.toFixed(1)}t)`;
+            document.getElementById('spiralFormulaY').innerHTML =
+                `${p.yA.toFixed(2)} &middot; t &middot; cos(${p.yB.toFixed(1)}t)`;
+        }
+
+        function drawSpiral(progress = 1) {
+            const canvas = document.getElementById('spiralCanvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const p = getSpiralParams();
+
+            // Clear and draw grid
+            ctx.fillStyle = '#020202';
+            ctx.fillRect(0, 0, width, height);
+            drawGrid(ctx, width, height);
+
+            // Calculate points
+            const points = [];
+            const numPoints = Math.floor(1000 * progress);
+            for (let i = 0; i <= numPoints; i++) {
+                const t = (i / 1000) * p.tMax;
+                const x = p.xA * t * Math.sin(p.xB * t);
+                const y = p.yA * t * Math.cos(p.yB * t);
+                points.push({ x, y });
+            }
+
+            if (points.length < 2) return;
+
+            // Find bounds for scaling
+            let maxAbs = 0;
+            for (const pt of points) {
+                maxAbs = Math.max(maxAbs, Math.abs(pt.x), Math.abs(pt.y));
+            }
+            const scale = maxAbs > 0 ? 0.85 / maxAbs : 1;
+
+            // Draw with phosphor glow effect
+            ctx.shadowColor = '#00ff41';
+            ctx.shadowBlur = 8;
+            ctx.strokeStyle = '#00ff41';
+            ctx.lineWidth = 1.5;
+
+            ctx.beginPath();
+            for (let i = 0; i < points.length; i++) {
+                const px = (points[i].x * scale + 1) * width / 2;
+                const py = (1 - points[i].y * scale) * height / 2;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+
+            // Brighter core
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#33ff66';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            for (let i = 0; i < points.length; i++) {
+                const px = (points[i].x * scale + 1) * width / 2;
+                const py = (1 - points[i].y * scale) * height / 2;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+
+            // Draw bright dot at current position if animating
+            if (spiralAnimating && points.length > 0) {
+                const lastPt = points[points.length - 1];
+                const px = (lastPt.x * scale + 1) * width / 2;
+                const py = (1 - lastPt.y * scale) * height / 2;
+                ctx.fillStyle = '#88ffaa';
+                ctx.shadowColor = '#00ff41';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(px, py, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function setSpiralPreset(xA, xB, yA, yB, tMax) {
+            document.getElementById('spiralXA').value = xA;
+            document.getElementById('spiralXB').value = xB;
+            document.getElementById('spiralYA').value = yA;
+            document.getElementById('spiralYB').value = yB;
+            document.getElementById('spiralTMax').value = tMax;
+            updateSpiralDisplay();
+            spiralDrawProgress = 1;
+            drawSpiral(1);
+        }
+
+        function toggleSpiralAnimation() {
+            const btn = document.getElementById('spiralAnimateBtn');
+            spiralAnimating = !spiralAnimating;
+
+            if (spiralAnimating) {
+                btn.classList.add('active');
+                btn.textContent = 'Stop Animation';
+                spiralDrawProgress = 0;
+                animateSpiral();
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = 'Animate Drawing';
+                if (spiralAnimationId) {
+                    cancelAnimationFrame(spiralAnimationId);
+                }
+                spiralDrawProgress = 1;
+                drawSpiral(1);
+            }
+        }
+
+        function animateSpiral() {
+            if (!spiralAnimating) return;
+            spiralDrawProgress += 0.008;
+            if (spiralDrawProgress > 1) spiralDrawProgress = 0;
+            drawSpiral(spiralDrawProgress);
+            spiralAnimationId = requestAnimationFrame(animateSpiral);
+        }
+
+        // ==========================================
+        // Initialize on load
+        // ==========================================
+        function initDemos() {
+            // Set up event listeners for Lissajous
+            const lissInputs = ['lissXFreq', 'lissXAmp', 'lissXPhase', 'lissYFreq', 'lissYAmp', 'lissYPhase'];
+            lissInputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', () => {
+                        updateLissajousDisplay();
+                        if (!lissajousAnimating) drawLissajous();
+                    });
+                }
+            });
+
+            // Set up event listeners for Spiral
+            const spiralInputs = ['spiralXA', 'spiralXB', 'spiralYA', 'spiralYB', 'spiralTMax'];
+            spiralInputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', () => {
+                        updateSpiralDisplay();
+                        if (!spiralAnimating) drawSpiral(1);
+                    });
+                }
+            });
+
+            // Handle canvas resize
+            function resizeCanvases() {
+                const lissCanvas = document.getElementById('lissajousCanvas');
+                const spiralCanvas = document.getElementById('spiralCanvas');
+
+                [lissCanvas, spiralCanvas].forEach(canvas => {
+                    if (canvas) {
+                        const container = canvas.parentElement;
+                        const size = Math.min(container.clientWidth, 500);
+                        canvas.width = size;
+                        canvas.height = size;
+                    }
+                });
+
+                if (!lissajousAnimating) drawLissajous();
+                if (!spiralAnimating) drawSpiral(1);
+            }
+
+            // Initial resize and draw
+            resizeCanvases();
+            window.addEventListener('resize', resizeCanvases);
+
+            // Initial display update
+            updateLissajousDisplay();
+            updateSpiralDisplay();
+        }
+
+        // Run when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initDemos);
+        } else {
+            initDemos();
+        }
+    </script>
 </body>
 </html>
